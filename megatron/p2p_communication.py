@@ -21,6 +21,13 @@ from megatron import get_args
 from megatron import mpu
 
 #具体使用是在 megatron/p2p_communication.py，_communicate 之中会用流水线组信息来进行通信。这里省略了大部分代码。
+'''
+3.4 通信模块
+3.4.1 基础通信方法
+pipeline parallelism需要inter-stage的P2P通信，其主要实现是_communnicate函数，_communicate 函数主要是封装了 PyTorch 的基础通信函数，给流水线并行提供了stage之间的双向P2P通信。在此基础之上，又封装了一些API方法。这个函数的注释写得不错，解释得非常清楚。这里需要注意的是：每个层怎么知道自己在流水线之中上下游 rank 是什么？这是通过例如这样的调用mpu.get_pipeline_model_parallel_next_rank() 来知道的。
+
+_communicate 具体代码如下：
+'''
 def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
                  tensor_shape,
                  use_ring_exchange=False,
@@ -81,6 +88,7 @@ def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
         dtype = dtype_
         requires_grad = False
 
+    # 如果需要接受张量，则先分配空张量，接受的张量会存在此处
     if recv_prev:
         tensor_recv_prev = torch.empty(tensor_chunk_shape,
                                        requires_grad=requires_grad,
@@ -105,12 +113,14 @@ def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
     # Send tensors in both the forward and backward directions as appropriate.
     # 这里使用get_pipeline_model_parallel_group 进行通信
     if use_ring_exchange:
+        # 如果需要，则使用ring exchange，这个是新版本PyTorch才有
         torch.distributed.ring_exchange(tensor_send_prev=tensor_send_prev,
                                         tensor_recv_prev=tensor_recv_prev,
                                         tensor_send_next=tensor_send_next,
                                         tensor_recv_next=tensor_recv_next,
                                         group=mpu.get_pipeline_model_parallel_group())
     else:
+        # 先根据目标rank生成对应的torch.distributed.P2POp，放入列表
         ops = []
         if tensor_send_prev is not None:
             send_prev_op = torch.distributed.P2POp(
@@ -132,14 +142,17 @@ def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
                 torch.distributed.irecv, tensor_recv_next,
                 mpu.get_pipeline_model_parallel_next_rank())
             ops.append(recv_next_op)
+        # 然后做批量异步send/recv
         if len(ops) > 0:
             reqs = torch.distributed.batch_isend_irecv(ops)
             for req in reqs:
-                req.wait()
+                req.wait()   # 用wait来同步
     # To protect against race condition when using batch_isend_irecv().
     torch.cuda.synchronize()
 
     # If using scatter-gather optimization, gather smaller chunks.
+    # 特殊优化，21年论文中提到，大概因为做了all-reduce，因此可以先split发送，下游gather成统一数据
+    # 有兴趣读者可以深入研究论文和代码，
     if not override_scatter_gather_tensors_in_pipeline and \
             args.scatter_gather_tensors_in_pipeline and \
             not args.sequence_parallel:

@@ -646,7 +646,10 @@ def get_data_parallel_src_rank():
     num_data_parallel_groups = torch.distributed.get_world_size() // data_parallel_size
     return global_rank % num_data_parallel_groups
 
-
+'''
+3.4.3 流水线上下游
+以下若干函数用来确定流水线上下游，结合前一篇文章我们知道，假如本进程是 rank 2，则流水线进程组 ranks 是 [g2, g6, g10, g14]，那么其下游就是 rank 6。
+'''
 def get_pipeline_model_parallel_first_rank():
     assert _PIPELINE_GLOBAL_RANKS is not None, \
         "Pipeline parallel group is not initialized"

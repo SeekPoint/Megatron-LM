@@ -444,6 +444,13 @@ def setup_model_and_optimizer(model_provider_func,
 '''
 6.2 训练step
 train_step 会获取 get_forward_backward_func 得到 schedule，因为是流水线并行，所以需要 schedule 如何具体训练。
+
+
+3.7 Flush 体现在哪里？
+我们需要看看 megatron/training.py。就是一次训练step的流程。
+这里在 update_successful, grad_norm, num_zeros_in_grad = optimizer.step() 时候会调用优化器进行参数更新，
+此时，内部两个激活值队列也全部清空过了，所以在这个时间点上，flush也就完成了。
+
 '''
 def train_step(forward_step_func, data_iterator,
                model, optimizer, opt_param_scheduler):
@@ -451,6 +458,7 @@ def train_step(forward_step_func, data_iterator,
     args = get_args()
     timers = get_timers()
 
+    # 1. 把梯度归零
     # Set grad to zero.
     if args.DDP_impl == 'local' and args.use_contiguous_buffers_in_local_ddp:
         for partition in model:
@@ -458,12 +466,14 @@ def train_step(forward_step_func, data_iterator,
     optimizer.zero_grad()
 
     # 获取训练schedule
+    # 2. 进行前向，后向传播，对于本章来说，就是调用forward_backward_pipelining_without_interleaving
     forward_backward_func = get_forward_backward_func()
     losses_reduced = forward_backward_func(  # 进行训练
         forward_step_func, data_iterator, model,
         optimizer, timers, forward_only=False)
 
     # Empty unused memory
+    # 到了这里，整个流水线处理完毕，loss 和 梯度都计算完毕
     if args.empty_unused_memory_level >= 1:
         torch.cuda.empty_cache()
 
@@ -487,6 +497,7 @@ def train_step(forward_step_func, data_iterator,
             buf.copy_(synced)
 
     # All-reduce if needed.
+    # 3. 数据并行的all-reduce
     if args.DDP_impl == 'local':
         timers('backward-params-all-reduce').start()
         for model_module in model:
@@ -497,6 +508,7 @@ def train_step(forward_step_func, data_iterator,
     # that word_embeddings parameters stay in sync.
     # This should only run for models that support pipelined model parallelism
     # (BERT and GPT-2).
+    # 4. 嵌入层 all-reduce，嵌入层也进行了权重分享，所以要进行all-reduce来确保参数统一
     timers('backward-embedding-all-reduce').start()
     if mpu.is_rank_in_embedding_group(ignore_virtual=True) and \
             mpu.get_pipeline_model_parallel_world_size() > 1:
@@ -539,6 +551,7 @@ def train_step(forward_step_func, data_iterator,
 
 
     # Update parameters.
+    # 5. 更新参数，这里才进行Flush，
     timers('optimizer').start()
     update_successful, grad_norm, num_zeros_in_grad = optimizer.step()
     timers('optimizer').stop()
