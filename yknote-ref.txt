@@ -1,0 +1,44 @@
+[源码解析] 模型并行分布式训练Megatron (1) --- 论文 & 基础
+https://www.cnblogs.com/rossiXYZ/p/15840803.html
+
+[源码解析] 模型并行分布式训练Megatron (2) --- 整体架构
+https://www.cnblogs.com/rossiXYZ/p/15868988.html
+
+[源码解析] 模型并行分布式训练 Megatron (3) ---模型并行实现
+https://www.cnblogs.com/rossiXYZ/p/15871062.html
+
+[源码解析] 模型并行分布式训练 Megatron (4) --- 如何设置各种并行
+https://www.cnblogs.com/rossiXYZ/p/15876714.html
+
+模型并行分布式训练Megatron (5) --Pipedream Flush
+https://www.cnblogs.com/rossiXYZ/p/15890482.html
+
+
+Megatron-LM源码阅读（一）
+https://zhuanlan.zhihu.com/p/405883984
+Megatron-LM源码阅读（二）
+https://zhuanlan.zhihu.com/p/407094090
+
+
+
+https://66ring.github.io/2023/07/02/universe/ml/megatron_three_easy_pieces/
+
+
+How to train a Language Model with Megatron-LM
+https://huggingface.co/blog/megatron-training
+
+深度学习里，模型并行中怎么将模型拆分？图解张量模型并行(TP)，Megatron-LM
+http://www.python88.com/topic/156151
+
+DeepSpeed结合Megatron-LM训练GPT2模型笔记上
+BBuf
+
+DeepSpeed结合Megatron-LM训练GPT2模型笔记上/
+
+
+https://www.yuanjisong.com/job/107638
+分析nvidia Megatron-LM分布式训练代码
+合作方式：项目制 全国远程
+预估日薪：1000
+预估总价：20000元
+预估工时：20天
