@@ -34,7 +34,11 @@ from megatron.mpu import (set_tensor_model_parallel_rank,
 from megatron.model.transformer import bias_dropout_add_fused_train
 from megatron.model.fused_bias_gelu import bias_gelu
 
-
+'''
+0x03 初始化
+3.1 initialize_megatron
+initialize_megatron 方法会设置全局变量，初始化分布式环境等等。
+'''
 def initialize_megatron(extra_args_provider=None, args_defaults={},
                         ignore_unknown_args=False, allow_no_cuda=False):
     """Set global variables, initialize distributed, and
@@ -51,6 +55,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
 
     # Parse args, build tokenizer, and set adlr-autoresume,
     # tensorboard-writer, and timers.
+    # 设置全局变量
     set_global_variables(extra_args_provider=extra_args_provider,
                          args_defaults=args_defaults,
                          ignore_unknown_args=ignore_unknown_args)
@@ -59,6 +64,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
     def finish_mpu_init():
         args = get_args()
         # Pytorch distributed.
+        # 设置分布式
         _initialize_distributed()
         
         # Random seeds for reproducibility.
@@ -148,7 +154,16 @@ def _compile_dependencies():
                   time.time() - start_time), flush=True)
 
 
+'''
+3.2 初始化分布式环境
+_initialize_distributed 代码位于 megatron/initialize.py，此方法会：
 
+    调用 torch.distributed.init_process_group 初始化分布式环境。
+    调用 mpu.initialize_model_parallel 来设置模型并行，数据并行等各种进程组，我们下文会重点讨论。
+创建完worker进程之后，程序需要知道哪些进程在训练同一个模型，torch.distributed.init_process_group 就实现了这个功能。
+torch.distributed.init_process_group 会生成一个进程组，同组内进程训练同一个模型，也能确定用什么方式进行通信。
+进程组会给组内每个进程一个序号，就是gloabl rank，如果是多机并行，每个机器创建的进程之间也有一个序号，就是 local rank。如果是单机多卡并行，local rank 和 global rank是一致的。
+'''
 def _initialize_distributed():
     """Initialize torch.distributed and mpu."""
     args = get_args()
@@ -176,6 +191,7 @@ def _initialize_distributed():
                 args.local_rank = device
             torch.cuda.set_device(device)
     # Call the init process
+    # 初始化PyTorch分布式环境
     torch.distributed.init_process_group(
         backend=args.distributed_backend,
         world_size=args.world_size, rank=args.rank,
@@ -187,6 +203,7 @@ def _initialize_distributed():
         if mpu.model_parallel_is_initialized():
             print('model parallel is already initialized')
         else:
+            # 初始化模型并行，比如设置各种进程组
             mpu.initialize_model_parallel(args.tensor_model_parallel_size,
                                           args.pipeline_model_parallel_size,
                                           args.virtual_pipeline_model_parallel_size,

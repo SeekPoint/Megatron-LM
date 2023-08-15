@@ -28,7 +28,17 @@ from megatron.model import DistributedDataParallel as LocalDDP
 from megatron.model import Float16Module
 from megatron.model import ModelType
 
+'''
+6.3 获取schedule
+get_forward_backward_func 获取 pipeline 的schedule，这里分为 flush 和 interleaving 两种，我们后续会分析这两种schedule。
 
+训练逻辑大体拓展为：
+
+图！！！！
+
+至此，Megatron 基本架构分析完毕，下一篇我们介绍模型并行设置。
+
+'''
 def get_forward_backward_func():
     args = get_args()
     if mpu.get_pipeline_model_parallel_world_size() > 1:

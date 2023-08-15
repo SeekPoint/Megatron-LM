@@ -61,7 +61,20 @@ def print_datetime(string):
     time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print_rank_0('[' + string + '] datetime: {} '.format(time_str))
 
+'''
+0x02 Pretrain
+BERT训练主要分为两步：
+    Pre-train：pre-train是迁移学习的基础，是训练token-level的语义理解。
+    Fine-tuning：在已经训练好的语言模型基础之上，加入特定领域（比如金融医疗）的参数来重新训练，比如对于分类问题就可以在pre-train模型基础之上加上一个softmax，再使用语料 fine-tune。
+    
+Pre-train 主要如下：
+    初始化Megatron。
+    使用model_provider设置模型、优化器和lr计划。
+    调用train_val_test_data_provider以获取train/val/test数据集。
+    使用forward_step_func训练模型。
 
+具体代码如下：
+'''
 def pretrain(train_valid_test_dataset_provider,
              model_provider,
              model_type,
@@ -119,15 +132,17 @@ def pretrain(train_valid_test_dataset_provider,
     args = get_args()
     timers = get_timers()
 
-    # Model, optimizer, and learning rate.
+    # Model, optimizer, and learning rate. 使用model_provider设置模型、优化器和lr计划
     timers('model-and-optimizer-setup').start()
+    # 0x04 设置模型
+    # 在 Pretrain 之中，会调用如下来设置模型，优化器等等。
     model, optimizer, opt_param_scheduler = setup_model_and_optimizer(model_provider,
                                                                model_type)
     timers('model-and-optimizer-setup').stop()
     print_datetime('after model, optimizer, and learning rate '
                    'scheduler are built')
 
-    # Data stuff.
+    # Data stuff.  调用train_val_test_data_provider以获取train/val/测试数据集
     timers('train/valid/test-data-iterators-setup').start()
     if args.virtual_pipeline_model_parallel_size is not None:
         all_data_iterators = [
@@ -150,7 +165,12 @@ def pretrain(train_valid_test_dataset_provider,
     print_rank_0('training ...')
 
     iteration = 0
+    '''
+    0x06 训练
+Pretrain 之中会调用 train 来进行训练。
+    '''
     if args.do_train and args.train_iters > 0:
+        # 训练模型
         iteration = train(forward_step_func,
                           model, optimizer, opt_param_scheduler,
                           train_data_iterator, valid_data_iterator,
@@ -204,7 +224,22 @@ def update_train_iters(args):
 
     print_rank_0('setting training iterations to {}'.format(args.train_iters))
 
+'''
+4.3 get_model
+现在让我们回到 get_model，把生成模型的流程整理出来。
 
+BERT之中含有多个transformer，所以直接按照层数切分，每一层是一模一样的transformer layer。前面提到了，在我们样例之中启动了8个进程，每个进程里面有一个子模型，即原始BERT模型的部分层。但是怎么知道每个子模型包含了多少层？答案是：因为已经建立了各种进程组，所以 get_model 方法会依据目前进程组情况进行处理。单个进程内模型获取如下：
+
+    如果是有 virtual 设置，则会遍历 virtual size，生成对应数目的模型（BertModel）。
+    否则如果是 encoder_and_decoder，则针对split进行配置。
+    设置 tensor model parallel 属性。
+    把本模型放置到GPU之上。
+    如果需要数据并行，则配置DDP。
+    
+    
+单个进程内的逻辑大致如下，这里 torchDDP 的意思是把 BertModel 之中的 module 用 torchDDP 来封装。
+图！！！！！！
+'''
 def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap_with_ddp=True):
     """Build the model."""
     args = get_args()
@@ -212,21 +247,22 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
 
     # Build model.
     if mpu.get_pipeline_model_parallel_world_size() > 1 and \
-       args.virtual_pipeline_model_parallel_size is not None:
+       args.virtual_pipeline_model_parallel_size is not None:  # 有virtual设置，后续会提到
         assert model_type != ModelType.encoder_and_decoder, \
             "Interleaved schedule not supported for model with both encoder and decoder"
         model = []
-        for i in range(args.virtual_pipeline_model_parallel_size):
+        for i in range(args.virtual_pipeline_model_parallel_size):   # 遍历virtual
+            # 设置rank，主要是为了看是不是第一层，最后一层
             mpu.set_virtual_pipeline_model_parallel_rank(i)
             # Set pre_process and post_process only after virtual rank is set.
             pre_process = mpu.is_pipeline_first_stage()
             post_process = mpu.is_pipeline_last_stage()
-            this_model = model_provider_func(
+            this_model = model_provider_func(   # 获取原始模型 BertModel
                 pre_process=pre_process,
                 post_process=post_process
             )
             this_model.model_type = model_type
-            model.append(this_model)
+            model.append(this_model)  # 模型列表之中添加一个新的 BertModel
     else:
         pre_process = mpu.is_pipeline_first_stage()
         post_process = mpu.is_pipeline_last_stage()
@@ -239,18 +275,18 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
                 rank = mpu.get_pipeline_model_parallel_rank()
                 split_rank = args.pipeline_model_parallel_split_rank
                 world_size = mpu.get_pipeline_model_parallel_world_size()
-                pre_process = rank == 0 or rank == split_rank
-                post_process = (rank == (split_rank - 1)) or (
+                pre_process = rank == 0 or rank == split_rank   # 是不是第一层
+                post_process = (rank == (split_rank - 1)) or (  # 是不是最后一层
                         rank == (world_size - 1))
                 add_encoder = mpu.is_pipeline_stage_before_split()
                 add_decoder = mpu.is_pipeline_stage_after_split()
-            model = model_provider_func(
+            model = model_provider_func(  # 获取原始模型
                 pre_process=pre_process,
                 post_process=post_process,
                 add_encoder=add_encoder,
                 add_decoder=add_decoder)
         else:
-            model = model_provider_func(
+            model = model_provider_func(  # 获取原始模型
                 pre_process=pre_process,
                 post_process=post_process
             )
@@ -277,14 +313,18 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
                  for model_module in model])), flush=True)
 
     # GPU allocation.
-    for model_module in model:
+    for model_module in model:  # 把本模型放置到GPU之上
         model_module.cuda(torch.cuda.current_device())
 
     # Fp16 conversion.
     if args.fp16 or args.bf16:
         model = [Float16Module(model_module, args) for model_module in model]
 
-    if wrap_with_ddp:
+    '''
+    5.2 DDP
+在 get_model 之中，有如下代码使用 DDP。
+    '''
+    if wrap_with_ddp:   # 如果需要数据并行，则配置DDP
         if args.DDP_impl == 'torch':
             i = torch.cuda.current_device()
             model = [torchDDP(model_module, device_ids=[i], output_device=i,
@@ -355,7 +395,8 @@ def get_optimizer_param_scheduler(optimizer):
 
     return opt_param_scheduler
 
-
+# 4.1 setup_model_and_optimizer
+# setup_model_and_optimizer 方法会设置模型和优化器，其中重点是get_model。
 def setup_model_and_optimizer(model_provider_func,
                               model_type,
                               no_wd_decay_cond=None,
@@ -400,7 +441,10 @@ def setup_model_and_optimizer(model_provider_func,
 
     return model, optimizer, opt_param_scheduler
 
-
+'''
+6.2 训练step
+train_step 会获取 get_forward_backward_func 得到 schedule，因为是流水线并行，所以需要 schedule 如何具体训练。
+'''
 def train_step(forward_step_func, data_iterator,
                model, optimizer, opt_param_scheduler):
     """Single training step."""
@@ -413,8 +457,9 @@ def train_step(forward_step_func, data_iterator,
             partition.zero_grad_buffer()
     optimizer.zero_grad()
 
+    # 获取训练schedule
     forward_backward_func = get_forward_backward_func()
-    losses_reduced = forward_backward_func(
+    losses_reduced = forward_backward_func(  # 进行训练
         forward_step_func, data_iterator, model,
         optimizer, timers, forward_only=False)
 
@@ -710,7 +755,10 @@ def save_checkpoint_and_time(iteration, model, optimizer, opt_param_scheduler):
     timers('save-checkpoint').stop()
     timers.log(['save-checkpoint'])
 
-
+'''
+6.1 训练主体
+train 是常规的套路，大家基本上按照名字就可以理解。
+'''
 def train(forward_step_func, model, optimizer, opt_param_scheduler,
           train_data_iterator, valid_data_iterator,
           process_non_loss_data_func):
@@ -738,7 +786,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
         update_num_microbatches(args.consumed_train_samples)
         args.curr_iteration = iteration
         loss_dict, skipped_iter, grad_norm, num_zeros_in_grad = \
-            train_step(forward_step_func,
+            train_step(forward_step_func,   # 训练
                        train_data_iterator,
                        model,
                        optimizer,
@@ -920,6 +968,11 @@ def cyclic_iter(iter):
         for x in iter:
             yield x
 
+'''
+0x05 数据并行
+5.1 设置数据
+build_train_valid_test_data_iterators 方法会对数据进行处理，提供了 train，valid，test 三种不同的数据集。
+'''
 def build_train_valid_test_data_iterators(
         build_train_valid_test_datasets_provider):
     """XXX"""

@@ -1,3 +1,11 @@
+#0x01 启动
+#1.1 分布式启动
+#启动脚本在 examples/pretrain_bert_distributed.sh，其利用了 torch.distributed.launch 来启动多个进程。
+# 具体业务代码是 pretrain_bert.py。
+#
+#因为 GPUS_PER_NODE 是8，所以 nproc_per_node 是8，这样，在本机上就启动了8个进程，每个进程之中含有模型的一部分。
+# 进程的 rank 是被 torch.distributed.launch 调用 elastic 自动分配的。
+
 #!/bin/bash
 
 GPUS_PER_NODE=8

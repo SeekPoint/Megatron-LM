@@ -72,7 +72,7 @@ def _build_key_size_numel_dictionaries(keys, data):
 
     return key_size, key_numel, total_numel
 
-
+# broadcast_data 在每个model parallel group之上，把数据从rank 0发送到同组其他成员。
 def broadcast_data(keys, data, datatype):
     """Broadcast data from rank zero of each model parallel group to the
     members of the same model parallel group.
@@ -89,7 +89,7 @@ def broadcast_data(keys, data, datatype):
                                                                           data)
 
     # Pack on rank zero.
-    if get_tensor_model_parallel_rank() == 0:
+    if get_tensor_model_parallel_rank() == 0:  # rank 0才压缩
         # Check that all keys have the same data type.
         _check_data_types(keys, data, datatype)
         # Flatten the data associated with the keys

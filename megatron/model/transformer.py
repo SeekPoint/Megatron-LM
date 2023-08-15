@@ -714,7 +714,16 @@ class NoopTransformerLayer(MegatronModule):
                 inference_params=None):
         return hidden_states.clone()
 
+'''
+4.2.3 ParallelTransformer
+这里会调用 ParallelTransformerLayer 生成具体的 Transformer层，我们会在后文中进行分析。
 
+即，ParallelTransformer 包括多个 Transformer，其中每层 Transformer 是一个 ParallelTransformerLayer。
+
+
+目前逻辑如下，我们假定有两个 transformer：
+图！！！！
+'''
 class ParallelTransformer(MegatronModule):
     """Transformer class."""
 
@@ -747,6 +756,7 @@ class ParallelTransformer(MegatronModule):
         self.sequence_parallel = args.sequence_parallel
 
         # Number of layers.
+        # 获得本Transformer的具体层数
         self.num_layers = mpu.get_num_layers(
             args, args.model_type == ModelType.encoder_and_decoder)
 
@@ -754,6 +764,7 @@ class ParallelTransformer(MegatronModule):
 
         # Transformer layers.
         def build_layer(layer_number):
+            ## 返回一层 Transformmer
             return ParallelTransformerLayer(
                 init_method,
                 output_layer_init_method,
@@ -805,7 +816,7 @@ class ParallelTransformer(MegatronModule):
             self.num_layers = 1
             self.layers = torch.nn.ModuleList([ NoopTransformerLayer(1) ])
         else:
-            self.layers = torch.nn.ModuleList(
+            self.layers = torch.nn.ModuleList(   # 生成 num_layers 个 Transformer
                 [build_layer(i + 1 + offset) for i in range(self.num_layers)])
 
         if self.post_process and self.post_layer_norm:
@@ -874,6 +885,10 @@ class ParallelTransformer(MegatronModule):
         forward_step_func"""
         self.input_tensor = input_tensor
 
+    '''
+    4.2.3.2 前向传播
+我们接着看看其前向传播函数，这里主要就是调用内部 ParallelTransformerLayer 的 forward 方法，如果是第一层或者最后一层，则做特殊处理。
+    '''
     def forward(self, hidden_states, attention_mask,
                 encoder_output=None, enc_dec_attn_mask=None,
                 inference_params=None):
@@ -924,6 +939,7 @@ class ParallelTransformer(MegatronModule):
             else:
                 for index in range(self.num_layers):
                     layer = self._get_layer(index)
+                    # 调用ParallelTransformerLayer的forward函数
                     hidden_states = layer(
                         hidden_states,
                         attention_mask,
