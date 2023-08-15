@@ -19,6 +19,8 @@ from .initialize import get_tensor_model_parallel_group, get_tensor_model_parall
 from .utils import split_tensor_along_last_dim
 
 #对应的后向传播就使用了All-reduce，反向传播时候，输入是多个GPU上的梯度整体，通过all-reduce合并。
+#在 megatron/mpu/mappings.py 之中有对 tensor model group 的使用：
+#就是当流水线反向传播时候，利用 _TENSOR_MODEL_PARALLEL_GROUP 进行在组内进行集合通信。
 def _reduce(input_):
     """All-reduce the input tensor across model parallel group."""
 

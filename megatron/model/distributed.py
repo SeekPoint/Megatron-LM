@@ -216,6 +216,9 @@ allreduce_gradients 是 DDP 对外提供的 API，在后面 train step 之中会
 
 运行时候，分别对两种类型的连续内存做 AllReduce。
 图！！！！
+
+
+在 allreduce_gradients之中，会对本数据并行组进行all-reduce。
     '''
     def allreduce_gradients(self):
         """Reduce gradients across data parallel ranks."""
@@ -223,9 +226,9 @@ allreduce_gradients 是 DDP 对外提供的 API，在后面 train step 之中会
         # 连续内存
         if self._grad_buffers is not None:
             for _, buffer_ in self._grad_buffers.items():  # 遍历各种类型的buffer
-                buffer_.data /= mpu.get_data_parallel_world_size()
+                buffer_.data /= mpu.get_data_parallel_world_size()  # 数据并行 world size
                 torch.distributed.all_reduce( # 统一归并
-                    buffer_.data, group=mpu.get_data_parallel_group())
+                    buffer_.data, group=mpu.get_data_parallel_group())  # 数据并行组
         else:
             # Otherwise, bucketize and all-reduce
             buckets = {} # 否则还是用桶来归并
