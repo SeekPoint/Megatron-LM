@@ -77,7 +77,10 @@ def copy_tensor_model_parallel_attributes(destination_tensor, source_tensor):
     for attribute in _MODEL_PARALLEL_ATTRIBUTE_DEFAULTS:
         maybe_copy(attribute)
 
-
+'''
+3.2.2 初始化权重
+以下代码实现了初始化权重。
+'''
 def _initialize_affine_weight_gpu(weight, init_method,
                                   partition_dim, stride=1):
     """Initialize affine weight for model parallel on GPU."""
@@ -127,7 +130,10 @@ def _initialize_affine_weight_cpu(weight, output_size, input_size,
         return master_weight
     return None
 
-
+'''
+0x05 Embedding
+我们接下来看看 embedding。为了让内存做到均衡配置，对embedding也会按照vocab维度来做shard操作，最终把分区放到多个GPU之上。这样每个卡上都有嵌入表的一部分。
+'''
 class VocabParallelEmbedding(torch.nn.Module):
     """Embedding parallelized in the vocabulary dimension.
 
@@ -154,10 +160,13 @@ class VocabParallelEmbedding(torch.nn.Module):
         self._weight = None
         self.tensor_model_parallel_size = get_tensor_model_parallel_world_size()
         # Divide the weight matrix along the vocaburaly dimension.
+        # 得到分区的起始，终止位置
         self.vocab_start_index, self.vocab_end_index = \
             VocabUtility.vocab_range_from_global_vocab_size(
                 self.num_embeddings, get_tensor_model_parallel_rank(),
                 self.tensor_model_parallel_size)
+
+        # 得到分区内嵌入数目
         self.num_embeddings_per_partition = self.vocab_end_index - \
             self.vocab_start_index
 
@@ -167,6 +176,8 @@ class VocabParallelEmbedding(torch.nn.Module):
             self.weight = Parameter(torch.empty(
                 self.num_embeddings_per_partition, self.embedding_dim,
                 dtype=args.params_dtype))
+
+            # 对权重进行分区
             _initialize_affine_weight_cpu(
                 self.weight, self.num_embeddings, self.embedding_dim,
                 self.num_embeddings_per_partition, 0, init_method)
@@ -174,12 +185,18 @@ class VocabParallelEmbedding(torch.nn.Module):
             self.weight = Parameter(torch.empty(
                 self.num_embeddings_per_partition, self.embedding_dim,
                 device=torch.cuda.current_device(), dtype=args.params_dtype))
+
+            # 对权重进行分区
             _initialize_affine_weight_gpu(self.weight, init_method,
                                           partition_dim=0, stride=1)
 
+    '''
+    因为每一个GPU只是获得了总体嵌入的一部分，所以对于每个worker来说，可能有一个输入找不到嵌入，因此需要对embedding最终输出做一个 all-reduce操作，这样可以得到完整embedding。
+    '''
     def forward(self, input_):
         if self.tensor_model_parallel_size > 1:
             # Build the mask.
+            # input_mask 意思是单词不在本worker的 embedding 分区范围内，所以设置为0
             input_mask = (input_ < self.vocab_start_index) | \
                          (input_ >= self.vocab_end_index)
             # Mask the input.
@@ -309,6 +326,22 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
 
         return grad_input, grad_weight, grad_bias, None, None, None
 
+'''
+我们接下来分别介绍 ColumnParallelLinear 和 RowParallelLinear。ColumnParallelLinear 分别可以独立使用或者作为 ParallelMLP 的前半段，RowParallelLinear 也可以独立使用或者作为 ParallelMLP 的后半段。
+
+0x03 ColumnParallelLinear
+ColumnParallelLinear 就是按列进行切分，也就是纵刀流。注意，这里说的是对权重进行列切分。就是：
+
+图和公式！！！！！
+
+
+3.3 逻辑梳理
+为了更好的分析，我们引入下图（来自参考1），这个图对应了 ColumnParallelLinear 类的前向传播和后向传播过程。这里的 f 和 g 操作其实是从代码之中抽象出来的，可以理解为 f 是对输入的处理，g 则是处理之后得到最终输出。此处对应了论文中描述的粗体字：
+
+Figure 3. Blocks of Transformer with Model Parallelism. f and g are conjugate. f is an identity operator in the forward pass and all reduce in the backward pass while g is an all reduce in the forward pass and identity in the backward pass.
+
+图和公式！！！！！
+'''
 
 class ColumnParallelLinear(torch.nn.Module):
     """Linear layer with column parallelism.
@@ -338,6 +371,11 @@ class ColumnParallelLinear(torch.nn.Module):
                  init_method=init.xavier_normal_, stride=1,
                  keep_master_weight_for_test=False,
                  skip_bias_add=False):
+        '''
+        3.2 初始化
+        初始化代码之中主要是用切分的信息来初始化权重
+        '''
+
         super(ColumnParallelLinear, self).__init__()
 
         # Keep input parameters
@@ -345,8 +383,8 @@ class ColumnParallelLinear(torch.nn.Module):
         self.output_size = output_size
         self.gather_output = gather_output
         # Divide the weight matrix along the last dimension.
-        world_size = get_tensor_model_parallel_world_size()
-        self.output_size_per_partition = divide(output_size, world_size)
+        world_size = get_tensor_model_parallel_world_size()  # 获得本tensor并行组的world size
+        self.output_size_per_partition = divide(output_size, world_size)  # 获得本子模型应输出size
         self.skip_bias_add = skip_bias_add
 
         # Parameters.
@@ -355,25 +393,29 @@ class ColumnParallelLinear(torch.nn.Module):
         # Initialize weight.
         args = get_args()
         if args.use_cpu_initialization:
+            # 用切分的size初始化权重
             self.weight = Parameter(torch.empty(self.output_size_per_partition,
                                                 self.input_size,
                                                 dtype=args.params_dtype))
-            self.master_weight = _initialize_affine_weight_cpu(
+            self.master_weight = _initialize_affine_weight_cpu(  # 初始化权重
                 self.weight, self.output_size, self.input_size,
                 self.output_size_per_partition, 0, init_method,
                 stride=stride, return_master_weight=keep_master_weight_for_test)
         else:
+            # 用切分的size初始化权重
             self.weight = Parameter(torch.empty(
                 self.output_size_per_partition, self.input_size,
                 device=torch.cuda.current_device(), dtype=args.params_dtype))
-            _initialize_affine_weight_gpu(self.weight, init_method,
+            _initialize_affine_weight_gpu(self.weight, init_method,   # 初始化权重
                                           partition_dim=0, stride=stride)
 
         if bias:
             if args.use_cpu_initialization:
+                # 用切分的size初始化权重
                 self.bias = Parameter(torch.empty(
                     self.output_size_per_partition, dtype=args.params_dtype))
             else:
+                # 用切分的size初始化权重
                 self.bias = Parameter(torch.empty(
                     self.output_size_per_partition,
                     device=torch.cuda.current_device(),
@@ -394,9 +436,34 @@ class ColumnParallelLinear(torch.nn.Module):
             not self.sequence_parallel
         self.gradient_accumulation_fusion = args.gradient_accumulation_fusion
 
+    '''
+    3.4 代码实现
+我们接下来结合代码来分析。
+
+3.3.1 ColumnParallelLinear
+ColumnParallelLinear 的 forward 代码之中，主要是实施了 f 和 g 的forward操作，同时把 f 和 g 的backward 操作搭建起来，具体如下：
+====此处和源码不符！！！！
+    如果配置了异步操作，则使用 ColumnParallelLinearWithAsyncAllreduce 完成 f 运算符的功能，这一个函数包括了identity 操作，矩阵乘法，搭建后向传播操作。
+    如果是同步操作，则：
+        使用 copy_to_tensor_model_parallel_region 完成前向传播 identity 操作，建立反向传播all-reduce，就是图中f的backward。identity 操作 就是把输入 X 完整的拷贝到多个GPU之上，类似 X 通过 f 的前向操作，变成了 [X, X, ..., X]。
+        使用 linear 对 [X, X, ..., X] 和 权重 A 完成矩阵乘法操作。
+    如果gather_output为True，则在前向传播时候把 Yi
+     做all-gather，因为反向传播时需要把完整梯度scatter到对应GPU之上，所以要搭建对于的split操作。MLP实现之中，此处设置为 False，这样每个GPU输出的是自己partition 的 4h/p，直接传送给下一个线性层。
+     
+     
+     3.3.2 f 操作
+F 操作是对输入进行初步处理，具体是：
+
+前向传播时候直接拷贝。
+后向传播做all-reduce。
+
+公式！！
+    '''
     def forward(self, input_):
+        # 如果选择忽略bias，就会设置为None，后续就不用处理了
         bias = self.bias if not self.skip_bias_add else None
 
+        # 下面主要是图中的 f 操作
         if self.async_tensor_model_parallel_allreduce or \
                 self.sequence_parallel:
             input_parallel = input_
@@ -406,16 +473,31 @@ class ColumnParallelLinear(torch.nn.Module):
         output_parallel = LinearWithGradAccumulationAndAsyncCommunication.apply(
             input_parallel, self.weight, bias, self.gradient_accumulation_fusion,
             self.async_tensor_model_parallel_allreduce, self.sequence_parallel)
-        if self.gather_output:
+
+        # 下面就是图中的 g 操作
+        if self.gather_output:  # 是否需要聚合操作
             # All-gather across the partitions.
             assert not self.sequence_parallel
+            # All-gather across the partitions.
+            # 聚合输出，就是图中g的forward
             output = gather_from_tensor_model_parallel_region(output_parallel)
         else:
             output = output_parallel
-        output_bias = self.bias if self.skip_bias_add else None
+        output_bias = self.bias if self.skip_bias_add else None  # 如果不忽略bias，还得传出去
         return output, output_bias
 
-
+'''
+0x04 RowParallelLinear
+RowParallelLinear 这里是按照行进行切分，就是横刀流，注意这里是对权重A实施行切分。比如公式为 Y = XA，X是输入，A是权重，Y是输出，行切分就是针对A的第一个维度进行切分，这里 X1
+ 最后一个维度等于 A1
+ 第一个维度。
+ 
+ 
+ 图和公式！！！
+ 
+ 定义之中只有注释有用，可以看出来如何切分。
+ 
+'''
 class RowParallelLinear(torch.nn.Module):
     """Linear layer with row parallelism.
 
@@ -445,7 +527,17 @@ class RowParallelLinear(torch.nn.Module):
                        can be fused with other elementwise operations. We skip
                        adding bias but instead return it.
     """
+    '''
+    4.2 初始化
+和列切分类似，初始化之中主要是获取每个权重分区的大小，然后据此切分权重。
 
+
+
+4.3 逻辑梳理
+为了更好的分析，我们引入下图（来自参考1），这个图对应了 RowParallelLinear 类的前向传播和后向传播过程。这里的 f 和 g 操作其实是从代码之中抽象出来的，可以理解为 f 是对输入的处理，g 则是处理之后得到最终输出。
+
+图和公式
+    '''
     def __init__(self, input_size, output_size, bias=True,
                  input_is_parallel=False,
                  init_method=init.xavier_normal_, stride=1,
@@ -459,7 +551,7 @@ class RowParallelLinear(torch.nn.Module):
         self.input_is_parallel = input_is_parallel
         # Divide the weight matrix along the last dimension.
         world_size = get_tensor_model_parallel_world_size()
-        self.input_size_per_partition = divide(input_size, world_size)
+        self.input_size_per_partition = divide(input_size, world_size) # 获取每个权重分区的大小
         self.skip_bias_add = skip_bias_add
 
         # Parameters.
@@ -471,11 +563,14 @@ class RowParallelLinear(torch.nn.Module):
             self.weight = Parameter(torch.empty(self.output_size,
                                                 self.input_size_per_partition,
                                                 dtype=args.params_dtype))
+
+            # 切分权重
             self.master_weight = _initialize_affine_weight_cpu(
                 self.weight, self.output_size, self.input_size,
                 self.input_size_per_partition, 1, init_method,
                 stride=stride, return_master_weight=keep_master_weight_for_test)
         else:
+            # 切分权重
             self.weight = Parameter(torch.empty(
                 self.output_size, self.input_size_per_partition,
                 device=torch.cuda.current_device(), dtype=args.params_dtype))
@@ -499,20 +594,32 @@ class RowParallelLinear(torch.nn.Module):
         self.sequence_parallel = args.sequence_parallel
         self.gradient_accumulation_fusion = args.gradient_accumulation_fusion
 
-
-
+    '''
+    4.4 代码实现
+    我们接下来看看代码如何实现。
+    
+    4.4.1 RowParallelLinear
+    RowParallelLinear 的 forward 代码之中，主要是实施了 f 和 g 的forward操作，同时把 f 和 g 的backward 操作搭建起来，具体如下：
+    '''
     def forward(self, input_):
+        # 这里，输入的张量已经被分割到每个GPU，输出张量是all-reduce之后的整体
         # Set up backprop all-reduce.
-        if self.input_is_parallel:
+        if self.input_is_parallel:  # 是否已经是split的输入
+            # Transformer's MLP 到达这里，因为已经split，所以直接就接了输入，不会scatter
             input_parallel = input_
         else:
+            # 独立 row parallel 线性层到这里，会进行前向切分和后向拼接
             assert not self.sequence_parallel
             input_parallel = scatter_to_tensor_model_parallel_region(input_)
+
         # Matrix multiply.
+        # 比如 X_i 和 A_i 进行乘法操作
         output_parallel = LinearWithGradAccumulationAndAsyncCommunication.apply(
             input_parallel, self.weight, None,
             self.gradient_accumulation_fusion, None, None)
+
         # All-reduce across all the partitions.
+        # 进行前向all-reduce操作，这样每个GPU之上都是完整的最新结果，同时搭建了后向的identity操作。
         if self.sequence_parallel:
             output_ = reduce_scatter_to_sequence_parallel_region(output_parallel)
         else:
@@ -525,3 +632,52 @@ class RowParallelLinear(torch.nn.Module):
             output_bias = self.bias
         return output, output_bias
 
+
+
+'''
+0x06 总结
+6.1 MLP并行
+我们总结一下MLP的并行实现，具体如下图，其中逻辑如下：
+
+中间灰色的是论文中的概念图。
+联系代码之后，我们可以知道，其是由一个 ColumnParallelLinear 接上一个 RowParallelLinear 完成的，我们把概念图转化为图左侧两个方框。
+ColumnParallelLinear 是对权重进行列切分，RowParallelLinear 是对权重进行行切分。
+其中 ColumnParallelLinear 的 Y1,Y2
+ 没有经过 all-gather 操作（就是略过了 g 操作），而是直接输入到了 RowParallelLinear 之中，接到了RowParallelLinear 的 X1,X2
+，即，RowParallelLinear 没有 f 操作。
+概念图之中的 f 就是ColumnParallelLinear 的 f，g 就是 RowParallelLinear 的 g。具体逻辑如图上所示。
+
+
+图！！！
+
+6.2 共轭函数
+论文之中提到了共轭函数。
+
+f and g are conjugate. f is an identity operator in the forward pass and all reduce in the backward pass while g is an all reduce in the forward pass and identity in the backward pass.
+
+我们前面代码之中也有使用到，我们整理出来如下，其中两两互为共轭函数。
+
+copy_to_tensor_model_parallel_region 是前向操作copy(identity)，后向操作 all-reduce。
+reduce_from_tensor_model_parallel_region 是前向操作 all-reduce，后向操作 copy(identity)。
+其实，就是MLP之中的 f，g 操作，这两个是共轭函数。
+
+类似，gather_from_tensor_model_parallel_region 是前向操作 all-gather，后向操作 scatter，这和scatter_to_tensor_model_parallel_region 也是共轭函数。
+
+这些函数代码具体如下：
+
+def copy_to_tensor_model_parallel_region(input_):
+    return _CopyToModelParallelRegion.apply(input_)
+
+
+def reduce_from_tensor_model_parallel_region(input_):
+    return _ReduceFromModelParallelRegion.apply(input_)
+
+
+def scatter_to_tensor_model_parallel_region(input_):
+    return _ScatterToModelParallelRegion.apply(input_)
+
+
+def gather_from_tensor_model_parallel_region(input_):
+    return _GatherFromModelParallelRegion.apply(input_)
+至此，我们已经完成了对模型并行实现的分析，下一篇我们看看在源码之中如何设定各种并行配置。
+'''
