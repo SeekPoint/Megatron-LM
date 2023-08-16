@@ -27,6 +27,19 @@ from megatron import mpu
 pipeline parallelism需要inter-stage的P2P通信，其主要实现是_communnicate函数，_communicate 函数主要是封装了 PyTorch 的基础通信函数，给流水线并行提供了stage之间的双向P2P通信。在此基础之上，又封装了一些API方法。这个函数的注释写得不错，解释得非常清楚。这里需要注意的是：每个层怎么知道自己在流水线之中上下游 rank 是什么？这是通过例如这样的调用mpu.get_pipeline_model_parallel_next_rank() 来知道的。
 
 _communicate 具体代码如下：
+
+
+
+pipeline parallelism需要inter-stage的P2P通信. 主要实现是_communnicate函数. 其他几个API都是调用该函数.
+
+这个函数的注释写得不错，解释得非常清楚. 实现的功能是在stages中双向send/recv.
+
+
+
+_communicate函数支持双向的send/recv，
+
+另外对于pipeline的first stage和last stage需要特判一下. 比如recv_forward对于first stage就不需要做，recv_backward对于last stage也不需要做.
+
 '''
 def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
                  tensor_shape,
@@ -89,6 +102,7 @@ def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
         requires_grad = False
 
     # 如果需要接受张量，则先分配空张量，接受的张量会存在此处
+    #1. 如果需要recv，会临时创建一个empty tensor作为buffer，并且返回.
     if recv_prev:
         tensor_recv_prev = torch.empty(tensor_chunk_shape,
                                        requires_grad=requires_grad,
@@ -101,6 +115,11 @@ def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
                                        dtype=dtype)
 
     # Split tensor into smaller chunks if using scatter-gather optimization.
+    '''
+    3. 有一个trick - scatter-gather optimization. NVIDIA在SC '21上的论文 里面提到过这个优化. 
+    在使用了tensor model parallelism的时候，最后一层的输出是重复的 (因为做了all-reduce)，
+    所以可以split成t份然后再发，下游收到后再做一个gather得到完整的数据.
+    '''
     if not override_scatter_gather_tensors_in_pipeline and \
             args.scatter_gather_tensors_in_pipeline and \
             not args.sequence_parallel:
@@ -121,6 +140,7 @@ def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
                                         group=mpu.get_pipeline_model_parallel_group())
     else:
         # 先根据目标rank生成对应的torch.distributed.P2POp，放入列表
+        #2. 使用了torch.distributed.batch_isend_irecv，批量做异步send/recv (实际上就是个for循环...) 然后调用wait()进行同步.
         ops = []
         if tensor_send_prev is not None:
             send_prev_op = torch.distributed.P2POp(

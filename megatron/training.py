@@ -428,6 +428,7 @@ def setup_model_and_optimizer(model_provider_func,
         args.iteration = 0
 
     # We only support local DDP with multiple micro-batches.
+    # 使用Pipeline parallelism，data parallelism的optimizer只能用LocalDDP. (见training.py)
     if len(model) > 1 or mpu.get_pipeline_model_parallel_world_size() > 1:
         assert args.DDP_impl == 'local'
 
@@ -471,6 +472,7 @@ def train_step(forward_step_func, data_iterator,
     losses_reduced = forward_backward_func(  # 进行训练
         forward_step_func, data_iterator, model,
         optimizer, timers, forward_only=False)
+    #到这里整个pipeline都已经forward完成并且backward完成了，loss和grad都算好了.
 
     # Empty unused memory
     # 到了这里，整个流水线处理完毕，loss 和 梯度都计算完毕
@@ -503,12 +505,18 @@ def train_step(forward_step_func, data_iterator,
         for model_module in model:
             model_module.allreduce_gradients()
         timers('backward-params-all-reduce').stop()
+    # 到这里才开始做data parallelism的all-reduce.
 
     # All-reduce word_embeddings' grad across first and last stages to ensure
     # that word_embeddings parameters stay in sync.
     # This should only run for models that support pipelined model parallelism
     # (BERT and GPT-2).
     # 4. 嵌入层 all-reduce，嵌入层也进行了权重分享，所以要进行all-reduce来确保参数统一
+    '''
+    4. embedding-allreduce
+
+因为embedding做了weight sharing. first stage和last stage都有一份embedding，为了保证参数一致，需要对二者的grad做all-reduce. 其他stage忽略这一步.
+    '''
     timers('backward-embedding-all-reduce').start()
     if mpu.is_rank_in_embedding_group(ignore_virtual=True) and \
             mpu.get_pipeline_model_parallel_world_size() > 1:
@@ -552,6 +560,29 @@ def train_step(forward_step_func, data_iterator,
 
     # Update parameters.
     # 5. 更新参数，这里才进行Flush，
+    '''
+    调用optimizer.step()更新参数.
+
+注意: pipeline中不同stage更新参数是不同步的，完全可以有先后. 其实并没有一个explicit pipeline flush. 这个同步推迟到了下一个iteration recv等待的时候 (看来first stage应该是bottleneck).
+
+最后分析下各个阶段时间. 配置: (p, t, d) = (2, 2, 2), gpu_per_node = 4 (V100 with NVLink), m = 2, bert-large, global batch size = 32, max-seq-len = 512.
+
+注意，是last_rank的worker print log，同时也是pipeline last stage.
+
+
+log
+从log来看，看上去recv_forward占了很长的时间，这其实是warm-up phase的时间，因为这是pipeline last stage的log.
+
+另外backward-embedding-all-reduce也很高，也主要是等待时间，等待first stage做完backward做完data parallelism的all-reduce.
+
+只有backward-send-forward-recv和backward-send能代表真实的通信时间. 可以看到时间非常短，比data parallelism的all-reduce时间短很多!
+
+optimizer的时间有点出乎意料. 70%的时间用来处理mixed precision的问题. 哈.
+
+最后，backward其实不比forward慢多少，forward:backward = 1:2夸张了，这里差不多是forward:backward = 7:10.
+
+BTW，训练过半lm_loss居然还是2.41...这不正常. 可能是因为我只用了wikipedia数据没弄bookscorpus...或者是default hyper-parameter有问题. 或者是因为直接用max-seq-len = 512训练就是这样？搞不清楚...
+    '''
     timers('optimizer').start()
     update_successful, grad_norm, num_zeros_in_grad = optimizer.step()
     timers('optimizer').stop()

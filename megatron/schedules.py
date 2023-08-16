@@ -56,6 +56,20 @@ PipeDream-flush 则在 PipeDream-2BW 之上添加了一个全局同步的流水�
 
 为何要选择 1F1B？论文作者提到，因为它将in-flight microbatches 数量缩减到流水线深度 d，而不是GPipe的微批次数目 m，所以 1F1B 是memory-efficient。为了降低bubble time，一般来说，m >> d。
 
+
+
+get_forward_backward_func函数用于选择何种pipeline schedule.
+NVIDIA在SC '21上的论文描述了一种interleaving pipeline schedule，能够进一步降低bubble size，但是增加了一定的通信开销. 
+本文暂不考虑这种特殊的schedule，
+主要研究PipeDream-Flush的实现，即上面代码里面的forward_backward_pipelining_without_interleaving函数.
+
+PipeDream-Flush的一个iteration分为三个阶段:
+
+    warm-up phase: 启动状态，每个worker (除了最后一个stage的) 只做forward计算和向下游发送intermediate activation，直到最后一个stage被触发.
+    steady phase: 稳定状态，每个worker开始规律地进行one-forward-one-backward (1F1B).
+    cooldown phase: 结束状态，将剩下的in-flight的microbatches执行完，只有backward计算和向上游发送intermediate gradient w.r.t activation.
+BTW，1F1B schedule是memory-efficient的. 因为1F1B schedule将in-flight microbatches的数量限制到pipeline depth (p)，而不是number of microbatches (m) (e.g., GPipe). 一般来讲，为了降低bubble time，m >> p.
+
 '''
 def get_forward_backward_func():
     args = get_args()
@@ -720,6 +734,11 @@ def forward_backward_pipelining_without_interleaving(forward_step_func,
     # 需要确定本worker在热身阶段需要执行的微批次数目，是min((world-size - rank - 1), num_microbatches)
     # 因为rank是依次递增，所以热身所需的微批次会逐次递减，直到为0，这样就会直接进入稳定阶段进行计算
     # 比如 world size 为5，rank区间为0～4，微批次数目为4，则从前往后几个stage的热身批次为 5 - 0 - 1， 5 - 1 - 1， 5 - 2 - 1， 5 - 3 - 1， 5 - 4 - 1。
+    
+    
+    setup
+首先确定每个worker在warm-up phase的microbatches数量，为m - rank - 1，即随着rank依次递减. last stage warm-up所需的microbatches数量为零，即直接开始steady阶段.
+    
     '''
     num_warmup_microbatches = \
         (mpu.get_pipeline_model_parallel_world_size() -
@@ -741,6 +760,7 @@ def forward_backward_pipelining_without_interleaving(forward_step_func,
 
     # Input, output tensors only need to be saved when doing backward passes
     # 当需要进行反向传播时候，需要建立两个队列，input_tensors 保存来自上游的激活，output_tensors 保存来自下游的激活
+    #每个worker还需要建立一个FIFO队列，用于保存来自上游的activation(input_tensor)和向下游发送的activation (output_tensor). 这些保存的activations将用于反向传播.
     input_tensors = None
     output_tensors = None
     if not forward_only:
@@ -758,6 +778,12 @@ def forward_backward_pipelining_without_interleaving(forward_step_func,
         向下游发送本地激活。
         如果需要反向传播，则每个 worker 在 input_tensor 之中保存上游激活，在output_tensor 之中保存发送给下游的激活。
         早期阶段会运行尽可能多的向前传播，这样后期阶段可以立即从1F1B开始。
+        
+    注意:
+
+        first stage没有上游stage，调用recv_forward直接返回None.
+        将来自上游的activations (input_tensor) 作为这个stage的输入.
+        每个worker保存来自上游的activations (input_tensor) 和发向下游的activations (output_tensor)到队列.
     '''
     # Run warmup forward passes.
     for i in range(num_warmup_microbatches):
@@ -801,6 +827,19 @@ def forward_backward_pipelining_without_interleaving(forward_step_func,
     # Before running 1F1B, need to receive first forward tensor.
     # If all microbatches are run in warmup / cooldown phase, then no need to
     # receive this tensor here.
+    '''
+    2. steady phase
+
+逻辑: forward -> send forward & recv backward -> backward -> send backward & recv forward
+
+注意:
+
+同样保存来自上游的activations (input_tensor) 和发向下游的activations (output_tensor)到队列.
+backward的时候，pop队列，对最早的尚未处理的microbatch进行反向传播，得到对input_tensor的梯度 (input_tensor_grad)，这个梯度需要回传到上游进行进一步反向传播.
+如果是最后一个microbatch，则只需要将input_tensor_grad回传，而不需要接收来自上游的forward的activation了.
+另外根据这部分代码，论文的示意图有点小问题，部分forward pass的时间应当后移到backward后. 已提issue.
+https://github.com/NVIDIA/Megatron-LM/issues/142
+    '''
     if num_microbatches_remaining > 0:
         # 需要在稳定状态下运行，所以得拿到前面层的激活值
         input_tensor = recv_forward(recv_tensor_shapes, timers=timers)
@@ -853,6 +892,15 @@ def forward_backward_pipelining_without_interleaving(forward_step_func,
     3.6 冷却阶段
         冷却阶段和热身阶段对称，也执行num_warmup_microbatches个步骤，但是只做反向传播。
         这个阶段因为是清理未完毕的反向传播，所以只是从队列中pop。具体就是弹出上游激活和传递给下游的激活，然后进行梯度计算。
+        
+    3. cooldown phase
+
+和warm-up phase对称，执行次数也是num_warmup_microbatches，只不过是专门做backward.
+注意: 这个phase清理未完成的backward，所以只需要pop队列就行了.
+
+上述三个phase执行结束后，input_tensors和output_tensors都应为空.
+
+注意到，这里对于pipeline的实现，单个worker的通信和计算是没有overlap的. 因为send和recv都是阻塞的，发送的消息必须被上下游接收后才能进行下一步计算.
     '''
     # Run cooldown backward passes.
     if not forward_only:

@@ -353,6 +353,7 @@ class TransformerLanguageModel(MegatronModule):
         self.encoder_hidden_state = None
 
         # Embeddings.
+        #1. first stage需要包括embedding，叫pre_process. 代码见model/language_model.py.
         if self.pre_process:
             self.embedding = Embedding(self.hidden_size,
                                        args.padded_vocab_size,
@@ -391,6 +392,7 @@ class TransformerLanguageModel(MegatronModule):
         else:
             self.decoder = None
 
+        #2. last stage需要包括计算loss的部分，叫post_preprocess. 代码见model/bert_model.py
         if self.post_process:
             # Pooler.
             if self.add_pooler:

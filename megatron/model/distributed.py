@@ -91,6 +91,22 @@ class DistributedDataParallelBase(MegatronModule, ABC):
 '''
 5.2.1 定义
 定义只有注释可以看看，使用连续的（contiguous）内存来存储和累积梯度，每一种类型的张量属于一个统一的内存，可以统一做 allreduce。
+
+
+LocalDDP实现在DistributedDataParallel类. 
+从arguments.py的默认参数来看，use_contiguous_buffers这个flag默认是True. 那么会开一份连续的buffer用于通信，记作main_grad. 
+并且会注册一个backward hook，用于accumulate gradients. 相关代码如下:
+
+
+其中，MemoryBuffer就是torch.zeros创建的一个in-memory buffer on GPU.
+
+所以LocalDDP是没有计算和通信的overlap的. 其实pipeline parallelism完全可以用torchDDP，设置下gradient accumulation steps为m就行了. 因为pipeline parallelism把一个minibatch拆成m个microbatches，和gradient accumulation没有区别.
+
+另外我不清楚为什么要搞一个continuous buffer. 注释里面有一句:
+
+has the potential to reduce memory fragmentation.
+还是不理解...
+
 '''
 class DistributedDataParallel(DistributedDataParallelBase):
     """DDP with contiguous buffers options to storre and accumulate gradients.

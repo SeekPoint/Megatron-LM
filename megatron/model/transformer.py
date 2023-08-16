@@ -12,6 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+'''
+pipeline parallelism最后一块 —— model partition. 其实也没啥好说的，因为现在的大模型都是repetitive的，所以直接按照层数切分，每一层是一模一样的transformer layer. 代码见model/transformer.py.
+
+'''
 
 """Transformer."""
 import math
