@@ -228,6 +228,28 @@ rank 2 对应的数据并行进程组是[g0, g2]。
 首先，流水线被分成了 p 个 stage，对于流水线每个stage，其有 n // p 个GPU，stage i 的 rank 范围是：[i * n//p, (i+1) * n//p]，即 rank 2所在的stage 的rank是 [0,1,2,3]。
 其次，在每一个stage之中，ranks = range(start_rank + j, end_rank, tensor_model_parallel_size) ，意思是这stage的n//p个GPUs中，每隔 t 个取一个作为数据并行 group 之中的一份子，因此每个data-parallel group大小为 n // p // t = d。
 具体代码如下
+
+
+
+这里说下后面用到的notation，来自NVIDIA在SC '21上的论文：
+
+n是GPU数量, 即#GPU.
+(p, t, d)是parallel configuration. p是pipeline-model-parallel dimension size, t是tensor-model-parallel dimension size, d是data-parallel dimension size.
+一个group大小就是parallelism dimension size. 这个parallelism group的数量就是 #GPU / parallelism dimension size. 比如，n = 16，p = 4，那么一个pipeline有4 (p = 4)个stages（比如stage 1包括 [0, 1, 2, 3]），一共可以分为4 (16 / 4 = 4)个groups（比如group 1包括 [0, 4, 8, 12]）. 以此类推.
+
+分配group的原则在NVIDIA在SC '21上的论文有所讲述. 比如在16卡上，对于(p, t, d) = (4, 2, 2)的一个parallel configuration，分配结果如下:
+
+图！！！
+
+Parallel configuration: (p, t, d) = (4, 2, 2)
+那篇论文没有给出具体的分配group算法. 通过这部分实现代码可以略窥一二.
+
+
+首先，分为p个pipeline stages，stage 1的rank范围是 [0, n//p)，stage 2的rank范围是[n//p, 2*n//p) .... stage p的rank范围是[(p-1)*n//p, n). 每个pipeline stage有n//p个GPUs.
+
+对于每一个stage，ranks = range(start_rank + j, end_rank, tensor_model_parallel_size) 代表从n//p个GPUs中，隔t个取一个作为data-parallel group. 所以每个data-parallel group大小为 n // p // t = d.
+
+# Build the data-parallel groups.
     '''
     # Build the data-parallel groups.
     global _DATA_PARALLEL_GROUP
@@ -261,6 +283,7 @@ rank 2 对应的数据并行进程组是[g0, g2]。
             _MODEL_PARALLEL_GROUP = group
 
     # Build the tensor model-parallel groups.
+    #从中可以看出，tensor-model-parallel group的rank一定是相邻的，比如(0, 1), (2, 3)等.
     global _TENSOR_MODEL_PARALLEL_GROUP
     assert _TENSOR_MODEL_PARALLEL_GROUP is None, \
         'tensor model parallel group is already initialized'
@@ -297,6 +320,12 @@ _PIPELINE_GLOBAL_RANKS 得到了进程组的ranks。
     '''
     # Build the pipeline model-parallel groups and embedding groups
     # (first and last rank in each pipeline model-parallel group).
+    '''
+    pipeline-model-parallel group是隔n // p个取一个，比如[0, 4, 8, 12].
+
+解释一下这里出现的embedding group: embedding和最后一层MLP做了weight sharing，
+而pipeline parallelism会导致这两层参数在不同worker上，所以需要对其grad做一个额外的all-reduce确保参数一致.
+    '''
     global _PIPELINE_MODEL_PARALLEL_GROUP
     global _PIPELINE_GLOBAL_RANKS
     assert _PIPELINE_MODEL_PARALLEL_GROUP is None, \

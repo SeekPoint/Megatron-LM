@@ -31,7 +31,11 @@ from .initialize import get_tensor_model_parallel_group
 from .initialize import get_tensor_model_parallel_rank
 from .initialize import get_tensor_model_parallel_world_size
 
-
+'''
+CheckpointFunction: gradient checkpoint / recomputation的实现. 
+注意要保存forward时候的rng_state. 在backward的时候，为了保证recompute的结果和forward时候是一样的，
+首先需要restore forward时候rng_state. 然后再restore backward的rng_state，最后做backward.
+'''
 # Default name for the model parallel rng tracker.
 _MODEL_PARALLEL_RNG_TRACKER_NAME = 'model-parallel-rng'
 

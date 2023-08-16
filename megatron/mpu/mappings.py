@@ -136,7 +136,13 @@ def _reduce_scatter_along_first_dim(input_):
                                            group=get_tensor_model_parallel_group())
     return output
 
+'''
+Megatron-LM论文 里面描述过两个共轭的函数:
+一种是forward的时候copy，backward的时候all-reduce.
 
+这两个函数背后的逻辑其实很好理解. 可以把all-reduce理解为一个sum操作，直接return _input理解为copy操作. 
+copy操作的结果分到两个worker上，梯度来自于两部分，所以梯度需要做sum. 而sum操作结果的梯度直接copy就行了.
+'''
 class _CopyToModelParallelRegion(torch.autograd.Function):
     """Pass the input to the model parallel region."""
 
@@ -152,7 +158,7 @@ class _CopyToModelParallelRegion(torch.autograd.Function):
     def backward(ctx, grad_output):
         return _reduce(grad_output)  # 反向传播时候，输入是多个GPU上的梯度整体，通过all-reduce合并
 
-
+# 一种是forward的时候all-reduce，backward的时候copy.
 class _ReduceFromModelParallelRegion(torch.autograd.Function):
     """All-reduce the input from the model parallel region."""
 

@@ -73,6 +73,15 @@ def _build_key_size_numel_dictionaries(keys, data):
     return key_size, key_numel, total_numel
 
 # broadcast_data 在每个model parallel group之上，把数据从rank 0发送到同组其他成员。
+'''
+broadcast_data函数: 把input_data从tensor-model-parallel group的src rank broadcast到所有tensor-model-parallel ranks上. 
+在pretrain_bert.py的get_batch函数里面调用了这个函数.
+
+这和data parallelism不一样，data parallelism是不同rank load不同数据. 
+tensor-model-parallel group不同rank必须load同样的数据.
+
+这里有个小问题：能不能直接每个tensor-model-parallel group里面的processes自己去load同一份数据呢？
+'''
 def broadcast_data(keys, data, datatype):
     """Broadcast data from rank zero of each model parallel group to the
     members of the same model parallel group.

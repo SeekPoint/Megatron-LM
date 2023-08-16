@@ -13,6 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+'''
+有些细节没看懂，大致idea是可以理解的. idea在Megatron-LM论文里面有提到:
+all-reduce loss (shape = [b, s])，而不是logits (shape = [b, s, v]).
+
+
+'''
 
 import torch
 

@@ -192,6 +192,16 @@ class VocabParallelEmbedding(torch.nn.Module):
 
     '''
     因为每一个GPU只是获得了总体嵌入的一部分，所以对于每个worker来说，可能有一个输入找不到嵌入，因此需要对embedding最终输出做一个 all-reduce操作，这样可以得到完整embedding。
+    
+    
+    3. VocabParallelEmbedding
+
+为了memory均衡，embedding也会做shard，而不是放在一个GPU上. 按照vocab维度做partition，每个worker拿到embedding的一部分，
+所以一部分输入找不到对应的embedding，所以embedding输出需要做一个all-reduce使得结果完整.
+
+注意: input_mask表示单词不在embedding partition范围内，对应值设置为0. 但一定会有一个worker上有对应的embedding，
+而且每个worker的输入都是一样的. 所以做一个all-reduce可以使得embedding的输出结果完整.
+
     '''
     def forward(self, input_):
         if self.tensor_model_parallel_size > 1:
@@ -458,6 +468,18 @@ F 操作是对输入进行初步处理，具体是：
 后向传播做all-reduce。
 
 公式！！
+
+
+
+ColumnParallelLinear
+语义: Y = XA + b. A沿column partition. 这样Y的column也被partition了. 可选是否gather_output. 如果是True，则会调用all-gather使得每个GPU都有完整的Y; 否则，每个GPU都只拿到对应的partition.
+    
+    
+注意:
+
+每个worker都有同样的input X，但是backward的时候， 每个worker都有一份对X的grad（但内容不一样），需要对X的grad做一次all-reduce.
+如果gather_output为True，就需要forward的时候把Y_i做all-gather，backward的时候，完整的grad需要scatter到对应worker上.
+
     '''
     def forward(self, input_):
         # 如果选择忽略bias，就会设置为None，后续就不用处理了
@@ -600,6 +622,17 @@ class RowParallelLinear(torch.nn.Module):
     
     4.4.1 RowParallelLinear
     RowParallelLinear 的 forward 代码之中，主要是实施了 f 和 g 的forward操作，同时把 f 和 g 的backward 操作搭建起来，具体如下：
+    
+    
+2. RowParallelLinear
+
+语义: Y = XA + b. A沿row partition，X沿column partition. 这样XA的结果需要做all-reduce.
+
+注意:
+
+输入如果是已经split过的(input_is_parallel 为True)，就不需要再split.
+XA的结果forward的时候需要做all-reduce，backward的时候直接copy grad (之前提过，可以把all-reduce理解为是一个sum op, 所以grad是直接copy就行了).
+
     '''
     def forward(self, input_):
         # 这里，输入的张量已经被分割到每个GPU，输出张量是all-reduce之后的整体
