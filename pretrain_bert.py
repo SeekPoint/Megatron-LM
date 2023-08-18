@@ -105,6 +105,11 @@ def loss_func(loss_mask, sentence_order, output_tensor):
 # forward_step函数接受一个“数据迭代器”和“模型”，并返回一个“loss”标量，
 # 该标量带有一个字典，其中key:value是希望在训练期间监视的信息，例如“lm loss:value”。
 # 还要求此函数将“batch generator”添加到timers类中。
+'''
+forward_step 函数接受一个 data_iterator 和 model，
+并返回一个 loss 标量，该标量带有一个字典，其中key:value 是希望在训练期间监视的信息（例如， {'lm loss': averaged_loss[0]}），
+还要求此函数将 batch generator 添加到 timers 类中。
+'''
 def forward_step(data_iterator, model):
     """Forward step."""
     args = get_args()

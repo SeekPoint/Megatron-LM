@@ -70,6 +70,14 @@ PipeDream-Flush的一个iteration分为三个阶段:
     cooldown phase: 结束状态，将剩下的in-flight的microbatches执行完，只有backward计算和向上游发送intermediate gradient w.r.t activation.
 BTW，1F1B schedule是memory-efficient的. 因为1F1B schedule将in-flight microbatches的数量限制到pipeline depth (p)，而不是number of microbatches (m) (e.g., GPipe). 一般来讲，为了降低bubble time，m >> p.
 
+
+7.3 获取 schedule
+get_forward_backward_func 获取 pipeline 的schedule，这里分为 flush 和 interleaving 两种。
+简单来说：
+
+    forward_step() 包含如何做前向的运算
+    model_provider() 提供了GPTModel
+    train_valid_test_datastes_provider() 则提供了数据集
 '''
 def get_forward_backward_func():
     args = get_args()

@@ -81,6 +81,9 @@ broadcast_data函数: 把input_data从tensor-model-parallel group的src rank bro
 tensor-model-parallel group不同rank必须load同样的数据.
 
 这里有个小问题：能不能直接每个tensor-model-parallel group里面的processes自己去load同一份数据呢？
+
+
+tensor_parallel.broadcast_data 函数在每个 model parallel group 之上，把数据从 rank_0 发送到同组其他 GPU 上。
 '''
 def broadcast_data(keys, data, datatype):
     """Broadcast data from rank zero of each model parallel group to the

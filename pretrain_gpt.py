@@ -28,6 +28,7 @@ from megatron.training import pretrain
 from megatron.utils import get_ltor_masks_and_position_ids
 from megatron.utils import average_losses_across_data_parallel_group
 
+#model_provider 函数返回的是已经被 Megatron 改造为并行的版本。
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
 
@@ -99,7 +100,7 @@ def forward_step(data_iterator, model):
 
     return output_tensor, partial(loss_func, loss_mask)
 
-
+#train_valid_test_datasets_provider 函数接受 train/valid/test 数据集的大小，并返回 train，valid，test 对应部分的数据集。
 def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     args = get_args()

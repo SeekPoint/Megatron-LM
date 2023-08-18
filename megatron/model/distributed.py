@@ -194,10 +194,11 @@ class DistributedDataParallel(DistributedDataParallelBase):
 
     '''
     5.2.4 支撑函数
-下面是两个支撑函数，分别是用于拷贝梯度和将buffer清零。
+下面是两个支撑函数，分别是用于拷贝梯度和#将buffer清零。
 我们假定模型有6个参数，3个 fp32，3 个 fp16，所以被组合成两个连续内存 MemoryBuffer。
 图！！！！！！
     '''
+    #拷贝梯度
     def _make_param_hook(self, param):
         """Create the all-reduce hook for backprop."""
         # Hook used for back-prop.
@@ -211,7 +212,7 @@ class DistributedDataParallel(DistributedDataParallelBase):
                 param.grad = None
         return param_hook
 
-
+    #将buffer清零
     def zero_grad_buffer(self):
         """Set the grad buffer data to zero. Needs to be called at the
         begining of each iteration."""

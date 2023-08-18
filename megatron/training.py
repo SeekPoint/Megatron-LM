@@ -132,7 +132,7 @@ def pretrain(train_valid_test_dataset_provider,
     args = get_args()
     timers = get_timers()
 
-    # Model, optimizer, and learning rate. 使用model_provider设置模型、优化器和lr计划
+    # Model, optimizer, and learning rate. 使用model_provider设置模型、优化器和lr计划  使用model_provider设置模型、优化器和lr-scheduler
     timers('model-and-optimizer-setup').start()
     # 0x04 设置模型
     # 在 Pretrain 之中，会调用如下来设置模型，优化器等等。
@@ -239,6 +239,25 @@ BERT之中含有多个transformer，所以直接按照层数切分，每一层�
     
 单个进程内的逻辑大致如下，这里 torchDDP 的意思是把 BertModel 之中的 module 用 torchDDP 来封装。
 图！！！！！！
+
+
+
+5.3 get_model
+现在我们来整理一下生成模型的流程，回到 get_model 函数。
+
+在 GPT 中，包含多个 Transformer 层，因此我们将根据层数进行切分，每一层都是相同的 Transformer 层。前面提到，在我们的示例中，我们启动了 8 个进程，每个进程包含一个子模型，即原始 GPT 模型的部分层。现在我们来看看如何确定每个子模型包含多少层。
+
+这个问题的答案在于已经建立的进程组情况，get_model 方法将根据当前进程组的情况进行处理。单个进程内获取模型的过程如下：
+
+如果设置了虚拟模型 (virtual)，则会遍历虚拟模型的大小 (virtual size)，生成相应数量的模型（GPTModel）。
+否则，如果设置为编码器解码器模型 (encoder_and_decoder)，将根据切分配置进行设置。
+配置张量模型并行属性 (tensor model parallel)。
+将本模型放置在 GPU 上。
+如果需要数据并行 (DDP)，则进行配置。
+通过以上步骤，单个进程内的模型获取就完成了。这些模型在不同进程中协同工作，实现了整体的模型并行训练。
+
+具体代码如下：
+
 '''
 def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap_with_ddp=True):
     """Build the model."""
@@ -323,6 +342,9 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
     '''
     5.2 DDP
 在 get_model 之中，有如下代码使用 DDP。
+
+
+默认采用 local 的模式作为 DDP_impl 的值。
     '''
     if wrap_with_ddp:   # 如果需要数据并行，则配置DDP
         if args.DDP_impl == 'torch':
@@ -451,6 +473,10 @@ train_step 会获取 get_forward_backward_func 得到 schedule，因为是流水
 我们需要看看 megatron/training.py。就是一次训练step的流程。
 这里在 update_successful, grad_norm, num_zeros_in_grad = optimizer.step() 时候会调用优化器进行参数更新，
 此时，内部两个激活值队列也全部清空过了，所以在这个时间点上，flush也就完成了。
+
+
+7.2 训练Step
+train_step 会获取 get_forward_backward_func 得到 schedule，因为是流水线并行，所以需要 schedule 如何具体训练。
 
 '''
 def train_step(forward_step_func, data_iterator,
@@ -1016,6 +1042,17 @@ def cyclic_iter(iter):
 0x05 数据并行
 5.1 设置数据
 build_train_valid_test_data_iterators 方法会对数据进行处理，提供了 train，valid，test 三种不同的数据集。
+
+
+6. 数据并行
+6.1 设置数据
+build_train_valid_test_data_iterators 方法会对数据进行处理，提供了 train，valid，test 三种不同的数据集。
+
+dataloader_type 有 2 种模式：
+
+single：single pass data loader，默认的模式
+cyclic：multiple pass data loader
+
 '''
 def build_train_valid_test_data_iterators(
         build_train_valid_test_datasets_provider):

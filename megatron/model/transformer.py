@@ -628,6 +628,11 @@ class ParallelTransformerLayer(MegatronModule):
     '''
     1.2 前向传播
     其前向传播方法如下，就是调用各种成员函数进行前向操作。
+    
+    4.2.3.2 前向传播
+
+要就是调用内部 ParallelTransformerLayer 的 forward 方法。和 BERT 模型不同的是，GPTModel 这里第一层和最后一层没有进行特殊处理。
+
     '''
     def forward(self, hidden_states, attention_mask,
                 encoder_output=None, enc_dec_attn_mask=None,
@@ -776,6 +781,27 @@ get_model 方法也会根据自己的 pipeline rank 和 is_pipeline_first_stage 
 
 所以，最终效果如下，其中同名子模块具有同样的参数，可以数据并行，即两个A可以数据并行。一列上的层之间可以流水线串行，
 比如 A--> C --> E --> G 就是串行，而一个横行4个是流水线的一个stage，其中从0开始，横向相邻两个GPU是 tensor model 并行。
+
+
+4.2.3 ParallelTransformer
+
+这里会调用 ParallelTransformerLayer 生成具体的 Transformer 层，我们会在后文中进行分析。
+
+即，ParallelTransformer 包括多个 Transformer，其中每层 Transformer 是一个 ParallelTransformerLayer。
+
+args.transformer-impl 表示采用哪种 Transformer 的实现方式：
+
+transformer_engine：
+https://github.com/NVIDIA/TransformerEngine 的实现版本，包含一些NVIDIA家量化加速的技术
+
+2. local：本地实现的简单版本
+
+这里我们主要研究 local 模式
+
+逻辑上的嵌套表示图如下：
+
+图！！！
+
 '''
 class ParallelTransformer(MegatronModule):
     """Transformer class."""
@@ -943,6 +969,9 @@ class ParallelTransformer(MegatronModule):
     '''
     4.2.3.2 前向传播
 我们接着看看其前向传播函数，这里主要就是调用内部 ParallelTransformerLayer 的 forward 方法，如果是第一层或者最后一层，则做特殊处理。
+
+4.2.3.2 前向传播
+要就是调用内部 ParallelTransformerLayer 的 forward 方法。和 BERT 模型不同的是，GPTModel 这里第一层和最后一层没有进行特殊处理。
     '''
     def forward(self, hidden_states, attention_mask,
                 encoder_output=None, enc_dec_attn_mask=None,

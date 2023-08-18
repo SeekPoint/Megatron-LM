@@ -54,7 +54,7 @@ def post_language_model_processing(lm_output, labels, logit_weights,
         loss = loss.transpose(0,1).contiguous()
         return loss
 
-
+#我们首先看看 GPTModel 的初始化函数，略过其他功能函数。其主要调用了 get_language_model 函数。
 class GPTModel(MegatronModule):
     """GPT-2 Language model."""
 

@@ -468,6 +468,10 @@ def get_tensor_model_parallel_world_size():
 '''
 6.2.2 world size
 get_pipeline_model_parallel_world_size 得到了进程组的 world size。
+获取本流水线组world size的数目，就是流水线深度。
+
+_MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE 的意思是流水线深度 p，就是纵向切 p-1刀。比如一共 12 层，纵向切 5 刀，则有 6 个stage，每个 stage 有 2 层。
+
 '''
 def get_pipeline_model_parallel_world_size():
     """Return world size for the pipeline model parallel group."""
@@ -507,6 +511,9 @@ def get_pipeline_model_parallel_rank():
 '''
 4.2.3.1 获取层数
 这里一个重点就是获取层数，即获取本模型在并行处理状况下，应该拥有多少层。如果模型一共64层，流水线深度为16，则并行每个阶段有4层，则本子模型拥有4层。
+
+4.2.3.1 获取层数
+这里一个重点就是获取层数，即获取本模型在并行处理状况下，应该拥有多少层。如果模型一共32层，流水线深度为8，则并行每个阶段有4层，则本子模型拥有4层。
 '''
 def get_num_layers(args, is_encoder_and_decoder_model):
     """Compute the number of transformer layers resident on the current rank."""
