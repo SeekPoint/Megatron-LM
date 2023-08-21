@@ -33,7 +33,10 @@ from megatron.model.fused_bias_gelu import bias_gelu_impl
 from megatron.model.utils import attention_mask_func, openai_gelu, erf_gelu
 
 
-""" We use the following notation throughout this file:
+""" 
+3.1 命名规范
+我们首先规范下后面要用到的变量名。
+We use the following notation throughout this file:
      h: hidden size
      n: number of attention heads
      p: number of model parallel partitions
@@ -43,6 +46,7 @@ from megatron.model.utils import attention_mask_func, openai_gelu, erf_gelu
      b: batch size
      s: sequence length
      l: number of layers
+     Transformer 的输入 size 是 [s, b, h]，返回一个同样 size 的张量
     Transformer takes input of size [s, b, h] and returns a
     tensor of the same size. We use the following arguments:
         hyperparameters: transformer hyperparameters
@@ -75,6 +79,26 @@ ParallelTransformerLayer 里面包含了 Attention 和 MLP，因为篇幅所限�
 
 
 原文有很多图和公式！！！
+
+
+3.2 MLP 代码
+3.2.1 初始化
+
+/Megatron-LM/megatron/model/transformer.py 之中有 ParallelMLP 定义如下：
+
+首先，定义了一个名为 ColumnParallelLinear 类的操作，用于将输入从 H 维度扩展到 4H 维度的转换。
+接下来，进行了一个 gelu 激活函数操作。
+然后，使用名为 RowParallelLinear 类的操作，将输入从 4H 维度转换回到 H 维度。
+dropout 操作是在上面 ParallelTransformerLayer 的 forward 之中进行。
+
+所以，ParallelMLP 的流程如下图：
+
+
+对应 Megatron 论文中的这个图：
+
+
+具体ParallelMLP实现代码如下：
+
 '''
 class ParallelMLP(MegatronModule):
     """MLP.
@@ -88,7 +112,7 @@ class ParallelMLP(MegatronModule):
         super(ParallelMLP, self).__init__()
         args = get_args()
 
-        # Project to 4h.
+        # Project to 4h.  If using swiglu double the output width, see https://arxiv.org/pdf/2002.05202.pdf
         self.dense_h_to_4h = mpu.ColumnParallelLinear( # 列切分
             args.hidden_size,
             args.ffn_hidden_size,
@@ -113,6 +137,14 @@ class ParallelMLP(MegatronModule):
     '''
     2.2.2 前向操作
 这里分别调用了 ColumnParallelLinear 完成了 H 到 4H 的转换，RowParallelLinear 完成了 4H 到 H 的转换。
+
+
+3.2.2 前向操作
+
+这里分别调用了 ColumnParallelLinear完成了维度从 H 到 4H 的转换，RowParallelLinear 完成了维度从 4H 到 H 的转换。
+ColumnParallelLinear 可以独立使用，也可以作为 ParallelMLP 的前半部分。它的功能是将输入从 H 维度扩展到 4H 维度，可能涉及到列并行的操作，以便在多个处理单元上并行计算。
+
+RowParallelLinear 也可以独立使用，也可以作为 ParallelMLP 的后半部分。它的功能是将输入从 4H 维度转换回到 H 维度，可能涉及到行并行的操作，以便在多个处理单元上并行计算。
     '''
     def forward(self, hidden_states):
 
@@ -535,7 +567,9 @@ def bias_dropout_add_fused_inference(x: torch.Tensor,
 
 '''
 0x01 并行Transformer层
-在论文篇之中，我们了解到，因为模型越来越大，其尺寸远远超过了处理器的内存限制，因此产生了诸如激活检查点（activation checkpointing）这样的内存管理技术。而模型并行则通过对模型进行各种分片来克服单个处理器内存限制，这样模型权重和其关联的优化器状态就可以分散到多个设备之上。
+在论文篇之中，我们了解到，因为模型越来越大，其尺寸远远超过了处理器的内存限制，
+因此产生了诸如激活检查点（activation checkpointing）这样的内存管理技术。
+而模型并行则通过对模型进行各种分片来克服单个处理器内存限制，这样模型权重和其关联的优化器状态就可以分散到多个设备之上。
 
 ParallelTransformerLayer 就是对 Transformer 层的并行实现，所以我们接着分析。
 
@@ -551,6 +585,53 @@ ParallelTransformerLayer 初始化方法之中，建立了如下：
     
 对应就是：
 图！！！！！
+
+
+2. ParallelTransforme 层
+随着模型变得越来越庞大，其尺寸远远超出了处理器内存的限制，因此出现了一些内存管理技术，比如激活检查点技术（activation checkpointing）。
+与此同时，模型并行通过将模型分成多个片段来克服单个处理器内存的限制。
+这样，模型的权重（Model Weight）和优化器状态（Optimizer State）可以分布在多个设备上。
+这种分片的策略可以有效地处理大型模型，确保模型能够在有限内存资源下得到训练和推理。
+
+ParallelTransformerLayer 就是对 Transformer 模型层的并行实现，所以从这里进行分析。
+https://zhuanlan.zhihu.com/p/650237833
+深入理解 Megatron-LM（4）模型并行  --也有图
+
+
+
+3. ParallelMLP 层
+ParallelTransformerLayer 里面包含了 Attention 和 MLP，本文主要对MLP进行分析。
+
+
+Megatron 的并行 MLP 包含了两个线性层，第一个线性层实现了维度从 hidden size 到 4 x hidden size 的转换，第二个线性层实现了维度从 4 x hidden size 到 hidden size 的转换。具体 MLP 的逻辑如下：
+
+
+这里需要思考的是：如何把这两种线性层切开到不同的 GPU 卡之上，以实现模型并行。
+
+Megatron 使用的是之前文章介绍的第二种方案：
+
+简枫：Megatron-LM 源码阅读（2）原理介绍
+10 赞同 · 3 评论文章
+
+另一个选项是沿列拆分A，得到 
+ 。该分区允许 GeLU 非线性独立应用于每个分区 GEMM 的输出：
+
+这个方法更好，因为它删除了同步点，直接把两个 GeLU 的输出拼接在一起就行。因此，我们以这种列并行方式划分第一个 GEMM，并沿其行分割第二个 GEMM，以便它直接获取 GeLU 层的输出，而不需要任何其他通信（比如 all-reduce 就不需要了）。
+按照常规逻辑，MLP 的前向传播应该分为两个阶段，分别对应了下面图之中的两行，
+
+第一行是把参数 A 按照列切分，然后把结果按照列拼接起来，得到的结果就是与不使用并行策略完全等价的结果。
+第二行是把第一行的输出激活 Y 按照列切分，参数 B 按照行切分做并行，最后把输出做加法，得到 Z。
+
+每次 split 会导致两次额外的通信（前向传播和后向传播各一次，下面只描述了前向传播）。因为对于第二行来说，其输入 Y 本质上是 XA1 和 XA2 的并行，所以为了降低通信量，我们可以将数据通信延迟或者干脆取消通信。换句话说，我们可以省略掉第一行最后的 all_gather 操作以及第二行最初的 split 操作，这实际上涉及数学上的传递性和结合律（局部和的总和等于全局和）。因此，这就演变成了 Megatron 论文中所介绍的第二种方案。
+
+
+MLP 就是把 ColumnParallelLinear 和 RowParallelLinear 结合起来。
+
+ColumnParallelLinear 实现了 MLP 的前半部分；
+
+RowParallelLinear 实现了 MLP 的后半部分。
+
+
 '''
 class ParallelTransformerLayer(MegatronModule):
     """A single transformer layer.
@@ -613,13 +694,14 @@ class ParallelTransformerLayer(MegatronModule):
                 no_persist_layer_norm=args.no_persist_layer_norm,
                 sequence_parallel=args.sequence_parallel)
 
-        # MLP
+        # MLP  # 生成一个并行MLP
         if args.num_experts is not None:
             self.mlp = SwitchMLP(init_method, output_layer_init_method)
         else:
             self.mlp = ParallelMLP(init_method, output_layer_init_method)  # 生成一个并行MLP
 
         # Set bias+dropout+add fusion grad_enable execution handler.
+        # 算子融合，加速用的
         TORCH_MAJOR = int(torch.__version__.split('.')[0])
         TORCH_MINOR = int(torch.__version__.split('.')[1])
         use_nvfuser = TORCH_MAJOR > 1 or (TORCH_MAJOR == 1 and TORCH_MINOR >= 10)

@@ -351,6 +351,27 @@ ColumnParallelLinear 就是按列进行切分，也就是纵刀流。注意，�
 Figure 3. Blocks of Transformer with Model Parallelism. f and g are conjugate. f is an identity operator in the forward pass and all reduce in the backward pass while g is an all reduce in the forward pass and identity in the backward pass.
 
 图和公式！！！！！
+
+
+
+4. ColumnParallelLinear
+代码地址：/Megatron-LM/megatron/core/tensor_parallel/layers.py
+
+ColumnParallelLinear 就是按列进行切分。注意，这里说的是对权重进行列切分，就是：
+
+
+具体切分如下：
+
+
+4.1 定义
+对于 
+ ， 
+ 被以如下的方式进行并行化：
+ .
+
+通过类ColumnParallelLinear的注释可以看出来 ，
+
+
 '''
 
 class ColumnParallelLinear(torch.nn.Module):
@@ -480,6 +501,62 @@ ColumnParallelLinear
 每个worker都有同样的input X，但是backward的时候， 每个worker都有一份对X的grad（但内容不一样），需要对X的grad做一次all-reduce.
 如果gather_output为True，就需要forward的时候把Y_i做all-gather，backward的时候，完整的grad需要scatter到对应worker上.
 
+
+
+
+
+
+
+4.3 ColumnParallelLinear的处理过程
+在下图中，这个图对应了 ColumnParallelLinear 类的前向传播和后向传播过程。这里，f 是对输入的处理，g 则是处理之后得到最终输出。
+
+
+4.3.1 前向传播
+
+前向传播形式化为 
+ 。
+
+过程如下：
+
+输入：因为每个 GPU 需要拿到一个完整的输入 
+ ，所以前向操作之中需要把 
+ 分发到每个 GPU。
+计算：经过计算之后，输出的 
+也是按照列被切分过的，每个 GPU 只有自己对应的分区。
+输出：因为
+需要合并在一起，才能得到最终输出的 
+ 。所以需要有一个 all-gather 操作来进行聚合，即得到 
+ 。
+这些逻辑点在下图上用红色方框标示，输入 X 先经过 f 来处理，输出 Y 是 g 整合之后的结果。
+
+
+4.3.2 反向传播
+
+我们接下来看看后向传播，对于上图来说，后向传播是从上至下，梯度先经过 g，最后被 f 处理。
+
+反向传播的逻辑如下：
+
+目前得到了反向传播上游传过来的梯度 
+，现在需要对其进行切分，保证每个 GPU 之上都有一份梯度 
+ 。操作是 
+。
+每个GPU之上会进行关于 
+ 的梯度计算，于是每个GPU都有一份对
+ 的梯度（但是其内容不一样）。
+最后需要把各个 GPU 之上关于
+ 的梯度进行相加，得到完整梯度，这就需要一个 all-reduce 操作。即 
+这些逻辑点在下图上用蓝色圆角矩形标示出来后向传播对应的算子。
+
+
+4.4 代码实现
+结合代码来分析。
+4.4.1 ColumnParallelLinear
+
+ColumnParallelLinear 的 forward 代码之中，主要是实施了 f 和 g 的forward操作，同时把 f和 g 的 backward 操作搭建起来：
+
+如果gather_output为 True，则在前向传播时候把 
+ 做all-gather，因为反向传播时需要把完整梯度scatter到对应GPU之上，所以要搭建对于的split操作。MLP实现之中，此处设置为 False，这样每个GPU 输出的是自己对应 partition 的 4h/p，直接传送给下一个线性层。
+ 
     '''
     def forward(self, input_):
         # 如果选择忽略bias，就会设置为None，后续就不用处理了

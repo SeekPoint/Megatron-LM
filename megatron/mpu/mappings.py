@@ -21,6 +21,7 @@ from .utils import split_tensor_along_last_dim
 #对应的后向传播就使用了All-reduce，反向传播时候，输入是多个GPU上的梯度整体，通过all-reduce合并。
 #在 megatron/mpu/mappings.py 之中有对 tensor model group 的使用：
 #就是当流水线反向传播时候，利用 _TENSOR_MODEL_PARALLEL_GROUP 进行在组内进行集合通信。
+
 def _reduce(input_):
     """All-reduce the input tensor across model parallel group."""
 
@@ -33,7 +34,11 @@ def _reduce(input_):
 
     return input_
 
+'''
+4.4.4.2 _split_along_last_dim
 
+_split_along_last_dim 完成了张量切分操作。
+'''
 def _split_along_last_dim(input_):
     """Split the tensor along its last dimension and keep the
     corresponding slice."""
@@ -74,7 +79,13 @@ def _split_along_first_dim(input_):
 
     return output
 
-#是沿着最后一个维度进行拼接。
+'''
+4.4.4 基础函数
+
+4.4.4.1 _gather_along_last_dim
+
+_gather_along_last_dim 是沿着最后一个维度进行拼接。
+'''
 def _gather_along_last_dim(input_):
     """Gather tensors and concatinate along the last dimension."""
 
@@ -142,6 +153,8 @@ Megatron-LM论文 里面描述过两个共轭的函数:
 
 这两个函数背后的逻辑其实很好理解. 可以把all-reduce理解为一个sum操作，直接return _input理解为copy操作. 
 copy操作的结果分到两个worker上，梯度来自于两部分，所以梯度需要做sum. 而sum操作结果的梯度直接copy就行了.
+
+从 return 的 _CopyToModelParallelRegion函数可以看到，其 forward 就是简单的把输入转移到输出。
 '''
 class _CopyToModelParallelRegion(torch.autograd.Function):
     """Pass the input to the model parallel region."""
@@ -300,6 +313,16 @@ def scatter_to_tensor_model_parallel_region(input_):
     return _ScatterToModelParallelRegion.apply(input_)
 
 
+'''
+4.4.3 g 操作
+
+以下对应了图之中的 g 操作。g 操作是最终生成输出 Y，逻辑是：
+
+前向传播时候做 all-gather；
+后向传播需要执行 split，把梯度 scatter 到不同 GPU 之上。
+
+代码为：
+'''
 def gather_from_tensor_model_parallel_region(input_):
     return _GatherFromModelParallelRegion.apply(input_)
 
