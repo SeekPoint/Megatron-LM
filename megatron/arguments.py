@@ -23,7 +23,7 @@ import torch
 def parse_args(extra_args_provider=None, defaults={},
                ignore_unknown_args=False):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description='Megatron-LM Arguments',
+    parser = argparse.ArgumentParser(description='tag_v2.7 Arguments',
                                      allow_abbrev=False)
 
     # Standard arguments.
