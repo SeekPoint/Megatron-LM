@@ -181,9 +181,9 @@ def generate_samples_input_from_file(model):
                     decode_tokens = decode_tokens[0].cpu().numpy().tolist()
                     trim_decode_tokens = tokenizer.detokenize(
                         decode_tokens)[raw_text_len:]
-                    print("\nMegatron-LM:", trim_decode_tokens, flush=True)
+                    print("\ntag_v2.7:", trim_decode_tokens, flush=True)
 
-                    fname_out.write("\n\nMegatron-LM:")
+                    fname_out.write("\n\ntag_v2.7:")
                     fname_out.write(trim_decode_tokens)
                     fname_out.write("\n")
 
@@ -302,7 +302,7 @@ def generate_samples_interactive(model, print_frequency=24):
                 decode_tokens = decode_tokens[0].cpu().numpy().tolist()
                 trim_decode_tokens = tokenizer.detokenize(
                     decode_tokens)[raw_text_len:]
-                print("\nMegatron-LM:", trim_decode_tokens, flush=True)
+                print("\ntag_v2.7:", trim_decode_tokens, flush=True)
 
             if mpu.is_pipeline_first_stage() \
                and mpu.get_tensor_model_parallel_rank() == 0:
@@ -314,7 +314,7 @@ def generate_samples_interactive(model, print_frequency=24):
                     decode_tokens = decode_tokens[0].cpu().numpy().tolist()
                 trim_decode_tokens = tokenizer.detokenize(
                     decode_tokens)[raw_text_len:]
-                print("\nMegatron-LM:", trim_decode_tokens, flush=True)
+                print("\ntag_v2.7:", trim_decode_tokens, flush=True)
 
                 input("\nPress Enter to continue >>>")
 

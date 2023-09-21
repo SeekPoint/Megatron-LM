@@ -526,7 +526,11 @@ class ParallelTransformerLayer(MegatronModule):
 
         return output
 
-
+'''
+4.2.3 ParallelTransformer
+这里会调用 ParallelTransformerLayer 生成具体的 Transformer层，我们会在后文中进行分析。
+即，ParallelTransformer 包括多个 Transformer，其中每层 Transformer 是一个 ParallelTransformerLayer。
+'''
 class ParallelTransformer(MegatronModule):
     """Transformer class."""
 
@@ -547,13 +551,53 @@ class ParallelTransformer(MegatronModule):
         self.checkpoint_activations = args.checkpoint_activations
         self.checkpoint_num_layers = args.checkpoint_num_layers
 
-        # Number of layers.
+        # Number of layers. # 获得本Transformer的具体层数
         assert args.num_layers % mpu.get_pipeline_model_parallel_world_size() == 0, \
             'num_layers must be divisible by pipeline_model_parallel_size'
         self.num_layers = args.num_layers // mpu.get_pipeline_model_parallel_world_size()
+        '''yknote代码有不同
+        
+        def get_num_layers(args, is_encoder_and_decoder_model):
+        没有出现在tag 2.5, 2.6中，最早是2.7
+        考虑到2.7的日期比文章要晚，还是选定2.5        
+        
+        # Number of layers.
+        self.num_layers = mpu.get_num_layers( # 获得本Transformer的具体层数
+            args, args.model_type == ModelType.encoder_and_decoder)
+            
+        4.2.3.1 获取层数
+        这里一个重点就是获取层数，即获取本模型在并行处理状况下，应该拥有多少层。如果模型一共64层，流水线深度为16，则并行每个阶段有4层，则本子模型拥有4层。
+        
+        def get_num_layers(args, is_encoder_and_decoder_model):
+            """Compute the number of transformer layers resident on the current rank."""
+            if get_pipeline_model_parallel_world_size() > 1:
+                if is_encoder_and_decoder_model:
+                    assert args.pipeline_model_parallel_split_rank is not None
+                    num_ranks_in_encoder = args.pipeline_model_parallel_split_rank
+                    num_ranks_in_decoder = get_pipeline_model_parallel_world_size() - num_ranks_in_encoder
+                    if is_pipeline_stage_before_split():
+                        num_layers = args.num_layers // num_ranks_in_encoder
+                    else:
+                        num_layers = args.num_layers // num_ranks_in_decoder
+                else:
+                    num_layers = args.num_layers // get_pipeline_model_parallel_world_size()
+            else:
+                num_layers = args.num_layers
+            return num_layers
+        get_pipeline_model_parallel_world_size 获取本流水线组world size数目，就是流水线深度。
+        
+        def get_pipeline_model_parallel_world_size():
+            """Return world size for the pipeline model parallel group."""
+            global _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE
+            if _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE is not None:
+                return _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE
+            return torch.distributed.get_world_size(group=get_pipeline_model_parallel_group())
+        _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE 的意思是流水线深度 p，就是纵向切 p-1刀。比如一共 12 层，纵向切 5 刀，则有 6 个stage，每个 stage 有 2 层。        
+        '''
 
         # Transformer layers.
         def build_layer(layer_number):
+            # 返回一层 Transformmer
             return ParallelTransformerLayer(
                 init_method,
                 output_layer_init_method,
@@ -582,7 +626,7 @@ class ParallelTransformer(MegatronModule):
             # Each stage gets a contiguous set of layers.
             offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
 
-        self.layers = torch.nn.ModuleList(
+        self.layers = torch.nn.ModuleList(  # 生成 num_layers 个 Transformer
             [build_layer(i + 1 + offset) for i in range(self.num_layers)])
 
         if self.post_process:
@@ -590,6 +634,9 @@ class ParallelTransformer(MegatronModule):
             self.final_layernorm = LayerNorm(
                 args.hidden_size,
                 eps=args.layernorm_epsilon)
+        '''
+        目前逻辑如下，我们假定有两个 transformer：  26.jpg
+        '''
 
     def _get_layer(self, layer_number):
         return self.layers[layer_number]
@@ -630,6 +677,11 @@ class ParallelTransformer(MegatronModule):
         forward_step_func"""
         self.input_tensor = input_tensor
 
+    '''
+    4.2.3.2 前向传播
+我们接着看看其前向传播函数，
+这里主要就是调用内部 ParallelTransformerLayer 的 forward 方法，如果是第一层或者最后一层，则做特殊处理。
+    '''
     def forward(self, hidden_states, attention_mask, layer_past=None,
                 get_key_value=False, encoder_output=None, enc_dec_attn_mask=None):
 
@@ -671,7 +723,7 @@ class ParallelTransformer(MegatronModule):
                 past = None
                 if layer_past is not None:
                     past = layer_past[index]
-                hidden_states = layer(hidden_states,
+                hidden_states = layer(hidden_states,   # 调用ParallelTransformerLayer的forward函数
                                       attention_mask,
                                       encoder_output=encoder_output,
                                       enc_dec_attn_mask=enc_dec_attn_mask,

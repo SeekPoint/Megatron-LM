@@ -58,7 +58,29 @@ def print_datetime(string):
     time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print_rank_0('[' + string + '] datetime: {} '.format(time_str))
 
+'''
+0x02 Pretrain
+BERT训练主要分为两步：
 
+    Pre-train：
+    pre-train是迁移学习的基础，是训练token-level的语义理解。
+    
+    Fine-tuning：
+    在已经训练好的语言模型基础之上，加入特定领域（比如金融医疗）的参数来重新训练，
+    比如对于分类问题就可以在pre-train模型基础之上加上一个softmax，再使用语料 fine-tune。
+
+Pre-train 主要如下：
+
+    初始化Megatron。
+    
+    使用model_provider设置模型、优化器和lr计划。
+    
+    调用train_val_test_data_provider以获取train/val/test数据集。
+    
+    使用forward_step_func训练模型。
+
+具体代码如下：
+'''
 def pretrain(train_valid_test_dataset_provider,
              model_provider,
              forward_step_func,
@@ -89,6 +111,7 @@ def pretrain(train_valid_test_dataset_provider,
     """
 
     # Initalize and get arguments, timers, and Tensorboard writer.
+    # 对于我们分析来说，initialize_megatron 是重点，这里初始化了 megatron。
     initialize_megatron(extra_args_provider=extra_args_provider,
                         args_defaults=args_defaults)
 
@@ -107,8 +130,9 @@ def pretrain(train_valid_test_dataset_provider,
     args = get_args()
     timers = get_timers()
 
-    # Model, optimizer, and learning rate.
+    # Model, optimizer, and learning rate. 使用model_provider设置模型、优化器和lr计划
     timers('model-and-optimizer-setup').start()
+    # Model, optimizer, and learning rate. 使用model_provider设置模型、优化器和lr计划  yknote代码有变化
     model, optimizer, lr_scheduler = setup_model_and_optimizer(model_provider)
     timers('model-and-optimizer-setup').stop()
     print_datetime('after model, optimizer, and learning rate '
@@ -116,6 +140,8 @@ def pretrain(train_valid_test_dataset_provider,
 
     # Data stuff.
     timers('train/valid/test-data-iterators-setup').start()
+
+    # Data stuff. 调用train_val_test_data_provider以获取train/val/测试数据集
     if args.virtual_pipeline_model_parallel_size is not None:
         all_data_iterators = [
             build_train_valid_test_data_iterators(train_valid_test_dataset_provider)
@@ -138,7 +164,7 @@ def pretrain(train_valid_test_dataset_provider,
 
     iteration = 0
     if args.do_train and args.train_iters > 0:
-        iteration = train(forward_step_func,
+        iteration = train(forward_step_func,  # 训练模型
                           model, optimizer, lr_scheduler,
                           train_data_iterator, valid_data_iterator)
     print_datetime('after training is done')
@@ -188,77 +214,23 @@ def update_train_iters(args):
 
     print_rank_0('setting training iterations to {}'.format(args.train_iters))
 
+'''
+4.3 get_model
+现在让我们回到 get_model，把生成模型的流程整理出来。
 
-def get_model(model_provider_func):
-    """Build the model."""
-    args = get_args()
+BERT之中含有多个transformer，所以直接按照层数切分，每一层是一模一样的transformer layer。前面提到了，在我们样例之中启动了8个进程，
+每个进程里面有一个子模型，即原始BERT模型的部分层。但是怎么知道每个子模型包含了多少层？
+答案是：因为已经建立了各种进程组，所以 get_model 方法会依据目前进程组情况进行处理。
+单个进程内模型获取如下：
 
-    # Build model.
-    if mpu.get_pipeline_model_parallel_world_size() > 1 and \
-       args.virtual_pipeline_model_parallel_size is not None:
-        model = []
-        for i in range(args.virtual_pipeline_model_parallel_size):
-            mpu.set_virtual_pipeline_model_parallel_rank(i)
-            # Set pre_process and post_process only after virtual rank is set.
-            pre_process = mpu.is_pipeline_first_stage()
-            post_process = mpu.is_pipeline_last_stage()
-            this_model = model_provider_func(
-                pre_process=pre_process,
-                post_process=post_process
-            )
-            model.append(this_model)
-    else:
-        pre_process = mpu.is_pipeline_first_stage()
-        post_process = mpu.is_pipeline_last_stage()
-        model = model_provider_func(
-            pre_process=pre_process,
-            post_process=post_process
-        )
+    如果是有 virtual 设置，则会遍历 virtual size，生成对应数目的模型（BertModel）。
+    否则如果是 encoder_and_decoder，则针对split进行配置。
+    设置 tensor model parallel 属性。
+    把本模型放置到GPU之上。
+    如果需要数据并行，则配置DDP。
+具体代码如下：
+'''
 
-    if not isinstance(model, list):
-        model = [model]
-
-    # Set tensor model parallel attributes if not set.
-    # Only parameters that are already tensor model parallel have these
-    # attributes set for them. We should make sure the default attributes
-    # are set for all params so the optimizer can use them.
-    for model_module in model:
-        for param in model_module.parameters():
-            mpu.set_defaults_if_not_set_tensor_model_parallel_attributes(param)
-
-    # Print number of parameters.
-    if mpu.get_data_parallel_rank() == 0:
-        print(' > number of parameters on (tensor, pipeline) '
-              'model parallel rank ({}, {}): {}'.format(
-            mpu.get_tensor_model_parallel_rank(),
-            mpu.get_pipeline_model_parallel_rank(),
-            sum([sum([p.nelement() for p in model_module.parameters()])
-                 for model_module in model])), flush=True)
-
-    # GPU allocation.
-    for model_module in model:
-        model_module.cuda(torch.cuda.current_device())
-
-    # Fp16 conversion.
-    if args.fp16 or args.bf16:
-        model = [Float16Module(model_module, args) for model_module in model]
-
-    if args.DDP_impl == 'torch':
-        i = torch.cuda.current_device()
-        model = [torchDDP(model_module, device_ids=[i], output_device=i,
-                          process_group=mpu.get_data_parallel_group())
-                 for model_module in model]
-        return model
-
-    if args.DDP_impl == 'local':
-        model = [LocalDDP(model_module,
-                          args.accumulate_allreduce_grads_in_fp32,
-                          args.use_contiguous_buffers_in_ddp)
-                 for model_module in model]
-        return model
-
-    raise NotImplementedError('Unknown DDP implementation specified: {}. '
-                              'Exiting.'.format(args.DDP_impl))
 
 
 def get_learning_rate_scheduler(optimizer):
@@ -303,7 +275,10 @@ def get_learning_rate_scheduler(optimizer):
 
     return lr_scheduler
 
-
+'''
+4.1 setup_model_and_optimizer
+setup_model_and_optimizer 方法会设置模型和优化器，其中重点是get_model。
+'''
 def setup_model_and_optimizer(model_provider_func):
     """Setup model and optimizer."""
     args = get_args()

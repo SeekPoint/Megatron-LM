@@ -1,0 +1,59 @@
+模型并行分布式训练Megatron (2) --- 整体架构
+https://www.cnblogs.com/rossiXYZ/p/15868988.html
+
+目录
+[源码解析] 模型并行分布式训练Megatron (2) --- 整体架构
+0x00 摘要
+0x01 启动
+1.1 分布式启动
+1.2 构造基础
+1.2.1 获取模型
+1.2.2 获取数据集
+1.2.3 步进函数
+1.2.3.1 广播数据
+0x02 Pretrain
+0x03 初始化
+3.1 initialize_megatron
+3.2 初始化分布式环境
+3.3 初始化进程组全局变量
+0x04 设置模型
+4.1 setup_model_and_optimizer
+4.2 模型
+4.2.1 BertModel
+4.2.2 语言模型
+4.2.3 ParallelTransformer
+4.2.3.1 获取层数
+4.2.3.2 前向传播
+4.3 get_model
+0x05 数据并行
+5.1 设置数据
+5.2 DDP
+5.2.1 定义
+5.2.2 初始化
+5.2.3 内存
+5.2.4 支撑函数
+5.2.5 梯度规约
+0x06 训练
+6.1 训练主体
+6.2 训练step
+6.3 获取schedule
+0xFF 参考
+
+0x00 摘要
+NVIDIA Megatron 是一个基于 PyTorch 的分布式训练框架，用来训练超大Transformer语言模型，
+其通过综合应用了数据并行，Tensor并行和Pipeline并行来复现 GPT3，值得我们深入分析其背后机理。
+
+本系列大概有6～7篇文章，通过论文和源码和大家一起学习研究。本文将对 Megatron 的基本架构做一下梳理。
+
+本系列其他文章为:
+
+[源码解析] 模型并行分布式训练Megatron (1) --- 论文 & 基础
+
+
+0x01 启动
+1.1 分布式启动
+启动脚本在 examples/pretrain_bert_distributed.sh，其利用了 torch.distributed.launch 来启动多个进程。
+具体业务代码是 pretrain_bert.py。
+因为 GPUS_PER_NODE 是8，所以 nproc_per_node 是8，这样，在本机上就启动了8个进程，每个进程之中含有模型的一部分。
+进程的 rank 是被 torch.distributed.launch 调用 elastic 自动分配的。
+
