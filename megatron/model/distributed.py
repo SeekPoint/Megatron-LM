@@ -24,13 +24,16 @@ from megatron import mpu
 from .module import MegatronModule
 
 
-
+'''
+5.2.3 内存
+MemoryBuffer 是内存抽象。
+'''
 class MemoryBuffer:
 
     def __init__(self, numel, dtype):
         self.numel = numel
         self.dtype = dtype
-        self.data = torch.zeros(self.numel,
+        self.data = torch.zeros(self.numel, # 初始化内存
                                 dtype=self.dtype,
                                 device=torch.cuda.current_device(),
                                 requires_grad=False)
@@ -44,10 +47,10 @@ class MemoryBuffer:
     def get(self, shape, start_index):
         """Return a tensor with the input `shape` as a view into the
         1-D data starting at `start_index`."""
-        end_index = start_index + shape.numel()
+        end_index = start_index + shape.numel() # 定位到该张量在内存buffer之中的位置
         assert end_index <= self.numel, \
             'requested tensor is out of the buffer range.'
-        buffer_tensor = self.data[start_index:end_index]
+        buffer_tensor = self.data[start_index:end_index]   # 拿到内存
         buffer_tensor = buffer_tensor.view(shape)
         return buffer_tensor
 
@@ -85,7 +88,12 @@ class DistributedDataParallelBase(MegatronModule, ABC):
         self.module.load_state_dict(state_dict, strict=strict)
 
 
+'''
+所以我们看看 megatron 自己的 DDP实现。
 
+5.2.1 定义
+定义只有注释可以看看，使用连续的（contiguous）内存来存储和累积梯度，每一种类型的张量属于一个统一的内存，可以统一做 allreduce。
+'''
 class DistributedDataParallel(DistributedDataParallelBase):
     """DDP with contiguous buffers options to storre and accumulate gradients.
     This class:
@@ -101,7 +109,10 @@ class DistributedDataParallel(DistributedDataParallelBase):
         use_contiguous_buffers: if true, use a contiguous buffer to store the
             gradients.
     """
-
+    '''
+    5.2.2 初始化
+    初始化方法的目的是把同类型梯度连续存储。
+    '''
     def __init__(self, module,
                  accumulate_allreduce_grads_in_fp32,
                  use_contiguous_buffers):
@@ -121,49 +132,56 @@ class DistributedDataParallel(DistributedDataParallelBase):
         # the case we use continuous buffers.
         # ===================================
         self._grad_buffers = None
-        if self.use_contiguous_buffers:
-            self._grad_buffers = {}
+        if self.use_contiguous_buffers: # 这里只考虑连续内存
+            self._grad_buffers = {} # 定义buffer
 
             # Simple function to define buffer type.
-            def _get_buffer_type(param):
-                return torch.float if \
-                    self.accumulate_allreduce_grads_in_fp32 else param.dtype
+            def _get_buffer_type(param): # 返回buffer类型
+                    return torch.float if \
+                        self.accumulate_allreduce_grads_in_fp32 else param.dtype
 
-            # First calculate total number of elements per type.
-            type_num_elements = {}
-            for param in self.module.parameters():
-                if param.requires_grad:
-                    dtype = _get_buffer_type(param)
+                # First calculate total number of elements per type.
+                type_num_elements = {}
+            for param in self.module.parameters(): # 遍历模型参数
+                if param.requires_grad: # 如果需要计算梯度
+                    dtype = _get_buffer_type(param) # 获取参数类型
                     type_num_elements[dtype] = type_num_elements.get(dtype, 0) \
-                                               + param.data.nelement()
+                                               + param.data.nelement() # 该类型参数数目做相应增加
 
+            # 目前 type_num_elements 是各种类型参数的个数
             # Allocate the buffer.
-            for dtype, num_elements in type_num_elements.items():
-                self._grad_buffers[dtype] = MemoryBuffer(num_elements, dtype)
+            for dtype, num_elements in type_num_elements.items(): # 遍历各种类型
+                self._grad_buffers[dtype] = MemoryBuffer(num_elements, dtype) # 分配内存
 
+            # 这里是假定反向传播是参数的反方向，存储每个参数梯度的起始位置
             # Assume the back prop order is reverse the params order,
             # store the start index for the gradients.
-            for param in self.module.parameters():
-                if param.requires_grad:
-                    dtype = _get_buffer_type(param)
-                    type_num_elements[dtype] -= param.data.nelement()
-                    param.main_grad = self._grad_buffers[dtype].get(
-                        param.data.shape, type_num_elements[dtype])
+            for param in self.module.parameters(): # 遍历模型参数
+                if param.requires_grad: # 如果需要计算梯度
+                    dtype = _get_buffer_type(param) # 获取参数类型
+                    type_num_elements[dtype] -= param.data.nelement() # 减少size
+                    # 确定该参数在MemoryBuffer的位置
+                    param.main_grad = self._grad_buffers[dtype].get( # 获取该参数对应的内存
+                            param.data.shape, type_num_elements[dtype])
 
-            # Backward hook.
-            # Accumalation function for the gradients. We need
-            # to store them so they don't go out of scope.
-            self.grad_accs = []
-            # Loop over all the parameters in the model.
-            for param in self.module.parameters():
-                if param.requires_grad:
+                # Backward hook.
+                # Accumalation function for the gradients. We need
+                # to store them so they don't go out of scope.
+                self.grad_accs = []
+                # Loop over all the parameters in the model.
+            for param in self.module.parameters(): # 遍历模型参数
+                if param.requires_grad: # 如果需要计算梯度
                     # Expand so we get access to grad_fn.
                     param_tmp = param.expand_as(param)
                     # Get the gradient accumulator functtion.
-                    grad_acc = param_tmp.grad_fn.next_functions[0][0]
-                    grad_acc.register_hook(self._make_param_hook(param))
-                    self.grad_accs.append(grad_acc)
+                    grad_acc = param_tmp.grad_fn.next_functions[0][0] # 得到参数对应的梯度函数
+                    grad_acc.register_hook(self._make_param_hook(param)) # 注册了hook
+                    self.grad_accs.append(grad_acc) # 统一管理梯度函数，其实就是book keeping作用
 
+    '''
+    5.2.4 支撑函数
+    下面是两个支撑函数，分别是用于拷贝梯度和将buffer清零。
+    '''
     def _make_param_hook(self, param):
         """Create the all-reduce hook for backprop."""
         # Hook used for back-prop.
@@ -171,10 +189,14 @@ class DistributedDataParallel(DistributedDataParallelBase):
             # Add the gradient to the buffer.
             if param.grad is not None:
                 # The gradient function of linear layers is fused with GEMMs
-                param.main_grad.add_(param.grad.data)
+                param.main_grad.add_(param.grad.data)  # 把梯度拷贝到连续内存之中
                 # Now we can deallocate grad memory.
                 param.grad = None
         return param_hook
+    '''
+    我们假定模型有6个参数，3个 fp32，3 个 fp16，所以被组合成两个连续内存 MemoryBuffer。
+    28.jpg
+    '''
 
 
     def zero_grad_buffer(self):
@@ -191,35 +213,43 @@ class DistributedDataParallel(DistributedDataParallelBase):
                                         src=mpu.get_data_parallel_src_rank(),
                                         group=mpu.get_data_parallel_group())
 
-
+    '''
+    5.2.5 梯度规约
+    allreduce_gradients 是 DDP 对外提供的 API，在后面 train step 之中会调用到。
+    '''
     def allreduce_gradients(self):
         """Reduce gradients across data parallel ranks."""
         # If we have buffers, simply reduce the data in the buffer.
         if self._grad_buffers is not None:
-            for _, buffer_ in self._grad_buffers.items():
+            # 连续内存
+            for _, buffer_ in self._grad_buffers.items(): # 遍历各种类型的buffer
                 buffer_.data /= mpu.get_data_parallel_world_size()
-                torch.distributed.all_reduce(
+                torch.distributed.all_reduce( # 统一归并
                     buffer_.data, group=mpu.get_data_parallel_group())
         else:
             # Otherwise, bucketize and all-reduce
-            buckets = {}
+            buckets = {}  # 否则还是用桶来归并
             # Pack the buckets.
-            for param in self.module.parameters():
+            for param in self.module.parameters():  # 遍历梯度
                 if param.requires_grad and param.grad is not None:
                     tp = param.data.type()
                     if tp not in buckets:
                         buckets[tp] = []
-                    buckets[tp].append(param)
+                    buckets[tp].append(param) # 同类型的梯度放到对应类型的桶之中
                     param.main_grad = param.grad
 
             # For each bucket, all-reduce and copy all-reduced grads.
             for tp in buckets:
                 bucket = buckets[tp]
-                grads = [param.grad.data for param in bucket]
-                coalesced = _flatten_dense_tensors(grads)
+                grads = [param.grad.data for param in bucket] # 把桶里的梯度拿出来
+                coalesced = _flatten_dense_tensors(grads) # 打平梯度
                 coalesced /= mpu.get_data_parallel_world_size()
-                torch.distributed.all_reduce(
+                torch.distributed.all_reduce(  # 归并
                     coalesced, group=mpu.get_data_parallel_group())
                 for buf, synced in zip(grads, _unflatten_dense_tensors(
                         coalesced, grads)):
                     buf.copy_(synced)
+    '''
+    运行时候，分别对两种类型的连续内存做 AllReduce。
+    29.jpg
+    '''

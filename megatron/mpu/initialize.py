@@ -20,7 +20,31 @@ import torch
 
 from .utils import ensure_divisibility
 
+'''
+3.3 初始化进程组全局变量
+因为调用了 mpu.initialize_model_parallel 来设置模型并行，
+数据并行等各种进程组，所以我们假定目前进程组都已经设置成功，所以每个 rank 对应的进程都有自己的全局变量。
+假定目前有16个GPU，属于两个node，rank 0 ～7 属于第一个节点，rank 8 ～ 15 属于第二个节点。
+下面的 gi 指的是第 i 个 GPU。
 
+    _TENSOR_MODEL_PARALLEL_GROUP ：当前 rank 所属于的Intra-layer model parallel group，就是tensor 并行进程组。
+        假如每一层分为两个tensor，则 _TENSOR_MODEL_PARALLEL_GROUP 
+        例子为：[g0, g1], [g2, g3], [g4, g5], [g6, g7], [g8, g9], [g10, g11], [g12, g13], [g14, g15]。
+    
+    _PIPELINE_MODEL_PARALLEL_GROUP ：当前 rank 所属于的Intra-layer model parallel group，就是流水线进程组。
+        假如流水线深度为4，
+        则例子为 [g0, g4, g8, g12], [g1, g5, g9, g13], [g2, g6, g10, g14], [g3, g7, g11, g15]。
+    
+    _MODEL_PARALLEL_GROUP ：当前 rank 所属于的模型并行进程组，包括了以上两组。
+        针对我们例子，
+        就是完整模型被复制了两份，两份分别对应的 GPU 具体是[0, 1, 4, 5, 8, 9, 12, 13]，[2, 3, 6, 7, 10, 11, 14, 15]
+    
+    _EMBEDDING_GROUP ： 嵌入对应的进程组。
+    
+    _DATA_PARALLEL_GROUP ：当前 rank 所属于的Data parallel group。
+        假如数据并行度数为2，
+        则例子为[g0, g2], [g1, g3], [g4, g6], [g5, g7], [g8, g10], [g9, g11], [g12, g14], [g13, g15]。
+'''
 # Intra-layer model parallel group that the current rank belongs to.
 _TENSOR_MODEL_PARALLEL_GROUP = None
 # Inter-layer model parallel group that the current rank belongs to.
@@ -281,14 +305,15 @@ def get_tensor_model_parallel_world_size():
         return _MPU_TENSOR_MODEL_PARALLEL_WORLD_SIZE
     return torch.distributed.get_world_size(group=get_tensor_model_parallel_group())
 
-
+#get_pipeline_model_parallel_world_size 获取本流水线组world size数目，就是流水线深度。
 def get_pipeline_model_parallel_world_size():
     """Return world size for the pipeline model parallel group."""
     global _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE
     if _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE is not None:
         return _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE
     return torch.distributed.get_world_size(group=get_pipeline_model_parallel_group())
-
+#_MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE 的意思是流水线深度 p，
+# 就是纵向切 p-1刀。比如一共 12 层，纵向切 5 刀，则有 6 个stage，每个 stage 有 2 层。
 
 def set_tensor_model_parallel_rank(rank):
     """Set tensor model parallel rank."""
@@ -317,7 +342,11 @@ def get_pipeline_model_parallel_rank():
         return _MPU_PIPELINE_MODEL_PARALLEL_RANK
     return torch.distributed.get_rank(group=get_pipeline_model_parallel_group())
 
-
+'''
+4.2.3.1 获取层数
+这里一个重点就是获取层数，即获取本模型在并行处理状况下，应该拥有多少层。
+如果模型一共64层，流水线深度为16，则并行每个阶段有4层，则本子模型拥有4层
+'''
 def get_num_layers(args, is_encoder_and_decoder_model):
     """Compute the number of transformer layers resident on the current rank."""
     if get_pipeline_model_parallel_world_size() > 1:
@@ -467,7 +496,7 @@ def get_virtual_pipeline_model_parallel_world_size():
     global _VIRTUAL_PIPELINE_MODEL_PARALLEL_WORLD_SIZE
     return _VIRTUAL_PIPELINE_MODEL_PARALLEL_WORLD_SIZE
 
-
+#get_tensor_model_parallel_src_rank 计算与张量模型并行组中第一个local rank对应的全局rank。
 def get_tensor_model_parallel_src_rank():
     """Calculate the global rank corresponding to the first local rank
     in the tensor model parallel group."""

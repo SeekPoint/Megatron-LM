@@ -120,7 +120,11 @@ def post_language_model_processing(lm_output, pooled_output,
                                                        lm_labels)
         return lm_loss, binary_logits
 
-
+'''
+4.2 模型
+4.2.1 BertModel
+我们首先看看 BertModel 的初始化函数，略过其他功能函数。其主要调用了 get_language_model。
+'''
 class BertModel(MegatronModule):
     """Bert Language model."""
 
@@ -142,7 +146,7 @@ class BertModel(MegatronModule):
         init_method = init_method_normal(args.init_method_std)
         scaled_init_method = scaled_init_method_normal(args.init_method_std,
                                                        args.num_layers)
-
+        # 获取语言模型
         self.language_model, self._language_model_key = get_language_model(
             num_tokentypes=num_tokentypes,
             add_pooler=self.add_binary_head,
@@ -153,6 +157,8 @@ class BertModel(MegatronModule):
             post_process=self.post_process)
 
         self.initialize_word_embeddings(init_method_normal)
+
+        # 如果是最后一层，会特殊处理
         if self.post_process:
             self.lm_head = BertLMHead(
                 self.word_embeddings_weight().size(0),

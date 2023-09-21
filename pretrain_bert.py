@@ -29,7 +29,11 @@ from megatron.model import BertModel, ModelType
 from megatron.training import pretrain
 from megatron.utils import average_losses_across_data_parallel_group
 
-
+'''
+1.2.1 获取模型
+model_provider返回模型普通版本（vanilla version）。
+所谓vanilla，我们指的是一个简单的cpu模型，没有 fp16或 ddp，但是已经被 Megatron 改造为并行的版本。
+'''
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
 
@@ -46,7 +50,13 @@ def model_provider(pre_process=True, post_process=True):
 
     return model
 
+'''
+1.2.3.1 广播数据
+forward_step 会调用 get_batch 获取batch 数据，其内部会从迭代器获取数据，
+然后使用broadcast_data函数把输入数据从 rank 0 广播到所有tensor-model-parallel 其他 ranks之上。
 
+注意，数据并行是把不同数据加载到不同的rank之上，而 Tensor模型并行组之中每个rank都加载同样数据。
+'''
 def get_batch(data_iterator):
     """Build the batch."""
 
@@ -56,10 +66,10 @@ def get_batch(data_iterator):
 
     # Broadcast data.
     if data_iterator is not None:
-        data = next(data_iterator)
+        data = next(data_iterator)   # 获取数据
     else:
         data = None
-    data_b = mpu.broadcast_data(keys, data, datatype)
+    data_b = mpu.broadcast_data(keys, data, datatype)  # 把数据广播到各个GPU
 
     # Unpack.
     tokens = data_b['text'].long()
@@ -97,7 +107,11 @@ def loss_func(loss_mask, sentence_order, output_tensor):
             [lm_loss])
         return loss, {'lm loss': averaged_losses[0]}
 
-
+'''
+1.2.3 步进函数
+forward_step函数接受一个“数据迭代器”和“模型”，并返回一个“loss”标量，该标量带有一个字典，其中key:value是希望在训练期间监视的信息，
+例如“lm loss:value”。还要求此函数将“batch generator”添加到timers类中。
+'''
 def forward_step(data_iterator, model):
     """Forward step."""
     args = get_args()
@@ -118,7 +132,10 @@ def forward_step(data_iterator, model):
 
     return output_tensor, partial(loss_func, loss_mask, sentence_order)
 
-
+'''
+1.2.2 获取数据集
+train_valid_test_datasets_provider 会接受train/valid/test数据集的大小，并返回 “train，valid，test” 数据集。
+'''
 def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     args = get_args()
@@ -140,9 +157,16 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
 
     return train_ds, valid_ds, test_ds
 
-
+'''
+1.2 构造基础
+pretrain_bert.py 会调用 pretrain 进行预训练。
+'''
 if __name__ == "__main__":
 
     pretrain(train_valid_test_datasets_provider, model_provider,
              ModelType.encoder_or_decoder,
              forward_step, args_defaults={'tokenizer_type': 'BertWordPieceLowerCase'})
+    '''
+逻辑图具体如下，三个不同的函数分别为预训练提供不同的功能输入，做到了解耦。
+    25.jpg
+    '''
