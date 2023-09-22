@@ -79,14 +79,14 @@ class ParallelMLP(MegatronModule):
         args = get_args()
 
         # Project to 4h.
-        self.dense_h_to_4h = mpu.ColumnParallelLinear(
+        self.dense_h_to_4h = mpu.ColumnParallelLinear( # 列切分
             args.hidden_size,
             args.ffn_hidden_size,
-            gather_output=False,
+            gather_output=False, # 这里是false，采用第二种方案
             init_method=init_method,
             skip_bias_add=True)
 
-        self.bias_gelu_fusion = args.bias_gelu_fusion
+        self.bias_gelu_fusion = args.bias_gelu_fusion  # gelu
         self.activation_func = F.gelu
         if args.openai_gelu:
             self.activation_func = openai_gelu
@@ -94,17 +94,21 @@ class ParallelMLP(MegatronModule):
             self.activation_func = erf_gelu
 
         # Project back to h.
-        self.dense_4h_to_h = mpu.RowParallelLinear(
+        self.dense_4h_to_h = mpu.RowParallelLinear( # 行切分
             args.ffn_hidden_size,
             args.hidden_size,
             input_is_parallel=True,
             init_method=output_layer_init_method,
             skip_bias_add=True)
 
+    '''
+    2.2.2 前向操作
+    这里分别调用了 ColumnParallelLinear 完成了 H 到 4H 的转换，RowParallelLinear 完成了 4H 到 H 的转换
+    '''
     def forward(self, hidden_states):
 
         # [s, b, 4hp]
-        intermediate_parallel, bias_parallel = self.dense_h_to_4h(hidden_states)
+        intermediate_parallel, bias_parallel = self.dense_h_to_4h(hidden_states) # 纵向切分
 
         if self.bias_gelu_fusion:
              intermediate_parallel = \
@@ -114,7 +118,7 @@ class ParallelMLP(MegatronModule):
                 self.activation_func(intermediate_parallel + bias_parallel)
 
         # [s, b, h]
-        output, output_bias = self.dense_4h_to_h(intermediate_parallel)
+        output, output_bias = self.dense_4h_to_h(intermediate_parallel) # 横向切分
         return output, output_bias
 
 class SwitchMLP(MegatronModule):
@@ -467,7 +471,25 @@ def bias_dropout_add_fused_inference(x: torch.Tensor,
                                      prob: float) -> torch.Tensor:
     return bias_dropout_add(x, bias, residual, prob, False)
 
+'''
+0x01 并行Transformer层
+在论文篇之中，我们了解到，因为模型越来越大，其尺寸远远超过了处理器的内存限制，
+因此产生了诸如激活检查点（activation checkpointing）这样的内存管理技术。
+而模型并行则通过对模型进行各种分片来克服单个处理器内存限制，这样模型权重和其关联的优化器状态就可以分散到多个设备之上。
 
+ParallelTransformerLayer 就是对 Transformer 层的并行实现，所以我们接着分析。
+
+1.1 初始化
+ParallelTransformerLayer 初始化方法之中，建立了如下：
+
+    生成一个LayerNorm处理输入数据。
+    生成并行Attention。
+    生成处理attention输出的LayerNorm。
+    如果是decoder，则生成一个ParallelAttention。
+    生成一个并行MLP。
+对应就是：    
+31.jpg    
+'''
 class ParallelTransformerLayer(MegatronModule):
     """A single transformer layer.
 
@@ -492,13 +514,13 @@ class ParallelTransformerLayer(MegatronModule):
         self.fp32_residual_connection = args.fp32_residual_connection
 
         # Layernorm on the input data.
-        self.input_layernorm = LayerNorm(
+        self.input_layernorm = LayerNorm(  # 生成一个LayerNorm处理输入数据
             args.hidden_size,
             eps=args.layernorm_epsilon,
             no_persist_layer_norm=args.no_persist_layer_norm)
 
         # Self attention.
-        self.self_attention = ParallelAttention(
+        self.self_attention = ParallelAttention( # 生成并行Attention
             init_method,
             output_layer_init_method,
             layer_number,
@@ -509,13 +531,13 @@ class ParallelTransformerLayer(MegatronModule):
         self.drop_path = DropPath(drop_path_rate) if drop_path_rate > 0.0 else None
 
         # Layernorm on the attention output
-        self.post_attention_layernorm = LayerNorm(
+        self.post_attention_layernorm = LayerNorm(  # 生成处理attention输出的LayerNorm
             args.hidden_size,
             eps=args.layernorm_epsilon,
             no_persist_layer_norm=args.no_persist_layer_norm)
 
-        if self.layer_type == LayerType.decoder:
-            self.inter_attention = ParallelAttention(
+        if self.layer_type == LayerType.decoder: # 如果本层是decoder
+            self.inter_attention = ParallelAttention( # 则生成一个ParallelAttention
                 init_method,
                 output_layer_init_method,
                 layer_number,
@@ -530,7 +552,7 @@ class ParallelTransformerLayer(MegatronModule):
         if args.num_experts is not None:
             self.mlp = SwitchMLP(init_method, output_layer_init_method)
         else:
-            self.mlp = ParallelMLP(init_method, output_layer_init_method)
+            self.mlp = ParallelMLP(init_method, output_layer_init_method)  # 生成一个并行MLP
 
         # Set bias+dropout+add fusion grad_enable execution handler.
         TORCH_MAJOR = int(torch.__version__.split('.')[0])
@@ -539,32 +561,36 @@ class ParallelTransformerLayer(MegatronModule):
         self.bias_dropout_add_exec_handler = \
                 nullcontext if use_nvfuser else torch.enable_grad
 
+    '''
+    1.2 前向传播
+    其前向传播方法如下，就是调用各种成员函数进行前向操作。
+    '''
     def forward(self, hidden_states, attention_mask,
                 encoder_output=None, enc_dec_attn_mask=None,
                 inference_params=None):
         # hidden_states: [b, s, h]
 
         # Layer norm at the beginning of the transformer layer.
-        layernorm_output = self.input_layernorm(hidden_states)
-        # Self attention.
+        layernorm_output = self.input_layernorm(hidden_states) # 对输入进行处理
+        # Self attention. # attention操作
         attention_output, attention_bias = \
             self.self_attention(
                 layernorm_output,
                 attention_mask,
                 inference_params=inference_params)
 
-        # Residual connection.
+        # Residual connection. 残差连接
         if self.apply_residual_connection_post_layernorm:
-            residual = layernorm_output
+            residual = layernorm_output   #norm之后结果作为X
         else:
-            residual = hidden_states
+            residual = hidden_states  # 原始输入X
 
         if self.drop_path is None:
             # jit scripting for a nn.module (with dropout) is not
             # trigerring the fusion kernel. For now, we use two
             # different nn.functional routines to account for varying
             # dropout semantics during training and inference phases.
-            if self.bias_dropout_fusion:
+            if self.bias_dropout_fusion:  # dropout操作
                 if self.training:
                     bias_dropout_add_func = bias_dropout_add_fused_train
                 else:
@@ -572,8 +598,9 @@ class ParallelTransformerLayer(MegatronModule):
             else:
                 bias_dropout_add_func = get_bias_dropout_add(self.training)
 
+            #yknote代码有不同
             with self.bias_dropout_add_exec_handler():
-                layernorm_input = bias_dropout_add_func(
+                layernorm_input = bias_dropout_add_func( # dropout操作
                     attention_output,
                     attention_bias.expand_as(residual),
                     residual,
@@ -585,7 +612,7 @@ class ParallelTransformerLayer(MegatronModule):
             layernorm_input = residual + self.drop_path(out)
 
         # Layer norm post the self attention.
-        layernorm_output = self.post_attention_layernorm(layernorm_input)
+        layernorm_output = self.post_attention_layernorm(layernorm_input)  # 处理attention输出
 
         if self.layer_type == LayerType.decoder:
             attention_output, attention_bias = \
@@ -609,17 +636,18 @@ class ParallelTransformerLayer(MegatronModule):
             layernorm_output = self.post_inter_attention_layernorm(layernorm_input)
 
         # MLP.
-        mlp_output, mlp_bias = self.mlp(layernorm_output)
+        mlp_output, mlp_bias = self.mlp(layernorm_output) # MLP操作
 
         # Second residual connection.
-        if self.apply_residual_connection_post_layernorm:
+        if self.apply_residual_connection_post_layernorm: # 残差操作
             residual = layernorm_output
         else:
             residual = layernorm_input
 
         if self.drop_path is None:
+            # yknote代码有不同
             with self.bias_dropout_add_exec_handler():
-                output = bias_dropout_add_func(
+                output = bias_dropout_add_func( # dropout操作
                     mlp_output,
                     mlp_bias.expand_as(residual),
                     residual,

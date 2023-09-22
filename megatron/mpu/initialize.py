@@ -326,7 +326,7 @@ def set_pipeline_model_parallel_rank(rank):
     global _MPU_PIPELINE_MODEL_PARALLEL_RANK
     _MPU_PIPELINE_MODEL_PARALLEL_RANK = rank
 
-
+# 其中，get_tensor_model_parallel_rank 作用是获取本进程在tensor并行组的rank。
 def get_tensor_model_parallel_rank():
     """Return my rank for the tensor model parallel group."""
     global _MPU_TENSOR_MODEL_PARALLEL_RANK

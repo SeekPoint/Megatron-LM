@@ -1,0 +1,387 @@
+模型并行分布式训练 Megatron (3) ---模型并行实现
+https://www.cnblogs.com/rossiXYZ/p/15871062.html
+
+
+[源码解析] 模型并行分布式训练 Megatron (3) ---模型并行实现
+目录
+[源码解析] 模型并行分布式训练 Megatron (3) ---模型并行实现
+0x00 摘要
+0x01 并行Transformer层
+1.1 初始化
+1.2 前向传播
+0x02 并行MLP
+2.1 命名规范
+2.2 MLP 代码
+2.2.1 初始化
+2.2.2 前向操作
+0x03 ColumnParallelLinear
+3.1 定义
+3.2 初始化
+3.2.1 切分size
+3.2.2 初始化权重
+3.3 逻辑梳理
+3.3.1 前向传播
+3.3.2 后向传播
+3.4 代码实现
+3.3.1 ColumnParallelLinear
+3.3.2 f 操作
+3.3.2.1 同步操作
+3.3.2.2 异步 All-Reduce
+3.3.3 g 操作
+3.3.4 基础函数
+3.3.4.1 gather
+3.3.4.2 split
+0x04 RowParallelLinear
+4.1 定义
+4.2 初始化
+4.3 逻辑梳理
+4.3.1 前向传播
+4.3.2 后向传播
+4.4 代码实现
+4.4.1 RowParallelLinear
+4.4.1 f 操作
+4.4.2 g 操作
+0x05 Embedding
+0x06 总结
+6.1 MLP并行
+6.2 共轭函数
+0xFF 参考
+0x00 摘要
+NVIDIA Megatron 是一个基于 PyTorch 的分布式训练框架，用来训练超大Transformer语言模型，
+其通过综合应用了数据并行，Tensor并行和Pipeline并行来复现 GPT3，值得我们深入分析其背后机理。
+
+本系列大概有6～7篇文章，通过论文和源码和大家一起学习研究。本文将看看 Megatron 如何处理模型并行。
+
+本系列其他文章为：
+
+[源码解析] 模型并行分布式训练Megatron (1) --- 论文 & 基础
+
+[源码解析] 模型并行分布式训练Megatron (2) --- 整体架构
+
+0x00 摘要
+NVIDIA Megatron 是一个基于 PyTorch 的分布式训练框架，用来训练超大Transformer语言模型，其通过综合应用了数据并行，
+Tensor并行和Pipeline并行来复现 GPT3，值得我们深入分析其背后机理。
+
+本系列大概有6～7篇文章，通过论文和源码和大家一起学习研究。本文将看看 Megatron 如何处理模型并行。
+
+本系列其他文章为：
+
+[源码解析] 模型并行分布式训练Megatron (1) --- 论文 & 基础
+
+[源码解析] 模型并行分布式训练Megatron (2) --- 整体架构
+
+。。。
+
+0x02 并行MLP
+ParallelTransformerLayer 里面包含了 Attention 和 MLP，因为篇幅所限，我们这里主要对MLP进行分析。
+对于 Attention 则简单研究一下其行切分机制，毕竟我们想了解的是如何进行模型并行，而非深入理解Transformer。
+    31.png
+
+Megatron的并行MLP包含了两个线性层，第一个线性层实现了 hidden size 到 4 x hidden size 的转换，
+第二个线性层实现了 4 x hidden size 回到 hidden size。
+具体 MLP 的逻辑如下：
+    32.png
+图：具有模型并行性的 MLP。f和g表示和通信切块相关的操作，其是共轭的。
+f 的前向传播是一个identity运算符，而后向传播是一个all-reduce，g 的前向传播是 all-reduce，后向传播是一个identity运算符。
+这里的 f 来自 ColumnParallelLinear，g 来自 RowParallelLinear。
+即，MLP 就是把 ColumnParallelLinear 和 RowParallelLinear 结合起来。
+
+于是，这里焦点问题就是：如何把这两种线性层切开到不同的GPU卡之上？参见前文，这里采用了第二种方案，
+
+    另一个选项是沿列拆分A，得到A=[A1，A2]。该分区允许GeLU非线性独立应用于每个分区GEMM的输出：
+            [Y1 Y2]=[GeLU(XA1), GeLU(XA2)]
+    这个方法更好，因为它删除了同步点，直接把两个 GeLU 的输出拼接在一起就行。
+    因此，我们以这种列并行方式划分第一个GEMM，并沿其行分割第二个GEMM，
+    以便它直接获取GeLU层的输出，而不需要任何其他通信（比如 all-reduce 就不需要了），
+    如图所示。
+
+我们再深入分析一下为何选择这个方案。
+
+按照常规逻辑，MLP 的前向传播应该分为两个阶段，分别对应了下面图之中的两行，
+
+    第一行是把参数 A 按照列切分，然后把结果按照列拼接起来，得到的结果就是与不使用并行策略完全等价的结果。
+
+    第二行是把激活 Y 按照列切分，参数B按照行切分做并行，最后把输出做加法，得到 Z。
+33.jpg
+但是每个split会导致两次额外的通信（前向传播和后向传播各一次，下面只给出了前向传播）。
+因为对于第二行来说，其输入Y其实本质是 XA1，XA2并行的，所以为了降低通信量，我们可以把数据通信延后或者干脆取消通信，
+就是把第一行最后的 all_gather 和第二行最初的 split 省略掉，这其实就是数学上的传递性和结合律（局部和之和为全局和）。
+于是我们就得到了论文之中的第二种方案。
+34.jpg
+
+结合代码，就是：
+    ColumnParallelLinear 实现了 MLP 的前半部分或者考虑了这个线性层独立使用的情况。
+    RowParallelLinear 实现了 MLP 的后半部分或者考虑了这个线性层独立使用的情况。
+j
+
+2.1 命名规范
+我们首先看看命名规范，后文使用如下：
+
+    h: hidden size
+    n: number of attention heads
+    p: number of model parallel partitions
+    np: n/p
+    hp: h/p
+    hn: h/n
+    b: batch size
+    s: sequence length
+    l: number of layers
+    Transformer 的输入size是 [s, b, h]，返回一个同样size的张量，
+                我们使用 hyperparameters 作为transformer 的超参数。
+
+2.2 MLP 代码
+2.2.1 初始化
+megatron/model/transformer.py 之中有 ParallelMLP 定义如下：
+    定义了一个 ColumnParallelLinear 用来进行第一个 H 到 4 H 的转换。
+    然后是一个 gelu。
+    接着是 RowParallelLinear 用来进行 4H 到 H 的转换回来。
+dropout操作是在上面ParallelTransformerLayer的forward之中进行。
+
+所以，MLP大致如图，这里A，B是各自的权重矩阵：
+35.jpg
+也就是对应论文之中这个图形。
+36.png
+代码如下。
+class ParallelMLP(MegatronModule):
+。。。
+
+2.2.2 前向操作
+这里分别调用了 ColumnParallelLinear 完成了 H 到 4H 的转换，RowParallelLinear 完成了 4H 到 H 的转换。
+
+def forward(self, hidden_states):
+
+    # [s, b, 4hp]
+    intermediate_parallel, bias_parallel = self.dense_h_to_4h(hidden_states) # 纵向切分
+。。。
+
+我们接下来分别介绍 ColumnParallelLinear 和 RowParallelLinear。
+ColumnParallelLinear 分别可以独立使用或者作为 ParallelMLP 的前半段，
+RowParallelLinear 也可以独立使用或者作为 ParallelMLP 的后半段。
+
+
+...
+
+
+3.3 逻辑梳理
+为了更好的分析，我们引入下图（来自参考1），这个图对应了 ColumnParallelLinear 类的前向传播和后向传播过程。
+这里的 f 和 g 操作其实是从代码之中抽象出来的，可以理解为 f 是对输入的处理，g 则是处理之后得到最终输出。此处对应了论文中描述的粗体字：
+
+    Figure 3. Blocks of Transformer with Model Parallelism. f and g are conjugate.
+    f is an identity operator in the forward pass and all reduce in the backward pass
+    while g is an all reduce in the forward pass and identity in the backward pass.
+        38.png
+图片来自 GTC 2020: Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism。
+我们针对上图，梳理一下逻辑。
+
+3.3.1 前向传播
+我们一步一步细化。
+首先，总体语义为：Y = XA + b。
+其次，前向传播时候的逻辑如下：
+
+    输入：这里 A 沿着列做切分，X 是全部的输入（每个GPU都拥有相同的X）。
+    计算：经过计算之后，输出的Y1,Y2也是按照列被切分过的。每个GPU只有自己对应的分区。
+    输出：Y1,Y2只有合并在一起，才能得到最终输出的 Y。
+
+再次，我们使用operator来细化一下：
+
+    输入：因为每个GPU需要拿到一个完整的输入 X，所以前向操作之中需要把X分发到每个GPU，这样就使用了 Identity 操作。
+    计算：经过计算之后，输出的Y1,Y2也是按照列被切分过的。每个GPU只有自己对应的分区。
+    输出：因为Y1,Y2需要合并在一起，才能得到最终输出的 Y。所以需要有一个 all-gather 操作来进行聚合，即得到Y=[Y1,Y2]。
+
+我们把这些逻辑点在上图上用红色方框标示，输入 X 先经过 f 来处理，输出 Y 是 g 整合之后的结果。
+        39.png
+
+3.3.2 后向传播
+我们接下来看看后向传播，对于上图来说，后向传播是从上至下，梯度先经过 g，最后被 f 处理。
+
+反向传播的逻辑如下：
+    目前得到了反向传播上游传过来的梯度∂L/∂Y，现在需要对其进行切分，保证每个GPU之上都有一份梯度∂L/∂Yi。
+    操作是∂L/∂Yi (split)。
+
+    每个GPU之上会进行关于X的梯度计算，于是每个GPU都有一份对X的梯度（但是其内容不一样）。
+
+    最后需要把各个 GPU 之上关于X的梯度进行相加，得到完整梯度，这就需要一个 all-reduce 操作。
+    即∂L/∂X = ∂L/∂X|1 + ∂L/∂X|2 所以我们在图上用蓝色圆角矩形标示出来后向传播对应的算子。
+40.png
+
+
+3.4 代码实现
+..
+
+yknote===以下代码在所有版本都未找到！！！！
+
+3.3.2.2 异步 All-Reduce
+ColumnParallelLinearWithAsyncAllreduce 这里把同步之中的乘法操作也放置进来。
+
+class ColumnParallelLinearWithAsyncAllreduce(torch.autograd.Function):
+    """
+    Column-parallel linear layer execution with asynchronous all-reduce
+    execution in backprop.
+    """
+    @staticmethod
+    def forward(ctx, input, weight, bias):
+        ctx.save_for_backward(input, weight)
+        ctx.use_bias = bias is not None
+        output = torch.matmul(input, weight.t()) # 同步时候的乘法也在这里了
+        if bias is not None:
+            output = output + bias
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        input, weight = ctx.saved_tensors
+        use_bias = ctx.use_bias
+        grad_input = grad_output.matmul(weight)
+        # Asyncronous all-reduce
+        handle = torch.distributed.all_reduce( # 反向传播操作
+                grad_input, group=get_tensor_model_parallel_group(), async_op=True)
+        # Delay the start of weight gradient computation shortly (3us) to have
+        # all-reduce scheduled first and have GPU resources allocated
+        _ = torch.empty(1, device=grad_output.device) + 1
+        grad_weight = grad_output.t().matmul(input)
+        grad_bias = grad_output.sum(dim=0) if use_bias else None
+        handle.wait()
+        return grad_input, grad_weight, grad_bias
+
+
+....
+
+4.3 逻辑梳理
+为了更好的分析，我们引入下图（来自参考1），这个图对应了 RowParallelLinear 类的前向传播和后向传播过程。
+这里的 f 和 g 操作其实是从代码之中抽象出来的，可以理解为 f 是对输入的处理，g 则是处理之后得到最终输出。
+    44.png
+我们针对上图，梳理一下逻辑。
+
+4.3.1 前向传播
+我们一步一步细化。
+首先，总体语义为：Y = XA + b。
+其次，前向传播时候的逻辑如下：
+
+    输入：
+    这里 A 沿着行做切分，因为A的维度发生了变化，所以X也需要做相应变化，X就必须按照列做切分，这样 X 每个分块才能与A 每个分块进行相乘。
+    这里如果输入是已经split过的(input_is_parallel 为True)，则就不需要再进行split。
+
+    计算：
+    计算就是 Y1 = X1A1 和 Y2 = X2A2。经过计算之后，输出的Y1,Y2的shape就是最终 Y 的shape。每个GPU只有自己对应的分区。
+
+    输出：
+    Y1,Y2只有合并在一起，才能得到最终输出的 Y。但是因为Y1,Y2形状相同，都等于Y的形状，所以只要简单矩阵相加即可。
+
+再次，我们使用operator来细化一下：
+
+    输入：
+    需要对 X 进行纵向切分，这就是一个split操作，得到了[X1,X2]，这两个分区要分别放到两个GPU之上。
+
+    计算：
+    经过计算之后，每个GPU只有自己对应的分区。
+
+    输出：
+    因为Y1,Y2需要合并在一起，才能得到最终输出的 Y。
+    这样需要把Y1和Y2相加（因为是两个GPU，所以之间还有等待操作），这就是 all-reduce 操作。
+
+我们把这些逻辑点在上图上用红色方框标示，输入 X 先经过 f 来处理，输出 Y 是 g 整合之后的结果。
+    45.png
+
+4.3.2 后向传播
+我们接下来看看后向传播，对于上图来说，后向传播是从上至下，梯度先经过 g，最后被 f 处理。
+反向传播的逻辑如下：
+
+    目前得到了反向传播上游传过来的梯度∂L/∂Y，因为Y1,Y2的形状相同，所以直接把梯度∂L/∂Y传给每个GPU即可，
+    操作是∂L/∂Yi = ∂L/∂Y(identity)。这里解释一下，在前向传播时候，XA 的结果需要 all-reduce，
+    可以理解为 sum operator，所以反向传播时候直接拷贝梯度即可。
+
+    每个GPU之上会进行关于X的梯度计算，于是每个GPU都有一份对X的梯度（但是其内容不一样）。
+
+    最后需要把各个 GPU 之上关于X的梯度进行聚合，得到完整梯度，就是forward 之中 split 的反向操作，
+    按照最后一列对梯度进行拼接，即all-gather操作。
+
+所以我们在图上用蓝色圆角矩形标示出来后向传播对应的算子。
+    46.png
+
+4.4 代码实现
+....
+
+
+
+0x06 总结
+6.1 MLP并行
+我们总结一下MLP的并行实现，具体如下图，其中逻辑如下：
+
+    中间灰色的是论文中的概念图。
+
+    联系代码之后，我们可以知道，其是由一个 ColumnParallelLinear 接上一个 RowParallelLinear 完成的，我们把概念图转化为图左侧两个方框。
+
+    ColumnParallelLinear 是对权重进行列切分，RowParallelLinear 是对权重进行行切分。
+
+    其中 ColumnParallelLinear 的Y1,Y2没有经过 all-gather 操作（就是略过了 g 操作）
+    ，而是直接输入到了 RowParallelLinear 之中，接到了RowParallelLinear 的X1,X2，
+    即，RowParallelLinear 没有 f 操作。
+
+    概念图之中的 f 就是ColumnParallelLinear 的 f，g 就是 RowParallelLinear 的 g。具体逻辑如图上所示。
+
+    49.png
+
+6.2 共轭函数
+论文之中提到了共轭函数。
+f and g are conjugate.
+f is an identity operator in the forward pass and all reduce in the backward pass
+while
+g is an all reduce in the forward pass and identity in the backward pass.
+
+我们前面代码之中也有使用到，我们整理出来如下，其中两两互为共轭函数。
+
+    copy_to_tensor_model_parallel_region 是前向操作copy(identity)，后向操作 all-reduce。
+
+    reduce_from_tensor_model_parallel_region 是前向操作 all-reduce，后向操作 copy(identity)。
+
+其实，就是MLP之中的 f，g 操作，这两个是共轭函数。
+
+类似，gather_from_tensor_model_parallel_region 是前向操作 all-gather，后向操作 scatter，
+这和scatter_to_tensor_model_parallel_region 也是共轭函数。
+
+这些函数代码具体如下：
+
+def copy_to_tensor_model_parallel_region(input_):
+    return _CopyToModelParallelRegion.apply(input_)
+
+
+def reduce_from_tensor_model_parallel_region(input_):
+    return _ReduceFromModelParallelRegion.apply(input_)
+
+
+def scatter_to_tensor_model_parallel_region(input_):
+    return _ScatterToModelParallelRegion.apply(input_)
+
+
+def gather_from_tensor_model_parallel_region(input_):
+    return _GatherFromModelParallelRegion.apply(input_)
+至此，我们已经完成了对模型并行实现的分析，下一篇我们看看在源码之中如何设定各种并行配置。
+
+0xFF 参考
+https://developer.nvidia.com/gtc/2020/slides/s21496-megatron-lm-training-multi-billion-parameter-language-models-using-model-parallelism.pdf
+
+[细读经典]Megatron论文和代码详细分析(2)
+
+[细读经典]Megatron论文和代码详细分析(1)
+
+Megatron-LM源码阅读（一）
+
+Megatron-LM源码阅读（二）
+
+megatron学习总结
+
+GTC 2020: Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism
+
+大规模训练之 transformer 中的张量模型并行
+
+分类: 001_机器学习 , 006_深度学习 , 011_分布式机器学习
+
+posted @ 2022-02-08 16:31  罗西的思考  阅读(3582)  评论(2)  编辑  收藏  举报
+
+   回复 引用#1楼 2023-04-01 16:58 marsggbo
+“按照常规逻辑，MLP 的前向传播应该分为两个阶段，分别对应了下面图之中的两行，” 这个位置下面的图画错了，Z1和Z2矩阵的大小应该是原来AX矩阵相乘后的矩阵大小。
+
+支持(0) 反对(0)
+   回复 引用#2楼 [楼主] 2023-04-02 12:15 罗西的思考
+@marsggbo
+谢谢指出。在画图时候，光想着美观，没有考虑到实际矩阵大小。

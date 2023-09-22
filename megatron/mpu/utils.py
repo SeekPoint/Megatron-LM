@@ -16,7 +16,8 @@
 
 import torch
 
-
+# 3.2.1 切分size
+# self.output_size_per_partition = divide(output_size, world_size) 这里有一个分割size操作，得到每个子模型应该拥有的权重大小。
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
     assert numerator % denominator == 0, '{} is not divisible by {}'.format(
@@ -29,7 +30,10 @@ def divide(numerator, denominator):
     ensure_divisibility(numerator, denominator)
     return numerator // denominator
 
-
+'''
+3.3.4.2 split
+_split 完成了张量切分操作。
+'''
 def split_tensor_along_last_dim(tensor, num_partitions,
                                 contiguous_split_chunks=False):
     """Split a tensor along its last dimension.
@@ -41,9 +45,9 @@ def split_tensor_along_last_dim(tensor, num_partitions,
     """
     # Get the size and dimension.
     last_dim = tensor.dim() - 1
-    last_dim_size = divide(tensor.size()[last_dim], num_partitions)
+    last_dim_size = divide(tensor.size()[last_dim], num_partitions) # 得到每个切分的size
     # Split.
-    tensor_list = torch.split(tensor, last_dim_size, dim=last_dim)
+    tensor_list = torch.split(tensor, last_dim_size, dim=last_dim) # 对张量进行切分
     # Note: torch.split does not create contiguous tensors by default.
     if contiguous_split_chunks:
         return tuple(chunk.contiguous() for chunk in tensor_list)
