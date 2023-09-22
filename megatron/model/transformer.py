@@ -692,6 +692,34 @@ class NoopTransformerLayer(MegatronModule):
 
 即，ParallelTransformer 包括多个 Transformer，其中每层 Transformer 是一个 ParallelTransformerLayer。
 '''
+'''
+0x09 如何把模型分到GPU
+我们最后还有一个问题没有涉及，就是如何把模型分块放到对应的GPU之上。
+就是如何与最初分成A，B，..., H 的那个图对应起来。
+其实，不是根据模型来把模型部分拷贝到对应的rank或者GPU，而是rank或者GPU主动过来拷贝自己对应的层。
+
+    因为调用了 mpu.initialize_model_parallel 来设置模型并行，数据并行等各种进程组，
+    所以每个 rank 对应的进程都有自己的全局变量，具体其实就是进程自动就被映射到GPU上了。
+    比如 rank 2 对应的进程在启动之后才知道自己是 rank 2，
+    然后从初始化的全局变量之中知道自己的 data_parallel group 是 [g0, g2]，
+    tensor model-parallel group 是[g2, g3]，pipeline model-parallel group 是 [g2, g6, g10, g14]。
+    
+    ParallelTransformer 的初始化之中，offset 就是根据 rank 知道自己应该生成模型的那些层，
+    然后通过 self.layers = torch.nn.ModuleList([build_layer(i + 1 + offset) for i in range(self.num_layers)]) 来生成对应的层。
+    
+    get_model 方法也会根据自己的 pipeline rank 和 is_pipeline_first_stage 来知道是不是第一层或者最后一层，
+    然后做相应处理。
+    
+    最后把模型参数拷贝到了自己对应的 GPU 之上。
+
+具体 ParallelTransformer 初始化代码如下：
+
+所以，最终效果如下，其中同名子模块具有同样的参数，可以数据并行，即两个A可以数据并行。
+一列上的层之间可以流水线串行，比如 A--> C --> E --> G 就是串行，而一个横行4个是流水线的一个stage，
+其中从0开始，横向相邻两个GPU是 tensor model 并行。
+57.jpg
+
+'''
 class ParallelTransformer(MegatronModule):
     """Transformer class."""
 
@@ -733,6 +761,8 @@ class ParallelTransformer(MegatronModule):
                 layer_type=layer_type,
                 self_attn_mask_type=self_attn_mask_type,
                 drop_path_rate=self.drop_path_rates[layer_number - 1])
+
+        # 下面 offset 就是根据rank知道自己应该生成模型的那些层
         if args.virtual_pipeline_model_parallel_size is not None:
             assert args.num_layers % args.virtual_pipeline_model_parallel_size == 0, \
                 'num_layers_per_stage must be divisible by ' \

@@ -101,6 +101,7 @@ def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
             tensor_send_prev = mpu.split_tensor_into_1d_equal_chunks(tensor_send_prev)
 
     # Send tensors in both the forward and backward directions as appropriate.
+    # 这里使用get_pipeline_model_parallel_group 进行通信
     if use_ring_exchange:
         torch.distributed.ring_exchange(tensor_send_prev=tensor_send_prev,
                                         tensor_recv_prev=tensor_recv_prev,
@@ -112,7 +113,7 @@ def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
         if tensor_send_prev is not None:
             send_prev_op = torch.distributed.P2POp(
                 torch.distributed.isend, tensor_send_prev,
-                mpu.get_pipeline_model_parallel_prev_rank())
+                mpu.get_pipeline_model_parallel_prev_rank()) # 得到流水线前一个rank
             ops.append(send_prev_op)
         if tensor_recv_prev is not None:
             recv_prev_op = torch.distributed.P2POp(
@@ -122,7 +123,7 @@ def _communicate(tensor_send_next, tensor_send_prev, recv_prev, recv_next,
         if tensor_send_next is not None:
             send_next_op = torch.distributed.P2POp(
                 torch.distributed.isend, tensor_send_next,
-                mpu.get_pipeline_model_parallel_next_rank())
+                mpu.get_pipeline_model_parallel_next_rank()) # 得到流水线前一个rank
             ops.append(send_next_op)
         if tensor_recv_next is not None:
             recv_next_op = torch.distributed.P2POp(

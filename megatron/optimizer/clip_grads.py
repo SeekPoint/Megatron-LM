@@ -25,7 +25,7 @@ from megatron import mpu
 from megatron.model.module import param_is_not_shared
 from megatron.mpu.layers import param_is_not_tensor_parallel_duplicate
 
-
+#这里是裁剪梯度会用到，就是在本模型的全部rank之中进行梯度裁剪相关操作。
 def clip_grad_norm_fp32(parameters, max_norm, norm_type=2):
     """Clips gradient norm of an iterable of parameters whose gradients
        are in fp32.
@@ -79,7 +79,7 @@ def clip_grad_norm_fp32(parameters, max_norm, norm_type=2):
         # Take max across all model-parallel GPUs.
         torch.distributed.all_reduce(total_norm_cuda,
                                      op=torch.distributed.ReduceOp.MAX,
-                                     group=mpu.get_model_parallel_group())
+                                     group=mpu.get_model_parallel_group()) # 模型组信息
         total_norm = total_norm_cuda[0].item()
 
     else:
@@ -106,7 +106,7 @@ def clip_grad_norm_fp32(parameters, max_norm, norm_type=2):
         # Sum across all model-parallel GPUs.
         torch.distributed.all_reduce(total_norm,
                                      op=torch.distributed.ReduceOp.SUM,
-                                     group=mpu.get_model_parallel_group())
+                                     group=mpu.get_model_parallel_group()) # 模型组信息
         total_norm = total_norm.item() ** (1.0 / norm_type)
 
     # Scale.
@@ -119,6 +119,11 @@ def clip_grad_norm_fp32(parameters, max_norm, norm_type=2):
                              clip_coeff)
 
     return total_norm
+    '''
+    之前的图如下，利用看到分成两组，左边是Model 0 对应的全部ranks，右面是model 1 的ranks。
+    
+    56.jpg
+    '''
 
 
 def count_zeros_fp32(parameters):

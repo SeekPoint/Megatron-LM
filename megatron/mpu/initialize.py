@@ -82,7 +82,11 @@ def is_unitialized():
     """Useful for code segments that may be accessed with or without mpu initialization"""
     return _DATA_PARALLEL_GROUP is None
 
-
+'''
+2.2 初始化代码
+我们首先把 initialize_model_parallel 代码摘录出来。
+initialize_model_parallel 作用就是对模型进行分组，然后初始化进程组相关的各种全局变量。
+'''
 def initialize_model_parallel(tensor_model_parallel_size_=1,
                               pipeline_model_parallel_size_=1,
                               virtual_pipeline_model_parallel_size_=None,
@@ -97,23 +101,7 @@ def initialize_model_parallel(tensor_model_parallel_size_=1,
                                               pipeline).
         pipeline_model_parallel_split_rank: for models with both encoder and decoder,
                                             rank in pipeline with split point.
-
-
-    Let's say we have a total of 16 GPUs denoted by g0 ... g15 and we
-    use 2 GPUs to parallelize the model tensor, and 4 GPUs to parallelize
-    the model pipeline. The present function will
-    create 8 tensor model-parallel groups, 4 pipeline model-parallel groups
-    and 8 data-parallel groups as:
-        8 data_parallel groups:
-            [g0, g2], [g1, g3], [g4, g6], [g5, g7], [g8, g10], [g9, g11], [g12, g14], [g13, g15]
-        8 tensor model-parallel groups:
-            [g0, g1], [g2, g3], [g4, g5], [g6, g7], [g8, g9], [g10, g11], [g12, g13], [g14, g15]
-        4 pipeline model-parallel groups:
-            [g0, g4, g8, g12], [g1, g5, g9, g13], [g2, g6, g10, g14], [g3, g7, g11, g15]
-    Note that for efficiency, the caller should make sure adjacent ranks
-    are on the same DGX box. For example if we are using 2 DGX-1 boxes
-    with a total of 16 GPUs, rank 0 to 7 belong to the first box and
-    ranks 8 to 15 belong to the second box.
+    yknote move some text to 4.txt 3.1
     """
     if torch.distributed.get_rank() == 0:
         print('> initializing tensor model parallel with size {}'.format(
@@ -146,22 +134,62 @@ def initialize_model_parallel(tensor_model_parallel_size_=1,
 
     rank = torch.distributed.get_rank()
 
+    '''
+    0x07 Data-parallel
+    我们接下来看看数据并行。
+    
+    7.1 分组
+    对于注释例子，16 / 2 = 8，分成 8 个进程组，每个组 两个 rank。这些分组分别是：[g0, g2], [g1, g3], [g4, g6], [g5, g7], [g8, g10], [g9, g11], [g12, g14], [g13, g15]，我们得到了如下信息：
+    
+        依据上面分析， t * p 就是一个模型所需要的 GPU，因此，d = (总 GPU 数目 / 一个模型需要的 GPU 数目) = n / ( t * p)，
+        就是说，目前提供的这 n 个GPU可以同时训练 d 个模型，就是可以用 d 个 mini-batches 输入到这 d 个模型一起训练，所以数据并行度为 d。
+        
+        对应注释例子，就是data_parallel_size = 16 / (2 * 4) = 2。
+        
+        rank 2 对应的数据并行进程组是[g0, g2]。
+    
+    我们再看看用代码怎么确定有哪些group，每个group里面包含什么。
+    
+        首先，流水线被分成了 p 个 stage，对于流水线每个stage，
+        其有 n // p 个GPU，stage i 的 rank 范围是：[i * n//p, (i+1) * n//p]，
+        即 rank 2所在的stage 的rank是 [0,1,2,3]。
+        
+        其次，在每一个stage之中，ranks = range(start_rank + j, end_rank, tensor_model_parallel_size) ，
+        意思是这stage的n//p个GPUs中，每隔 t 个取一个作为数据并行 group 之中的一份子，
+        因此每个data-parallel group大小为 n // p // t = d。
+        
+    具体代码如下
+    '''
     # Build the data-parallel groups.
     global _DATA_PARALLEL_GROUP
     assert _DATA_PARALLEL_GROUP is None, \
         'data parallel group is already initialized'
     all_data_parallel_group_ranks = []
-    for i in range(pipeline_model_parallel_size):
-        start_rank = i * num_pipeline_model_parallel_groups
-        end_rank = (i + 1) * num_pipeline_model_parallel_groups
-        for j in range(tensor_model_parallel_size):
-            ranks = range(start_rank + j, end_rank,
+    for i in range(pipeline_model_parallel_size): # 遍历流水线深度
+        start_rank = i * num_pipeline_model_parallel_groups # 找到每个stage的起始rank
+        end_rank = (i + 1) * num_pipeline_model_parallel_groups # 找到每个stage的终止rank
+        for j in range(tensor_model_parallel_size):  # 遍历tensor model分组size
+            ranks = range(start_rank + j, end_rank, # 每隔 t 个取一个作为数据并行group中的一份子
                           tensor_model_parallel_size)
             all_data_parallel_group_ranks.append(list(ranks))
             group = torch.distributed.new_group(ranks)
             if rank in ranks:
                 _DATA_PARALLEL_GROUP = group
+    '''
+    打印输出如下，和注释一致。
 
+    ------ Build the data-parallel groups -----
+    [[0, 2], [1, 3], [4, 6], [5, 7], [8, 10], [9, 11], [12, 14], [13, 15]]
+    对应图片拓展如下：其中，每个新增的双箭头对应一个DDP（两个rank），比如[2, 3]对应一个DDP。
+
+    55.jpg
+    '''
+
+    '''
+    0x08 模型组
+    前面实验中，我们得到模型并行组如下：[0, 1, 4, 5, 8, 9, 12, 13] [2, 3, 6, 7, 10, 11, 14, 15]。
+    生成代码如下：
+    '''
     # Build the model-parallel groups.
     global _MODEL_PARALLEL_GROUP
     assert _MODEL_PARALLEL_GROUP is None, \
@@ -243,7 +271,7 @@ def model_parallel_is_initialized():
         return False
     return True
 
-
+#_MODEL_PARALLEL_GROUP 会得到本rank对应的模型组。
 def get_model_parallel_group():
     """Get the model parallel group the caller rank belongs to."""
     assert _MODEL_PARALLEL_GROUP is not None, \
@@ -257,14 +285,26 @@ def get_tensor_model_parallel_group():
         'intra_layer_model parallel group is not initialized'
     return _TENSOR_MODEL_PARALLEL_GROUP
 
+'''
+6.2 使用
+接下来看看如何使用。
 
+get_pipeline_model_parallel_group 返回了自己 rank 对应的 pipeline model group。
+'''
 def get_pipeline_model_parallel_group():
     """Get the pipeline model parallel group the caller rank belongs to."""
     assert _PIPELINE_MODEL_PARALLEL_GROUP is not None, \
         'pipeline_model parallel group is not initialized'
     return _PIPELINE_MODEL_PARALLEL_GROUP
+#具体使用是在 megatron/p2p_communication.py，_communicate 之中会用流水线组信息来进行通信。
 
 
+'''
+7.2 如何使用
+我们接下来看看如何使用。
+
+get_data_parallel_group 会得到本rank对应的 _DATA_PARALLEL_GROUP。
+'''
 def get_data_parallel_group():
     """Get the data parallel group the caller rank belongs to."""
     assert _DATA_PARALLEL_GROUP is not None, \
@@ -305,6 +345,10 @@ def get_tensor_model_parallel_world_size():
         return _MPU_TENSOR_MODEL_PARALLEL_WORLD_SIZE
     return torch.distributed.get_world_size(group=get_tensor_model_parallel_group())
 
+'''
+6.2.2 world size
+get_pipeline_model_parallel_world_size 得到了进程组的 world size。
+'''
 #get_pipeline_model_parallel_world_size 获取本流水线组world size数目，就是流水线深度。
 def get_pipeline_model_parallel_world_size():
     """Return world size for the pipeline model parallel group."""
@@ -526,6 +570,13 @@ def get_pipeline_model_parallel_last_rank():
     last_rank_local = get_pipeline_model_parallel_world_size() - 1
     return _PIPELINE_GLOBAL_RANKS[last_rank_local]
 
+'''
+6.2.1 上下游rank
+具体如何得到流水线上下游的rank？
+是通过 get_pipeline_model_parallel_next_rank 和 get_pipeline_model_parallel_prev_rank 来完成。
+其中_PIPELINE_GLOBAL_RANKS 得到了进程组的ranks，
+假如本进程是 rank 2，则流水线进程组 ranks 是 [g2, g6, g10, g14]。
+'''
 def get_pipeline_model_parallel_next_rank():
     assert _PIPELINE_GLOBAL_RANKS is not None, \
         "Pipeline parallel group is not initialized"
