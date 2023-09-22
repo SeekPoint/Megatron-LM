@@ -538,7 +538,7 @@ def get_tensor_shapes(rank, model_type):
         tensor_shapes.append((args.seq_length, args.micro_batch_size, args.hidden_size))
     return tensor_shapes
 
-
+#其中，第一个stage因为没有上游，所以recv_forward将会返回None，其他情况下将返回一个上游激活。
 def recv_forward(tensor_shapes, timers):
     input_tensors = []
     for tensor_shape in tensor_shapes:
@@ -578,7 +578,10 @@ def send_backward(input_tensor_grads, tensor_shapes, timers):
             continue
         p2p_communication.send_backward(input_tensor_grad, tensor_shape, timers=timers)
 
-
+'''
+3.5.2 串行
+其中，send_forward_recv_backward 这个从名字就能看到逻辑，这个函数先发送给下游，再从下游接受。
+'''
 def send_forward_recv_backward(output_tensors, tensor_shapes, timers):
     if not isinstance(output_tensors, list):
         output_tensors = [output_tensors]
@@ -587,11 +590,22 @@ def send_forward_recv_backward(output_tensors, tensor_shapes, timers):
         if tensor_shape is None:
             output_tensor_grads.append(None)
             continue
+        # 发送自己的激活，然后得到下游传上来的梯度
         output_tensor_grad = p2p_communication.send_forward_recv_backward(
                 output_tensor, tensor_shape, timers=timers)
         output_tensor_grads.append(output_tensor_grad)
-    return output_tensor_grads
-
+    return output_tensor_grads #返回梯度
+'''
+可以发现，对于单个 worker，都是阻塞进行，因为 send 和 recv 都是阻塞，这样通信和计算必须串行，不能重叠。
+因为前面热身阶段已经把前向传递一直从 worker 0 传送到 worker d，
+所以 worker d 可以直接拿到 input，就进行处理，然后直接进行反向计算，然后返回给上游。
+所以串行也无所谓。我们从论文之中的图例也可以看出来：
+71.png
+图：PipeDream-Flush在稳定状态下交替进行向前和向后传播，通过将激活隐藏限制为仅执行中（in-flight）的微批次来保持较低的内存占用。
+从图上可以看到:
+    Worker 1的执行序列是：1 FW(warmup), 2 FW, 1 BW，3 FW，2 BW，4 FW，3 BW，4 BW(cooldown)
+    Worker 2的执行序列是：1 FW，1BW， 2 FW， 2 BW， 3 FW， 3 BW， 4 FW， 4 BW，worker 2直接就进入了稳定状态。
+'''
 
 def send_backward_recv_forward(input_tensor_grads, tensor_shapes, timers):
     if not isinstance(input_tensor_grads, list):
@@ -606,7 +620,24 @@ def send_backward_recv_forward(input_tensor_grads, tensor_shapes, timers):
         input_tensors.append(input_tensor)
     return input_tensors
 
+'''
+3.2 启动阶段
+这是在每个 worker 之上都会做的，每个worker 的rank 不同，具体逻辑如下：
 
+    首先需要确定本worker在热身阶段需要执行的微批次数目，是min((world-size - rank - 1), num_microbatches)，
+    因为rank是依次递增，所以热身所需的微批次会逐次递减，直到为0，这样就会直接进入稳定阶段进行计算，
+    比如 world size 为5，rank区间为0～4，微批次数目为4，
+    则从前往后几个stage的热身批次为
+     5 - 0 - 1 = 4， 
+     5 - 1 - 1 = 3， 
+    5 - 2 - 1 = 2， 
+    5 - 3 - 1 = 1， 
+    5 - 4 - 1 = 0（就直接进入稳定状态）。
+    
+    其次计算稳定阶段所需要计算的微批次。
+    
+    当需要进行反向传播时候，需要建立两个FIFO队列，input_tensors 保存来自上游的激活，output_tensors 保存来自下游的激活。
+'''
 def forward_backward_pipelining_without_interleaving(forward_step_func,
                                                      data_iterator,
                                                      model,
@@ -625,13 +656,18 @@ def forward_backward_pipelining_without_interleaving(forward_step_func,
     model = model[0]
 
     # Compute number of warmup microbatches.
-    num_microbatches = get_num_microbatches()
+    num_microbatches = get_num_microbatches()  # 得到微批次数目
+    # 需要确定本worker在热身阶段需要执行的微批次数目，是min((world-size - rank - 1), num_microbatches)
+    # 因为rank是依次递增，所以热身所需的微批次会逐次递减，直到为0，这样就会直接进入稳定阶段进行计算
+    # 比如 world size 为5，rank区间为0～4，微批次数目为4，
+    # 则从前往后几个stage的热身批次为 5 - 0 - 1， 5 - 1 - 1， 5 - 2 - 1， 5 - 3 - 1， 5 - 4 - 1。
     num_warmup_microbatches = \
         (mpu.get_pipeline_model_parallel_world_size() -
          mpu.get_pipeline_model_parallel_rank() - 1)
     num_warmup_microbatches = min(
         num_warmup_microbatches,
         num_microbatches)
+    # 计算稳定阶段所需要计算的微批次
     num_microbatches_remaining = \
         num_microbatches - num_warmup_microbatches
 
@@ -643,6 +679,8 @@ def forward_backward_pipelining_without_interleaving(forward_step_func,
     send_tensor_shapes = get_tensor_shapes(rank, model_type)
 
     # Input, output tensors only need to be saved when doing backward passes
+    # 当需要进行反向传播时候，需要建立两个队列，input_tensors 保存来自上游的激活，output_tensors 保存来自下游的激活
+    # Input, output tensors only need to be saved when doing backward passes
     input_tensors = None
     output_tensors = None
     if not forward_only:
@@ -650,29 +688,77 @@ def forward_backward_pipelining_without_interleaving(forward_step_func,
         output_tensors = []
     forward_data_store = []
 
+    '''
+    3.3 热身阶段
+    热身阶段会根据本worker在热身阶段需要执行的微批次数目，依次进行处理：
+    
+        从上游获取输入激活。
+        
+        本地进行前向计算，上游输入的激活就是本stage的输入。
+        
+        向下游发送本地激活。
+        
+        如果需要反向传播，则每个 worker 在 input_tensor 之中保存上游激活，在output_tensor 之中保存发送给下游的激活。
+        
+        早期阶段会运行尽可能多的向前传播，这样后期阶段可以立即从1F1B开始。
+    '''
     # Run warmup forward passes.
     for i in range(num_warmup_microbatches):
+        # 从上游获取输入激活
         input_tensor = recv_forward(recv_tensor_shapes, timers=timers)
+
+        # 本地进行前向计算，上游输入的激活就是本stage的输入  yknote代码有不同
         output_tensor = forward_step(forward_step_func, data_iterator, model,
                                      input_tensor, forward_data_store,
                                      collect_non_loss_data)
+        # 向下游发送本地激活
         send_forward(output_tensor, send_tensor_shapes, timers=timers)
 
         if not forward_only:
-            input_tensors.append(input_tensor)
-            output_tensors.append(output_tensor)
-            deallocate_output_tensor(output_tensor[0])
+            input_tensors.append(input_tensor)   # 保存上游激活
+            output_tensors.append(output_tensor) # 保存本地计算的激活，就是发送给下游的激活
+            deallocate_output_tensor(output_tensor[0]) #yknote代码有不同
 
+    '''
+    3.5 稳定阶段
+    稳定阶段的总体逻辑如下：
+    前向计算 -> 发送激活给前向计算下游 & 从下游接受梯度 -> 后向计算 -> 给上游发送本worker计算的梯度 & 从上游接受激活。
+    
+    3.5.1 逻辑
+    稳定阶段具体逻辑如下：
+    
+    1 forward_step ：拿到一个微批次（上游激活），进行本地前向计算。
+    
+    2 send_forward：
+        1 如果只是前向传播，则调用send_forward把本地结算结果发送给下游。
+        2 否则调用 send_forward_recv_backward : 本地计算结果发给下游，再从下游接受其梯度。
+        
+    3 每个 worker 在 input_tensor 之中保存上游激活，在output_tensor 之中保存发送给下游的激活。
+    
+    4 backward_step : 本地后向计算。
+        1 从队列中弹出第一个未处理的（就是最早未处理的）上游激活。
+        2 从队列弹出对应的本地激活。
+        3 进行反向计算，利用(上游激活，本地激活，下游梯度)来对最早的未处理的微批次进行反向计算，得到本地梯度。
+        
+    5 send_backward：
+        1 如果是最后一个微批次，只需要把本地梯度 input_tensor_grad 传递给前向计算的上游。
+        2 否则调用 send_backward_recv_forward 把本地梯度 input_tensor_grad 传递给前向计算的上游，
+          还需要从上游再获取一个激活值。
+         
+    6 跳回1继续处理下一个微批次（上游激活）。
+    '''
     # Before running 1F1B, need to receive first forward tensor.
     # If all microbatches are run in warmup / cooldown phase, then no need to
     # receive this tensor here.
     if num_microbatches_remaining > 0:
+        # 需要在稳定状态下运行，所以得拿到前面层的激活值
         input_tensor = recv_forward(recv_tensor_shapes, timers=timers)
 
     # Run 1F1B in steady state.
     for i in range(num_microbatches_remaining):
         last_iteration = (i == (num_microbatches_remaining - 1))
 
+        # 前向计算
         output_tensor = forward_step(forward_step_func, data_iterator, model,
                                      input_tensor, forward_data_store,
                                      collect_non_loss_data)
@@ -683,33 +769,44 @@ def forward_backward_pipelining_without_interleaving(forward_step_func,
                 input_tensor = recv_forward(recv_tensor_shapes, timers=timers)
 
         else:
+            # 发送中间激活给下游，并且从下游获取其反向梯度
             output_tensor_grad = \
                 send_forward_recv_backward(output_tensor,
                                            send_tensor_shapes,
                                            timers=timers)
 
             # Add input_tensor and output_tensor to end of list.
-            input_tensors.append(input_tensor)
-            output_tensors.append(output_tensor)
+            input_tensors.append(input_tensor)  # 保存上游激活到队列
+            output_tensors.append(output_tensor)  # 保存本地计算的激活，就是发送给下游的激活到队列
             deallocate_output_tensor(output_tensor[0])
 
             # Pop input_tensor and output_tensor from the start of the list for
             # the backward pass.
-            input_tensor = input_tensors.pop(0)
-            output_tensor = output_tensors.pop(0)
+            input_tensor = input_tensors.pop(0)  # 从队列中弹出第一个未处理的（就是最早未处理的）上游激活
+            output_tensor = output_tensors.pop(0)  # 从队列弹出对应的本地激活
 
+            # 反向计算，利用(上游激活，本地激活，下游梯度)来对最早的未处理的微批次进行反向计算，得到本地梯度
             input_tensor_grad = \
                 backward_step(optimizer, input_tensor, output_tensor,
-                              output_tensor_grad)
+                              output_tensor_grad) # 下游传来的梯度在这里
 
             if last_iteration:
                 input_tensor = None
+                # 如果是最后一个微批次，把本地梯度 input_tensor_grad 传递给前向计算的上游
                 send_backward(input_tensor_grad, recv_tensor_shapes, timers=timers)
             else:
+                # 如果不是最后一个微批次，把本地梯度 input_tensor_grad 传递给前向计算的上游，
+                # 还需要从上游再获取一个激活值
                 input_tensor = \
                     send_backward_recv_forward(
                         input_tensor_grad, recv_tensor_shapes, timers=timers)
 
+    '''
+    3.6 冷却阶段
+    冷却阶段和热身阶段对称，也执行num_warmup_microbatches个步骤，但是只做反向传播。
+    这个阶段因为是清理未完毕的反向传播，所以只是从队列中pop。
+    具体就是弹出上游激活和传递给下游的激活，然后进行梯度计算。
+    '''
     # Run cooldown backward passes.
     if not forward_only:
         for i in range(num_warmup_microbatches):
