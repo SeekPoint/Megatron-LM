@@ -482,7 +482,7 @@ def set_pipeline_model_parallel_split_rank(rank):
     global _PIPELINE_MODEL_PARALLEL_SPLIT_RANK
     _PIPELINE_MODEL_PARALLEL_SPLIT_RANK = rank
 
-
+# 其中，get_tensor_model_parallel_rank作用是获取本进程在 tensor 并行组的 rank。
 def get_tensor_model_parallel_rank():
     """Return my rank for the tensor model parallel group."""
     global _MPU_TENSOR_MODEL_PARALLEL_RANK

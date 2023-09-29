@@ -11,6 +11,8 @@ from .utils import split_tensor_along_last_dim
 
 # 在 megatron/mpu/mappings.py 之中有对 tensor_model_group 的使用：
 #reduce函数利用 _TENSOR_MODEL_PARALLEL_GROUP 进行在组内进行集合通信。
+
+# 对应的后向传播就使用了 all-reduce，反向传播时候，输入是多个GPU上的梯度整体，通过 all-reduce 合并。
 def _reduce(input_):
     """All-reduce the input tensor across model parallel group."""
 
@@ -23,7 +25,8 @@ def _reduce(input_):
 
     return input_
 
-
+# 4.4.4.2 _split_along_last_dim
+# _split_along_last_dim 完成了张量切分操作。
 def _split_along_last_dim(input_):
     """Split the tensor along its last dimension and keep the
     corresponding slice."""
@@ -64,7 +67,11 @@ def _split_along_first_dim(input_):
 
     return output
 
-
+'''
+4.4.4 基础函数
+4.4.4.1 _gather_along_last_dim
+_gather_along_last_dim 是沿着最后一个维度进行拼接。
+'''
 def _gather_along_last_dim(input_):
     """Gather tensors and concatinate along the last dimension."""
 
@@ -124,7 +131,7 @@ def _reduce_scatter_along_first_dim(input_):
                                            group=get_tensor_model_parallel_group())
     return output
 
-
+#从 return 的 _CopyToModelParallelRegion函数可以看到，其 forward 就是简单的把输入转移到输出。
 class _CopyToModelParallelRegion(torch.autograd.Function):
     """Pass the input to the model parallel region."""
 
@@ -134,11 +141,11 @@ class _CopyToModelParallelRegion(torch.autograd.Function):
     
     @staticmethod
     def forward(ctx, input_):
-        return input_
+        return input_  # 简单的把输入转移到输出，就是对应了前向复制identity
 
     @staticmethod
     def backward(ctx, grad_output):
-        return _reduce(grad_output)
+        return _reduce(grad_output) # 反向传播时候，输入是多个GPU上的梯度整体，通过all-reduce合并
 
 
 class _ReduceFromModelParallelRegion(torch.autograd.Function):
@@ -156,7 +163,7 @@ class _ReduceFromModelParallelRegion(torch.autograd.Function):
     def backward(ctx, grad_output):
         return grad_output
 
-
+# 具体 _ScatterToModelParallelRegion 完成了实际业务，具体 _split,_gather 操作在前面都介绍过。
 class _ScatterToModelParallelRegion(torch.autograd.Function):
     """Split the input and keep only the corresponding chuck to the rank."""
 
@@ -250,19 +257,40 @@ class _ReduceScatterToSequenceParallelRegion(torch.autograd.Function):
 # -----------------
 # Helper functions.
 # -----------------
-
+'''
+4.4.2.1 同步操作
+这里主要分析copy_to_tensor_model_parallel_region，其做了前向copy操作，同时构建了后向 all-reduce。
+'''
 def copy_to_tensor_model_parallel_region(input_):
     return _CopyToModelParallelRegion.apply(input_)
 
+'''
+5.4.3 g 操作
 
+reduce_from_tensor_model_parallel_region 对应了 g 操作，作用是:
+
+    前向操作是 all-reduce之后得到最终输出.
+    反向操作则直接拷贝操作。
+50.png
+代码为：
+'''
 def reduce_from_tensor_model_parallel_region(input_):
     return _ReduceFromModelParallelRegion.apply(input_)
 
+'''
+5.4.2 f 操作
 
+scatter_to_tensor_model_parallel_region 对应了f操作，其作用是：
+
+    前向切分split输入，同时搭建后向的 all-gather 操作。
+    后向操作进行 all-gather 操作。
+49.png
+代码为：
+'''
 def scatter_to_tensor_model_parallel_region(input_):
     return _ScatterToModelParallelRegion.apply(input_)
 
-
+#4.4.3 g 操作
 def gather_from_tensor_model_parallel_region(input_):
     return _GatherFromModelParallelRegion.apply(input_)
 

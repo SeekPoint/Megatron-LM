@@ -94,11 +94,12 @@ class ParallelMLP(MegatronModule):
         self.add_bias = args.add_bias_linear
 
         # Project to 4h. If using swiglu double the output width, see https://arxiv.org/pdf/2002.05202.pdf
+        # 列切分
         self.dense_h_to_4h = tensor_parallel.ColumnParallelLinear(
             args.hidden_size,
             args.ffn_hidden_size * 2 if args.swiglu else args.ffn_hidden_size,
             bias=self.add_bias,
-            gather_output=False,
+            gather_output=False, # 这里是false，采用第二种方案
             init_method=init_method,
             skip_bias_add=True,
             async_tensor_model_parallel_allreduce=args.async_tensor_model_parallel_allreduce,
@@ -126,7 +127,7 @@ class ParallelMLP(MegatronModule):
             self.activation_func = F.gelu
 
         # Project back to h.
-        self.dense_4h_to_h = tensor_parallel.RowParallelLinear(
+        self.dense_4h_to_h = tensor_parallel.RowParallelLinear( # 行切分··
             args.ffn_hidden_size,
             args.hidden_size,
             bias=self.add_bias,
@@ -135,6 +136,16 @@ class ParallelMLP(MegatronModule):
             skip_bias_add=True,
             **_args_to_kwargs())
 
+    '''
+    3.2.2 前向操作
+    这里分别调用了 ColumnParallelLinear完成了维度从 H 到 4H 的转换，RowParallelLinear 完成了维度从 4H 到 H 的转换。
+    
+    ColumnParallelLinear 可以独立使用，也可以作为 ParallelMLP 的前半部分。
+    它的功能是将输入从 H 维度扩展到 4H 维度，可能涉及到列并行的操作，以便在多个处理单元上并行计算。
+
+    RowParallelLinear 也可以独立使用，也可以作为 ParallelMLP 的后半部分。
+    它的功能是将输入从 4H 维度转换回到 H 维度，可能涉及到行并行的操作，以便在多个处理单元上并行计算。
+    '''
     def forward(self, hidden_states):
 
         # [s, b, 4hp]
@@ -707,7 +718,20 @@ def bias_dropout_add_fused_inference(x: torch.Tensor,
                                      prob: float) -> torch.Tensor:
     return bias_dropout_add(x, bias, residual, prob, False)
 
+'''
+2.1 初始化
+ParallelTransformerLayer地址：/Megatron-LM/megatron/model/transformer.py
 
+其初始化方法流程如下：
+
+    生成一个 LayerNorm 处理输入数据。
+    生成并行 Attention。
+    生成处理 Attention 输出的 LayerNorm。
+    如果是 decoder，则生成一个 ParallelAttention。
+    生成一个并行 MLP。
+    
+如下图：    30.png
+'''
 class ParallelTransformerLayer(MegatronModule):
     """A single transformer layer.
 
@@ -733,6 +757,7 @@ class ParallelTransformerLayer(MegatronModule):
         self.fp32_residual_connection = args.fp32_residual_connection
 
         # Layernorm on the input data.
+        # 通过 LayerNorm 处理输入数据
         self.input_layernorm = LayerNorm(
             args.hidden_size,
             eps=args.layernorm_epsilon,
@@ -741,6 +766,7 @@ class ParallelTransformerLayer(MegatronModule):
             apply_layernorm_1p=args.apply_layernorm_1p)
 
         # Self attention.
+        # 并行 Attention
         self.self_attention = ParallelAttention(
             init_method,
             output_layer_init_method,
@@ -752,6 +778,7 @@ class ParallelTransformerLayer(MegatronModule):
         self.drop_path = DropPath(drop_path_rate) if drop_path_rate > 0.0 else None
 
         # Layernorm on the attention output
+        # 生成处理attention输出的LayerNorm
         self.post_attention_layernorm = LayerNorm(
             args.hidden_size,
             eps=args.layernorm_epsilon,
@@ -760,10 +787,12 @@ class ParallelTransformerLayer(MegatronModule):
             apply_layernorm_1p=args.apply_layernorm_1p)
 
         # Cross attention.
+        # 如果是 decoder
         if self.layer_type in (LayerType.decoder,
                                LayerType.retro_decoder,
                                LayerType.retro_decoder_with_retriever,
                                LayerType.retro_encoder):
+            # 则生成一个ParallelAttention
             self.inter_attention = ParallelAttention(
                 init_method,
                 output_layer_init_method,
@@ -778,12 +807,14 @@ class ParallelTransformerLayer(MegatronModule):
                 apply_layernorm_1p=args.apply_layernorm_1p)
 
         # MLP
+        # 生成一个并行MLP
         if args.num_experts is not None:
             self.mlp = SwitchMLP(init_method, output_layer_init_method)
         else:
             self.mlp = ParallelMLP(init_method, output_layer_init_method)
 
         # Set bias+dropout+add fusion grad_enable execution handler.
+        # 算子融合，加速用的
         TORCH_MAJOR = int(torch.__version__.split('.')[0])
         TORCH_MINOR = int(torch.__version__.split('.')[1])
         use_nvfuser = TORCH_MAJOR > 1 or (TORCH_MAJOR == 1 and TORCH_MINOR >= 10)
@@ -1023,6 +1054,10 @@ class ParallelTransformerLayer(MegatronModule):
     要就是调用内部 ParallelTransformerLayer 的 forward 方法。
     和 BERT 模型不同的是，GPTModel 这里第一层和最后一层没有进行特殊处理。
     '''
+    '''
+    2.2 前向传播
+        ParallelTransformerLayer 的前向传播方法如下，即调用各种成员函数进行前向操作。
+    '''
     def forward(self, hidden_states, attention_mask,
                 encoder_output=None, enc_dec_attn_mask=None,
                 retriever_input=None,
@@ -1077,6 +1112,7 @@ class ParallelTransformerLayer(MegatronModule):
             layernorm_input = residual + self.drop_path(out)
 
         # Layer norm post the self attention.
+        # 处理attention输出
         layernorm_output = self.post_attention_layernorm(layernorm_input)
 
         # Cross attention.

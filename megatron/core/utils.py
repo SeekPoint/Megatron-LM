@@ -8,7 +8,10 @@ import torch
 
 from megatron.core import parallel_state
 
-
+'''
+4.2.1 切分size
+self.output_size_per_partition = divide(output_size, world_size) 这里有一个分割 size 操作，得到每个子模型应该拥有的权重大小。
+'''
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
     assert numerator % denominator == 0, "{} is not divisible by {}".format(
