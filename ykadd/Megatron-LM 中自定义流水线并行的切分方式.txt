@@ -1,0 +1,105 @@
+Megatron-LM 中自定义流水线并行的切分方式
+
+
+Megatron-LM 代码版本：23.06
+
+
+之前的系列文章：
+
+简枫：Megatron-LM 近期的改动
+
+简枫：深入理解 Megatron-LM（1）基础知识
+
+简枫：深入理解 Megatron-LM（2）原理介绍
+
+简枫：深入理解 Megatron-LM（3）代码结构
+
+简枫：深入理解 Megatron-LM（4）并行设置
+
+简枫：深入理解 Megatron-LM（5）张量并行
+
+1. 导读
+NVIDIA Megatron-LM 是一个基于 PyTorch 的分布式训练框架，用来训练基于 Transformer 的大型语言模型。
+Megatron-LM 综合应用了
+数据并行（Data Parallelism），
+张量并行（Tensor Parallelism）和
+流水线并行（Pipeline Parallelism）
+来复现 GPT-3。
+
+通过之前几篇文章，大家可以知道，Megatron-LM 中默认的流水线并行划分方式是均匀的将模型 Layers 分到不同的流水线 Stages ，
+本篇文章介绍 Megatron-LM 中如何通过修改源码来自定义流水线并行的切分方式。
+
+2. 流水线并行划分
+01.png
+以上图为例，传统的流水线并行会将模型的 Layers 进行均匀切分，划分成不同的 Stage，然后放置在不同的 GPU 设备上。
+这一过程具体可以参考ParallelTransformer部分的代码，下面进行简要的分析：
+
+简枫：深入理解 Megatron-LM（4）并行设置
+
+具体位置：/Megatron-LM/megatron/model/transformer.py
+
+1. 如果是均匀切分模型的 Layers，首先计算每一个 Stage 得到多少 Layers。
+简单情况下，如果流水线并行数为 2，模型层数为 8，则每个 Stage 各自得到模型中连续的 4 层，这里 self.num_layers = 4 。
+
+ self.num_layers = _get_num_layers(
+ args,
+ args.model_type == ModelType.encoder_and_decoder,
+ layer_type == LayerType.decoder)
+
+2. 在函数ParallelTransformer中，偏移量（offset）根据 rank决定应该生成哪些层。
+
+# Each stage gets a contiguous set of layers.
+if args.model_type == ModelType.encoder_and_decoder and mpu.get_pipeline_model_parallel_world_size() > 1:
+     pipeline_rank = mpu.get_pipeline_model_parallel_rank()
+     if layer_type == LayerType.encoder:
+         offset = pipeline_rank * self.num_layers
+     else:
+         num_ranks_in_enc = args.pipeline_model_parallel_split_rank
+         offset = (pipeline_rank - num_ranks_in_enc) * self.num_layers
+else:
+    offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
+
+3. 然后，通过来生成 build_layer函数来生成相应的层。
+
+    self.layers = torch.nn.ModuleList([build_layer(i + 1 + offset) for i in range(self.num_layers)])
+
+4. 最终，将模型参数复制到自己相应的 GPU 上。这种方式让每个进程主动获取其应该处理的部分，实现了模型的分块和放置。
+
+思考
+
+如果是均匀切分模型 Layers 的话，整体流程还是比较简单的。
+但是如果我们想自定义切分流水线（比如，模型层数为 8，我们想第一个流水线 Stage 分得 6 层，第二个流水线 Stage 分的 2 层），
+按上面这种方式显然无法实现，但其实要实现起来很简单，下面我们看看如果通过修改源码的方式来进行支持。
+
+3. 自定义流水线划分
+假设我们流水线并行数为 2，模型层数为 8。
+我们按照 3:1 的比例来划分 Stage，这样 Stage1 得到 6 层，Stage2 得到 2 层。
+
+1. 根据流水线的 is_pipeline_first_stage，确定是第一个 Stage还是最后一个 Stage（即使 Stage 数大于 2，也很容易扩展），
+通过这个得到该 Stage上的模型 Layers 大小。
+
+# Stage1 和 Stage2 分到的层数按 3:1 的比例
+stage1_ratio = 3
+stage2_ratio = 1
+
+# 判断条件：如果要对 pipeline 进行不均匀的切分
+if args.use_asymmetric_pipeline_division:
+    self.stage1_ratio = stage1_ratio / (stage1_ratio + stage2_ratio)
+    self.stage2_ratio = stage2_ratio / (stage1_ratio + stage2_ratio)
+
+    if mpu.is_pipeline_first_stage(ignore_virtual=True):
+        self.num_layers = int(args.num_layers * self.stage1_ratio)
+    else:
+        self.num_layers = int(args.num_layers * self.stage2_ratio)
+2. 根据流水线的 is_pipeline_first_stage，计算得到偏移量 offset，并根据此来决定应该生成哪些层。
+
+# 判断条件：如果要对 pipeline 进行不均匀的切分
+if args.use_asymmetric_pipeline_division:
+    if mpu.is_pipeline_first_stage(ignore_virtual=True):
+        offset = 0
+    else:
+        offset = int(self.stage1_ratio * self.num_layers)
+3. 然后，同样通过build_layer函数来生成相应的层，将模型参数复制到自己相应的 GPU 上。
+
+self.layers = torch.nn.ModuleList([build_layer(i + 1 + offset) for i in range(self.num_layers)])
+至此，我们实现了自定义比例的流水线并行切分。

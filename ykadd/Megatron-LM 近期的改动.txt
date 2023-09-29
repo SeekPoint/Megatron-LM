@@ -1,0 +1,26 @@
+Megatron-LM 近期的改动
+
+https://zhuanlan.zhihu.com/p/651192295
+
+Megatron-LM 最新 release 的版本是 23.06：
+
+
+相比之前的版本，有几个比较重大的更新，如下：
+
+    增加了对 Rotary Positional Embedding 的支持。
+
+    增加了对 FlashAttention v1 和 v2 的支持。
+
+    在Zero并行的情况下（distributed-optimizer），增加了一些新的细粒度 partial checkpointing 的技术。
+
+    修复了模型的 Checkpoint 保存/加载相关的问题。
+
+    Megatron-LM 中的 GPT 模型的流水线并行实现进行了重大重构。
+
+其中，细粒度 partial checkpointing 的技术，体现在：
+
+只要模型Checkpoint的流水线并行组（PP）和张量并行组（TP）不变，就可以动态加载并且继续训练模型，即使数据并行组（DP）的个数发生变化。
+
+因为 DP = GPU总数 / ( TP * PP ) 总数 ，
+在大模型的训练过程中，会经常遇到GPU或者Node突然坏掉的情况，所以整体的GPU总数可能是动态变化的。
+这样新特性的支持可以更方便的让我们在有个别GPU或者Node坏掉的情况下重启训练过程。
