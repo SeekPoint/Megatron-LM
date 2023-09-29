@@ -47,7 +47,8 @@ def parallel_lm_logits(input_, word_embeddings_weight, parallel_output,
 
     return tensor_parallel.gather_from_tensor_model_parallel_region(logits_parallel)
 
-
+# 4.2.2 语言模型
+# get_language_model会获取一个 TransformerLanguageModel。
 def get_language_model(num_tokentypes, add_pooler,
                        encoder_attn_mask_type, init_method=None,
                        scaled_init_method=None, add_encoder=True,
@@ -323,7 +324,13 @@ class Embedding(MegatronModule):
                 print('***WARNING*** expected tokentype embeddings in the '
                       'checkpoint but could not find it', flush=True)
 
+'''
+TransformerLanguageModel 就是具体的语言模型，其中重要的是 ParallelTransformer。这里会依据传入的配置来进行生成。
 
+    如果是第一层，即有 pre_process，则会加入 embedding layer。
+    如果是中间层，则会根据 encoder 还是 decoder 来生成对应的 ParallelTransformer。
+    如果是最后一层，即有 post_process，则会加入 Pooler。
+'''
 class TransformerLanguageModel(MegatronModule):
     """Transformer language model.
 

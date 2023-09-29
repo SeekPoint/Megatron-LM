@@ -353,14 +353,15 @@ def get_tensor_model_parallel_world_size():
         return _MPU_TENSOR_MODEL_PARALLEL_WORLD_SIZE
     return torch.distributed.get_world_size(group=get_tensor_model_parallel_group())
 
-
+# get_pipeline_model_parallel_world_size 获取本流水线组world size的数目，就是流水线深度。
 def get_pipeline_model_parallel_world_size():
     """Return world size for the pipeline model parallel group."""
     global _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE
     if _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE is not None:
         return _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE
     return torch.distributed.get_world_size(group=get_pipeline_model_parallel_group())
-
+# _MPU_PIPELINE_MODEL_PARALLEL_WORLD_SIZE 的意思是流水线深度 p，就是纵向切 p-1刀。
+# 比如一共 12 层，纵向切 5 刀，则有 6 个stage，每个 stage 有 2 层。
 
 def set_tensor_model_parallel_rank(rank):
     """Set tensor model parallel rank."""
@@ -509,7 +510,7 @@ def set_virtual_pipeline_model_parallel_world_size(world_size):
     global _VIRTUAL_PIPELINE_MODEL_PARALLEL_WORLD_SIZE
     _VIRTUAL_PIPELINE_MODEL_PARALLEL_WORLD_SIZE = world_size
 
-
+# get_tensor_model_parallel_src_rank 函数计算与张量模型并行组中第一个local rank对应的全局rank。
 def get_tensor_model_parallel_src_rank():
     """Calculate the global rank corresponding to the first local rank
     in the tensor model parallel group."""

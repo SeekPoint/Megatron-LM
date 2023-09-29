@@ -15,6 +15,8 @@ from megatron.core.utils import get_attr_wrapped_model, get_model_type
 # Types
 Shape = Union[List[int], torch.Size]
 
+# 7.3 获取 schedule
+# get_forward_backward_func 获取 pipeline 的 schedule，这里分为 flush 和 interleaving 两种。
 def get_forward_backward_func():
     """Retrieves the appropriate forward_backward function given the
     configuration of parallel_state.

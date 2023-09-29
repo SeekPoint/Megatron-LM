@@ -21,7 +21,8 @@ from megatron.global_vars import set_global_variables
 from megatron.model.transformer import bias_dropout_add_fused_train
 from megatron.model.fused_bias_gelu import bias_gelu
 
-
+# 4.1 初始化
+# initialize_megatron方法会设置全局变量，初始化分布式环境。
 def initialize_megatron(extra_args_provider=None, args_defaults={},
                         ignore_unknown_args=False, allow_no_cuda=False):
     """Set global variables, initialize distributed, and
@@ -78,7 +79,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         # Autoresume.
         _init_autoresume()
 
-        # Compile dependencies.
+        # Compile dependencies. 编译算子相关
         _compile_dependencies()
 
         # No continuation function
@@ -143,7 +144,19 @@ def _compile_dependencies():
                   time.time() - start_time), flush=True)
 
 
+'''
+4.2 初始化分布式环境
+_initialize_distributed 函数的功能：
 
+    调用 torch.distributed.init_process_group 初始化分布式环境。
+    
+    调用 mpu.initialize_model_parallel 来设置模型并行，数据并行等各种进程组。
+    
+创建完 worker 进程之后，程序需要知道哪些进程在训练同一个模型，torch.distributed.init_process_group 就实现了这个功能。
+torch.distributed.init_process_group 会生成一个进程组，同组内进程训练同一个模型，也能确定用什么方式进行通信。
+进程组会给组内每个进程一个序号，就是 gloabl rank，如果是多机并行，每个机器创建的进程之间也有一个序号，就是 local rank。
+如果是单机多卡并行，local rank 和 global rank 是一致的。
+'''
 def _initialize_distributed():
     """Initialize torch.distributed and core model parallel."""
     args = get_args()

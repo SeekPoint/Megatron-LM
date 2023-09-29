@@ -61,7 +61,7 @@ def _build_key_size_numel_dictionaries(keys, data):
 
     return key_size, key_numel, total_numel
 
-
+# tensor_parallel.broadcast_data 函数在每个 model parallel group 之上，把数据从 rank_0 发送到同组其他 GPU 上。
 def broadcast_data(keys, data, datatype):
     """Broadcast data from rank zero of each model parallel group to the
     members of the same model parallel group.

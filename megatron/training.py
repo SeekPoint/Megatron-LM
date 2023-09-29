@@ -48,7 +48,19 @@ def print_datetime(string):
     time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print_rank_0('[' + string + '] datetime: {} '.format(time_str))
 
+'''
+3. 预训练
+pretrain 函数的位置：/Megatron-LM/megatron/training.py
 
+其主要内容如下：
+
+    初始化 Megatron。
+    使用 `model_provider 设置model、optimizer 和 lr_scheduler。
+    调用 train_val_test_data_provider 以获取 train/val/test 数据集。
+    使用 forward_step_func 训练模型。
+    
+具体代码如下：
+'''
 def pretrain(train_valid_test_dataset_provider,
              model_provider,
              model_type,
@@ -108,6 +120,8 @@ def pretrain(train_valid_test_dataset_provider,
 
     # Model, optimizer, and learning rate.
     timers('model-and-optimizer-setup', log_level=0).start(barrier=True)
+
+    # Model, optimizer, and learning rate. 使用model_provider设置模型、优化器和lr计划
     model, optimizer, opt_param_scheduler = setup_model_and_optimizer(
         model_provider, model_type)
     timers('model-and-optimizer-setup').stop()
@@ -117,6 +131,8 @@ def pretrain(train_valid_test_dataset_provider,
     # Data stuff.
     timers('train/valid/test-data-iterators-setup', log_level=0).start(
         barrier=True)
+
+    # Data stuff. 调用train_val_test_data_provider以获取train/val/测试数据集
     if args.virtual_pipeline_model_parallel_size is not None:
         all_data_iterators = [
             build_train_valid_test_data_iterators(
@@ -149,6 +165,8 @@ def pretrain(train_valid_test_dataset_provider,
             print_rank_0("retro cyclic train iters : %d" % args.train_iters)
 
         iteration = 0
+        #7. 训练
+        # pretrain 之中会调用 train 来进行训练。
         if args.do_train and args.train_iters > 0:
             iteration = train(forward_step_func,
                             model, optimizer, opt_param_scheduler,
@@ -208,7 +226,27 @@ def update_train_iters(args):
 
     print_rank_0('setting training iterations to {}'.format(args.train_iters))
 
+'''
+5.3 get_model
+现在我们来整理一下生成模型的流程，回到 get_model 函数。
 
+在 GPT 中，包含多个 Transformer 层，因此我们将根据层数进行切分，每一层都是相同的 Transformer 层。
+前面提到，在我们的示例中，我们启动了 8 个进程，每个进程包含一个子模型，即原始 GPT 模型的部分层。
+现在我们来看看如何确定每个子模型包含多少层。
+
+这个问题的答案在于已经建立的进程组情况，get_model方法将根据当前进程组的情况进行处理。单个进程内获取模型的过程如下：
+
+    1 如果设置了虚拟模型 (virtual)，则会遍历虚拟模型的大小 (virtual size)，生成相应数量的模型（GPTModel）。
+    2 否则，如果设置为编码器解码器模型 (encoder_and_decoder)，将根据切分配置进行设置。
+    3 配置张量模型并行属性 (tensor model parallel)。
+    4 将本模型放置在 GPU 上。
+    5 如果需要数据并行 (DDP)，则进行配置。
+    
+通过以上步骤，单个进程内的模型获取就完成了。
+这些模型在不同进程中协同工作，实现了整体的模型并行训练。
+
+具体代码如下：
+'''
 def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap_with_ddp=True):
     """Build the model."""
     args = get_args()
@@ -216,21 +254,22 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
 
     # Build model.
     if mpu.get_pipeline_model_parallel_world_size() > 1 and \
-       args.virtual_pipeline_model_parallel_size is not None:
+       args.virtual_pipeline_model_parallel_size is not None: # 有virtual设置，后续会提到
         assert model_type != ModelType.encoder_and_decoder, \
             "Interleaved schedule not supported for model with both encoder and decoder"
         model = []
-        for i in range(args.virtual_pipeline_model_parallel_size):
+        for i in range(args.virtual_pipeline_model_parallel_size): # 遍历virtual
+            # 设置rank，主要是为了看是不是第一层，最后一层
             mpu.set_virtual_pipeline_model_parallel_rank(i)
             # Set pre_process and post_process only after virtual rank is set.
             pre_process = mpu.is_pipeline_first_stage()
             post_process = mpu.is_pipeline_last_stage()
-            this_model = model_provider_func(
+            this_model = model_provider_func( # 获取原始模型 GPTModel
                 pre_process=pre_process,
                 post_process=post_process
             )
             this_model.model_type = model_type
-            model.append(this_model)
+            model.append(this_model)  # 模型列表之中添加一个新的 GPTModel
     else:
         pre_process = mpu.is_pipeline_first_stage()
         post_process = mpu.is_pipeline_last_stage()
@@ -294,6 +333,12 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
     if args.fp16 or args.bf16:
         model = [Float16Module(model_module, args) for model_module in model]
 
+    '''
+    6.2 DDP
+    在 get_model 之中，有如下代码使用 DDP。
+    
+    默认采用 local 的模式作为 DDP_impl 的值。
+    '''
     if wrap_with_ddp:
         if args.DDP_impl == 'torch':
             i = torch.cuda.current_device()
@@ -365,7 +410,8 @@ def get_optimizer_param_scheduler(optimizer):
 
     return opt_param_scheduler
 
-
+# 5.1 模型和优化器设置
+# setup_model_and_optimizer 方法会设置模型和优化器，其中重点是 get_model 函数。
 def setup_model_and_optimizer(model_provider_func,
                               model_type,
                               no_wd_decay_cond=None,
@@ -406,7 +452,8 @@ def setup_model_and_optimizer(model_provider_func,
     return model, optimizer, opt_param_scheduler
 
 
-
+# 7.2 训练Step
+# train_step 会获取 get_forward_backward_func 得到 schedule，因为是流水线并行，所以需要 schedule 如何具体训练。
 def train_step(forward_step_func, data_iterator,
                model, optimizer, opt_param_scheduler):
     """Single training step."""
@@ -676,7 +723,8 @@ def save_checkpoint_and_time(iteration, model, optimizer, opt_param_scheduler):
     timers('save-checkpoint').stop(barrier=True)
     timers.log(['save-checkpoint'])
 
-
+# 7.1 训练主函数
+# 按照注释来读，不难理解
 def train(forward_step_func, model, optimizer, opt_param_scheduler,
           train_data_iterator, valid_data_iterator,
           process_non_loss_data_func):
@@ -921,7 +969,7 @@ def build_train_valid_test_datasets(build_train_valid_test_datasets_provider):
     # Build the datasets.
     return build_train_valid_test_datasets_provider(train_val_test_num_samples)
 
-
+# 具体看 build_train_valid_test_data_loaders 函数
 def build_train_valid_test_data_loaders(
         build_train_valid_test_datasets_provider):
     """Build pretraining data loaders."""
@@ -976,7 +1024,17 @@ def build_train_valid_test_data_loaders(
 
     return train_dataloader, valid_dataloader, test_dataloader
 
+'''
+6. 数据并行
+6.1 设置数据
+build_train_valid_test_data_iterators 方法会对数据进行处理，提供了 train，valid，test 三种不同的数据集。
 
+dataloader_type 有 2 种模式：
+
+    single：single pass data loader，默认的模式
+    
+    cyclic：multiple pass data loader
+'''
 def build_train_valid_test_data_iterators(
         build_train_valid_test_datasets_provider):
     """Build pretraining data iterators."""

@@ -1018,6 +1018,11 @@ class ParallelTransformerLayer(MegatronModule):
 
         return retriever_output, layernorm_input, layernorm_output
 
+    '''
+    4.2.3.2 前向传播
+    要就是调用内部 ParallelTransformerLayer 的 forward 方法。
+    和 BERT 模型不同的是，GPTModel 这里第一层和最后一层没有进行特殊处理。
+    '''
     def forward(self, hidden_states, attention_mask,
                 encoder_output=None, enc_dec_attn_mask=None,
                 retriever_input=None,
@@ -1246,7 +1251,20 @@ def _get_layer_type(model_type, default_layer_type, retro_layer_numbers,
     else:
         return default_layer_type
 
+'''
+4.2.3 ParallelTransformer
+这里会调用 ParallelTransformerLayer 生成具体的 Transformer 层，我们会在后文中进行分析。
+即，ParallelTransformer 包括多个 Transformer，其中每层 Transformer 是一个 ParallelTransformerLayer。
+args.transformer-impl 表示采用哪种 Transformer 的实现方式：
+transformer_engine：
+https://github.com/NVIDIA/TransformerEngine 的实现版本，包含一些NVIDIA家量化加速的技术
+2. local：本地实现的简单版本
+这里我们主要研究 local 模式
 
+
+逻辑上的嵌套表示图如下：
+24.png
+'''
 class ParallelTransformer(MegatronModule):
     """Transformer class."""
 
@@ -1318,6 +1336,7 @@ class ParallelTransformer(MegatronModule):
         self.checkpoint_core_attention = args.recompute_granularity == 'selective'
 
         # Number of layers.
+        # 获得本Transformer的具体层数
         self.num_layers = _get_num_layers(args, model_type,
                                           layer_type==LayerType.decoder)
 
@@ -1344,7 +1363,7 @@ class ParallelTransformer(MegatronModule):
                 current_layer_type = _get_layer_type(
                     model_type, layer_type, self.retro_layer_numbers,
                     layer_number)
-                return ParallelTransformerLayer(
+                return ParallelTransformerLayer(   # 返回一层 Transformmer
                     init_method,
                     output_layer_init_method,
                     layer_number,

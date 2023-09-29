@@ -11,7 +11,8 @@ from megatron import get_args
 from megatron.core import mpu
 from .module import MegatronModule
 
-
+# 5.2.2 内存
+# MemoryBuffer 是内存抽象
 class MemoryBuffer:
 
     def __init__(self, numel, numel_padded, dtype):
@@ -71,7 +72,11 @@ class DistributedDataParallelBase(MegatronModule, ABC):
         self.module.load_state_dict(state_dict, strict=strict)
 
 
-
+'''
+5.2.1 定义
+定义只有注释可以看看，使用连续的（contiguous）内存来存储和累积梯度，
+每一种类型的张量属于一个统一的内存，可以统一做 allreduce。
+'''
 class DistributedDataParallel(DistributedDataParallelBase):
     """DDP with contiguous buffers options to storre and accumulate gradients.
     This class:
@@ -108,26 +113,27 @@ class DistributedDataParallel(DistributedDataParallelBase):
         # ===================================
         self._grad_buffers = None
         self._grad_buffer_param_index_map = None
-        if self.use_contiguous_buffers:
-            self._grad_buffers = {}
+        if self.use_contiguous_buffers: # 这里只考虑连续内存
+            self._grad_buffers = {}  # 定义buffer
             self._grad_buffer_param_index_map = {}
             data_parallel_world_size = mpu.get_data_parallel_world_size()
 
             # Simple function to define buffer type.
-            def _get_buffer_type(param):
+            def _get_buffer_type(param):  # 返回buffer类型
                 return torch.float if \
                     self.accumulate_allreduce_grads_in_fp32 else param.dtype
 
             # First calculate total number of elements per type.
             type_num_elements = {}
-            for param in self.module.parameters():
-                if param.requires_grad:
-                    dtype = _get_buffer_type(param)
+            for param in self.module.parameters(): # 遍历模型参数
+                if param.requires_grad: # 如果需要计算梯度
+                    dtype = _get_buffer_type(param) # 获取参数类型
                     type_num_elements[dtype] = type_num_elements.get(dtype, 0) \
-                                               + param.data.nelement()
+                                               + param.data.nelement()  # 该类型参数数目做相应增加
 
+            # 目前 type_num_elements 是各种类型参数的个数
             # Allocate the buffer.
-            for dtype, num_elements in type_num_elements.items():
+            for dtype, num_elements in type_num_elements.items(): # 遍历各种类型
 
                 # If using distributed optimizer, pad memory buffer to be
                 # multiple of data_parallel_world_size. (This padding is done
@@ -170,7 +176,10 @@ class DistributedDataParallel(DistributedDataParallelBase):
                     grad_acc.register_hook(self._make_param_hook(param))
                     self.grad_accs.append(grad_acc)
 
-
+    '''
+    5.2.3 支撑函数
+    下面是两个支撑函数，分别是用于拷贝梯度和将buffer清零。
+    '''
     def _make_param_hook(self, param):
         """Create the all-reduce hook for backprop."""
         # Hook used for back-prop.
@@ -198,7 +207,13 @@ class DistributedDataParallel(DistributedDataParallelBase):
                                         src=mpu.get_data_parallel_src_rank(),
                                         group=mpu.get_data_parallel_group())
 
-
+    '''
+    5.2.4 梯度规约
+    
+    allreduce_gradients 是 DDP 对外提供的 API，在后面 train step 之中会调用到。
+    
+    运行时候，分别对两种类型的连续内存做 AllReduce。
+    '''
     def allreduce_gradients(self):
         """Reduce gradients across data parallel ranks."""
         # If we have buffers, simply reduce the data in the buffer.
