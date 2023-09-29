@@ -218,6 +218,7 @@ def _p2p_ops(*,
             reqs.append(send_prev_req)
     return reqs
 
+# 具体使用是在 megatron/p2p_communication.py，_communicate之中会用流水线组信息来进行通信。
 def _communicate(*, tensor_send_next: Optional[torch.Tensor],
                  tensor_send_prev: Optional[torch.Tensor],
                  recv_prev: bool,
@@ -329,6 +330,7 @@ def _communicate(*, tensor_send_next: Optional[torch.Tensor],
                                        dtype=dtype)
 
     # Send tensors in both the forward and backward directions as appropriate.
+    # # 这里使用get_pipeline_model_parallel_group 进行通信
     if use_ring_exchange_p2p:
         def _ring_exchange_wrapper(**kwargs):
             torch.distributed.ring_exchange(**kwargs)

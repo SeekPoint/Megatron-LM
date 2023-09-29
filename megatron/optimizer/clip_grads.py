@@ -12,6 +12,7 @@ from megatron.model.module import param_is_not_shared
 from megatron.core.tensor_parallel import param_is_not_tensor_parallel_duplicate
 
 
+# 这里是裁剪梯度会用到，就是在本模型的全部rank之中进行梯度裁剪相关操作。
 def clip_grad_norm_fp32(parameters, grads_for_norm,
                         max_norm, norm_type=2,
                         model_parallel_group=None):

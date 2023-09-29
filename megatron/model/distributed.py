@@ -214,6 +214,7 @@ class DistributedDataParallel(DistributedDataParallelBase):
     
     运行时候，分别对两种类型的连续内存做 AllReduce。
     '''
+    #在 allreduce_gradients之中，会对本数据并行组进行all-reduce。
     def allreduce_gradients(self):
         """Reduce gradients across data parallel ranks."""
         # If we have buffers, simply reduce the data in the buffer.

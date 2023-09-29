@@ -1265,6 +1265,27 @@ https://github.com/NVIDIA/TransformerEngine 的实现版本，包含一些NVIDIA
 逻辑上的嵌套表示图如下：
 24.png
 '''
+'''
+9. 如何把模型分到GPU
+实际上，不是通过将模型部分复制到特定的rank或 GPU 上来实现的，而是每个rank或GPU主动获取自己对应的层。
+
+通过调用mpu.initialize_model_parallel来设置模型并行、数据并行等各种进程组，
+因此，每个 rank 对应的进程都有自己的全局变量，实际上进程会自动映射到 GPU 上。
+例如，rank 2对应的进程在启动后才知道自己是rank 2，然后从初始化的全局变量中了解自己的数据并行组是[g0, g2]，
+张量模型并行组是[g2, g3]，流水线模型并行组是[g2, g6, g10, g14]。
+
+在ParallelTransformer的初始化中，偏移量（offset）根据 rank决定应该生成哪些层，
+然后通过
+self.layers = torch.nn.ModuleList([build_layer(i + 1 + offset) for i in range(self.num_layers)])
+来生成相应的层。
+
+在get_model方法中，根据流水线的rank和is_pipeline_first_stage，确定是否是第一层或最后一层，并做出相应的处理。
+
+最终，将模型参数复制到自己相应的 GPU 上。
+这种方式让每个进程主动获取其应该处理的部分，实现了模型的分块和放置。
+
+具体可以参考 ParallelTransformer 的初始化代码部分：
+'''
 class ParallelTransformer(MegatronModule):
     """Transformer class."""
 

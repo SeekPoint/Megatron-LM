@@ -9,7 +9,8 @@ from megatron.core.parallel_state import (
 )
 from .utils import split_tensor_along_last_dim
 
-
+# 在 megatron/mpu/mappings.py 之中有对 tensor_model_group 的使用：
+#reduce函数利用 _TENSOR_MODEL_PARALLEL_GROUP 进行在组内进行集合通信。
 def _reduce(input_):
     """All-reduce the input tensor across model parallel group."""
 

@@ -1,0 +1,230 @@
+深入理解 Megatron-LM（4）并行设置
+
+https://zhuanlan.zhihu.com/p/650500590
+1. 导读
+
+之前 4 篇文章对模型并行的原理和代码进行了分析，当需要将给定的模型划分给不同的节点进行并行处理时，需要解决以下几个关键问题：
+
+1. 模型划分和节点分配： 首先，需要确定每个节点负责处理模型的哪些部分。
+这通常涉及将模型的层划分到不同的节点上。划分的策略可以基于层的计算量、通信需求、内存消耗等因素进行。
+对于流水线并行，还需要确定哪些节点负责流水线的哪个阶段。
+
+2. 并行策略： 根据不同的并行策略，将节点分配给不同的并行任务。
+例如，数据并行可能涉及将不同的批次分配给不同节点，模型并行可能涉及将不同层分配给不同节点，
+流水线并行可能涉及将不同流水线阶段分配给不同节点。
+
+3. 数据流管理： 确保数据在不同节点之间的流动和传递，以保持计算的一致性。
+在流水线并行中，需要管理不同流水线阶段之间的数据传输，以确保正确的依赖关系。
+
+4. 通信开销： 考虑不同节点之间的通信开销。
+在流水线并行中，通信可能会导致延迟，需要适当规划通信操作，以减少对整体性能的影响。
+
+5. 流水线问题的解决： 针对流水线并行可能带来的问题，
+可以通过限制流水线阶段的数量、调整流水线深度，以及合理规划流水线阶段之间的通信来解决。需要综合考虑计算和通信之间的权衡。
+
+在解决上述问题时，可以结合实际模型的结构、硬件资源以及训练需求来制定适当的策略。
+这通常需要进行一些实验和调整，以获得最佳的训练性能。
+
+接下来对上述问题进行分析。
+
+2. 初始化
+initialize_model_parallel 方法用来设置模型并行。
+
+文件位置：/megatron/core/parallel_state.py
+
+2.1 全局变量
+之前文章提到过/megatron/initialize.py文件内的 _initialize_distributed 函数，其调用了torch.distributed.init_process_group 初始化分布式环境，所以每个进程都有自己的 gloabl rank 和 local rank，都有对应的全局变量。
+
+主要变量如下（具体例子可以结合 initialize_model_parallel 之中的注释来看）：
+
+_TENSOR_MODEL_PARALLEL_GROUP ：当前 rank 所属于的Intra-layer model parallel group，就是张量并行进程组。
+假如每一层分为两个tensor，则_TENSOR_MODEL_PARALLEL_GROUP 例子为：[g0, g1], [g2, g3], [g4, g5], [g6, g7], [g8, g9], [g10, g11], [g12, g13], [g14, g15]。
+
+_PIPELINE_MODEL_PARALLEL_GROUP ：当前 rank 所属于的Intra-layer model parallel group，就是流水线进程组。
+假如流水线深度为 4，则例子为 [g0, g4, g8, g12], [g1, g5, g9, g13], [g2, g6, g10, g14], [g3, g7, g11, g15]。
+
+_MODEL_PARALLEL_GROUP ：当前 rank 所属于的模型并行进程组，包括了以上两组。
+针对 code里 面的例子，就是完整模型被复制了两份，其 GPU 节点具体是 [0, 1, 4, 5, 8, 9, 12, 13]，[2, 3, 6, 7, 10, 11, 14, 15]。
+
+_EMBEDDING_GROUP ： embedding 对应的进程组。
+
+_DATA_PARALLEL_GROUP ：当前 rank 所属于的Data parallel group。
+假如数据并行度数为 2，则例子为[g0, g2], [g1, g3], [g4, g6], [g5, g7], [g8, g10], [g9, g11], [g12, g14], [g13, g15]。
+
+具体代码在parallel_state.py内如下：
+...
+
+
+3.1 切分情况
+模型原始图和切分之后的图如下：
+25.png
+
+3.2 切分策略
+接下来，我们将详细探讨切分策略，即 GPU 的分配方案。切分策略需要综合考虑多种情况，首要考虑的是模型并行的通信状况。
+
+在进行张量并行时，通信会发生在每层的前向传播和后向传播过程中，通信类型为 all-reduce。
+这不仅意味着每次通信的数据量较大，而且通信频率也较高。
+
+而在流水线并行中，通信发生在相邻的流水线阶段之间的切分点上，通信类型为点对点（P2P）通信。
+尽管单次通信的数据量较少，但通信频率较高。此外，由于流水线的特性，会产生GPU空闲时间，这种现象被称为流水线气泡（Bubble）。
+
+下面我们将对比不同的并行机制。
+
+张量并行与流水线并行：
+在节点内，张量模型的并行性能最佳，因为它能减少通信量。
+另一方面，流水线模型并行使用了更经济的点对点通信，能跨节点执行而不限制整体计算。
+然而，流水线并行性会在流水线气泡中花费大量时间，因此应限制流水线阶段的总数，以保证其中微批处理数量与流水线深度的合理倍数关系。
+当张量并行大小与单个节点中的GPU数量相等时，性能达到峰值水平。
+
+流水线与数据并行：
+对于每个batch size，流水线并行规模的增加会降低吞吐量。
+流水线模型并行主要适用于支持不适合单个worker的大型模型训练，而数据并行则用于扩大训练规模。
+
+张量与数据并行：
+在较大的batch size和micro-batch size为 1 的情况下，数据并行通信并不频繁；
+而张量模型并行需要对batch中的每个微批进行all-to-all的通信。
+这种all-to-all的通信主导了整个端到端的训练时间，特别是在通信需要跨多个GPU节点进行时。
+此外，随着张量模型并行规模的增加，由于会将模型张量切分，会在每个GPU上执行较小的矩阵乘法，从而降低了每个GPU的利用率。
+
+总结一下：
+
+张量模型并行被应用于节点内的Transformer层，
+因为张量并行具有计算密集性和带宽消耗大的特点，这使得其在基于HGX的系统上能够高效运行。
+
+流水线模型并行主要用于节点间的Transformer层，
+因为流水线并行具有较低的通信带宽需求，可以有效地利用集群中多网卡的设计。
+
+而数据并行在前两者的基础上进行了扩展，使得训练能够规模更大且速度更快。
+需要注意的是，尽管数据并行能够有效地进行扩展，但单独使用数据并行来处理超大规模的训练模型是不够的，因为存在内存容量不足和数据并行扩展的限制等问题。
+
+...
+
+
+4 起始状态
+4.1 GPU 状况
+从注释中可以看到：使用者需要确保相邻的GPU在同一个节点上，
+例子中有两个 Node，其中第一个 Node 拥有 GPU 0 ～ 7，就是 rank 0 ～ 7，第二个 Node 是 GPU 8～15，就是 rank 8 ～ 15。
+
+具体如下，流水线每个 stage 是 4 个 GPU。
+26.png
+
+4.2 初始分组
+根据所提供的注释，我们可以得出当前的分组情况以及一些全局信息。
+
+    总共有 16 个GPU，因此 world_size 为 16。
+
+    对于模型的张量并行，我们使用了 2 个 GPU，因此 tensor_model_parallel_size 为 2。
+
+    在模型的流水线并行中，我们使用了 4 个 GPU，因此 pipeline_model_parallel_size 为 4。
+    换句话说，流水线的深度为 4，即 4个 GPU 串行地执行。
+
+根据前述定义，我们可以计算 data_parallel_size：d = n / (t * p) = 2。
+这表示数据并行度为2，其中 n 代表总GPU数，t 代表模型并行组的数量，p 代表流水线并行组的数量。
+因为 t * p 就是一个模型所需的GPU数，d 则是总 GPU 数除以一个模型所需的 GPU 数。
+这意味着这些 GPU 可以同时训练 d个模型，也就是可以使用 d 个小批次（mini-batches）进行这 d 个模型的联合训练。
+
+接下来，结合代码，我们来看看需要分成多少个进程组（process groups）以及在代码中相应的变量是什么。
+
+    num_tensor_model_parallel_groups 表示从张量模型并行角度来看，我们需要分成8个进程组。
+
+    num_pipeline_model_parallel_groups = world_size // pipeline_model_parallel_size
+    表示从模型并行角度来看，我们需要分成4个进程组。
+
+    num_data_parallel_groups = world_size // data_parallel_size
+    表示从数据并行角度来看，我们需要分成8个进程组。
+    这意味着会有8个数据并行分布式数据并行（DDP）组，每个DDP组包含2个进程。
+
+此外，还有一个名为 _MODEL_PARALLEL_GROUP 的变量，它可能在代码中用来表示某个特定的模型并行分组。
+
+具体如下：
+
+    world_size = 16
+    tensor_model_parallel_size = 2 # 2 GPUs to parallelize the model tensor
+    pipeline_model_parallel_size = 4 # 4 GPUs to parallelize the model pipeline
+    data_parallel_size = world_size // (tensor_model_parallel_size *
+                                        pipeline_model_parallel_size) # 2
+    num_tensor_model_parallel_groups = world_size // tensor_model_parallel_size # 8
+    num_pipeline_model_parallel_groups = world_size // pipeline_model_parallel_size # 4
+    num_data_parallel_groups = world_size // data_parallel_size # 8
+
+
+5. Tensor model parallel
+本节分析的是，如何将 Node 上的 GPU 分给张量模型并行组。
+
+5.1 分组
+以提供的示例为基础，进行重新表述如下：
+
+在给定的示例中，通过计算 16 / 2 = 8，我们将进程分成了8个进程组，每个组包含两个进程。
+这些分组依次是：[g0, g1], [g2, g3], [g4, g5], [g6, g7], [g8, g9], [g10, g11], [g12, g13], [g14, g15]。
+通过这些分组，我们获得了以下信息：
+
+例如，[g0, g1] 表示某一层被切分为两半，分别由 g0 和 g1 来执行；
+同样，[g2, g3] 表示另一层被切分为两部分，分别由 g2 和 g3 来执行。
+
+需要注意的是，每个张量模型并行组的进程一定是相邻的，比如 [g0, g1] 和 [g2, g3]。
+
+值得强调的是，这里的 0 ~ 7 并不代表同一个模型。实际上，0 ~ 7 代表的是同一个节点上的 GPU，这一点很容易引起混淆。
+
+代码如下所示：
+
+    # Build the tensor model-parallel groups.
+    global _TENSOR_MODEL_PARALLEL_GROUP
+    assert _TENSOR_MODEL_PARALLEL_GROUP is None, \
+        'tensor model parallel group is already initialized'
+    for i in range(num_tensor_model_parallel_groups):
+         ranks = range(i * tensor_model_parallel_size,
+                      (i + 1) * tensor_model_parallel_size)
+         group = torch.distributed.new_group(ranks)
+         if rank in ranks:
+             _TENSOR_MODEL_PARALLEL_GROUP = group
+
+如下图，每个 tensor model group (TP) 用一个虚线矩形框标示，一共 8 个：
+27.png
+
+_TENSOR_MODEL_PARALLEL_GROUP = group 就记录了本rank的进程组信息，
+比如 rank 2，它的 _TENSOR_MODEL_PARALLEL_GROUP 内容就是：group([g2, g3])。
+....
+
+
+6. Pipeline model parallel
+本节分析的是，如何将 Node 上的 GPU 分给流水线并行组。
+
+....
+
+7. Data-parallel
+接下来分析数据并行。
+
+
+
+所以，最终效果如下图所示，参考其他网友的画的图。
+
+总结
+以上就是对并行设置的分析。
+
+下一篇我们重点看下模型并行的内容。
+
+简枫：深入理解 Megatron-LM（5）张量并行
+20 赞同 · 0 评论文章
+
+
+
+参考资料
+[源码解析] 模型并行分布式训练Megatron (1) --- 论文 & 基础
+
+[源码解析] 模型并行分布式训练Megatron (2) --- 整体架构
+
+[源码解析] 模型并行分布式训练 Megatron (3) ---模型并行实现
+
+[源码解析] 模型并行分布式训练 Megatron (4) --- 如何设置各种并行
+
+[源码解析] 模型并行分布式训练Megatron (5) --Pipedream Flush
+
+[细读经典]Megatron论文和代码详细分析(1)
+
+[细读经典]Megatron论文和代码详细分析(2)
+
+Reducing Activation Recomputation in Large Transformer Models
+
+Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM
+
+编辑于 2023-08-24 09:48・IP 属地浙江
