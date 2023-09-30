@@ -53,30 +53,7 @@ Megatron-LM 中的 GPT 模型的流水线并行实现进行了重大重构。
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-[细读经典]Megatron论文和代码详细分析(5)-T5-part 1-启动环境-data/tensor/pipeline并行
-https://zhuanlan.zhihu.com/p/470279673
 
-[细读经典]Megatron论文和代码详细分析(5)-T5-part 2 Parallel Transformer
-https://zhuanlan.zhihu.com/p/472166191
-
-[细读经典]Megatron论文和代码详细分析(5)-T5-part 3-optimizer, lr_scheduler
-https://zhuanlan.zhihu.com/p/472879976
-
-[细读经典]Megatron论文和代码详细分析(5)-T5-part 4-train-val-test数据准备
-https://zhuanlan.zhihu.com/p/474178865
-
-[细读经典]Megatron论文和代码详细分析(5)-T5-part 5-mask for T5
-https://zhuanlan.zhihu.com/p/474850507
-
-[细读经典]Megatron论文和代码详细分析(1)
-https://zhuanlan.zhihu.com/p/366906920
-
-[细读经典]Megatron论文和代码详细分析(2)
-https://zhuanlan.zhihu.com/p/388830967
-
-
-[细读经典]Megatron论文和代码详细分析(5)-T5-part 6-masking-训练样本
-https://zhuanlan.zhihu.com/p/474882870
 
 深度学习里，模型并行中怎么将模型拆分？图解张量模型并行(TP)，Megatron-LM
 http://www.python88.com/topic/156151

@@ -355,7 +355,7 @@ Figure 3. Blocks of Transformer with Model Parallelism. f and g are conjugate. f
 
 
 4. ColumnParallelLinear
-代码地址：/Megatron-LM/megatron/core/tensor_parallel/layers.py
+代码地址：/tag_v2.7/megatron/core/tensor_parallel/layers.py
 
 ColumnParallelLinear 就是按列进行切分。注意，这里说的是对权重进行列切分，就是：
 

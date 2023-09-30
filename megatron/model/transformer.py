@@ -84,7 +84,7 @@ ParallelTransformerLayer 里面包含了 Attention 和 MLP，因为篇幅所限�
 3.2 MLP 代码
 3.2.1 初始化
 
-/Megatron-LM/megatron/model/transformer.py 之中有 ParallelMLP 定义如下：
+/tag_v2.7/megatron/model/transformer.py 之中有 ParallelMLP 定义如下：
 
 首先，定义了一个名为 ColumnParallelLinear 类的操作，用于将输入从 H 维度扩展到 4H 维度的转换。
 接下来，进行了一个 gelu 激活函数操作。
@@ -595,7 +595,7 @@ ParallelTransformerLayer 初始化方法之中，建立了如下：
 
 ParallelTransformerLayer 就是对 Transformer 模型层的并行实现，所以从这里进行分析。
 https://zhuanlan.zhihu.com/p/650237833
-深入理解 Megatron-LM（4）模型并行  --也有图
+深入理解 tag_v2.7（4）模型并行  --也有图
 
 
 
@@ -610,7 +610,7 @@ Megatron 的并行 MLP 包含了两个线性层，第一个线性层实现了维
 
 Megatron 使用的是之前文章介绍的第二种方案：
 
-简枫：Megatron-LM 源码阅读（2）原理介绍
+简枫：tag_v2.7 源码阅读（2）原理介绍
 10 赞同 · 3 评论文章
 
 另一个选项是沿列拆分A，得到 

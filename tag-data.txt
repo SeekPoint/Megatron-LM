@@ -1,0 +1,45 @@
+ git log --tags --simplify-by-decoration --pretty="format:%ai %d"
+2022-05-25 11:48:46 -0700  (tag: v3.0.2)
+2022-05-24 09:45:47 -0700  (tag: v3.0.1)
+2022-05-20 15:43:52 -0700  (tag: v3.0)
+2022-05-16 14:43:53 -0700  (tag: v2.7)
+2021-08-27 16:18:14 -0700  (tag: v2.6)
+2021-08-10 17:42:14 +0000  (HEAD -> tag_v2.5, tag: v2.5)
+2021-05-15 00:15:26 +0000  (tag: v2.4)
+2021-04-11 21:11:05 -0700  (tag: v2.3)
+2021-03-22 12:54:02 -0700  (tag: v2.2)
+2021-02-05 23:51:08 +0000  (tag: v2.1)
+2021-01-12 13:39:37 -0800  (tag: v2.0)
+2020-09-11 13:37:52 -0700  (tag: v1.1)
+2020-04-21 16:22:58 -0700  (tag: v1.0)
+2019-10-07 17:46:50 -0700  (tag: v0.2)
+2019-03-27 13:55:24 -0700  (tag: v0.1)
+
+if model_type == ModelType.encoder_and_decoder
+也是2.7才有
+
+--- a/megatron/arguments.py
++++ b/megatron/arguments.py
+@@ -23,7 +23,7 @@ import torch
+ def parse_args(extra_args_provider=None, defaults={},
+                ignore_unknown_args=False):
+     """Parse all arguments."""
+-    parser = argparse.ArgumentParser(description='Megatron-LM Arguments',
++    parser = argparse.ArgumentParser(description='tag_v2.7 Arguments',
+                                      allow_abbrev=False)
+
+                                      diff --git a/megatron/text_generation_utils.py b/megatron/text_generation_utils.py
+index c9bf7e8..bee5775 100644
+--- a/megatron/text_generation_utils.py
++++ b/megatron/text_generation_utils.py
+@@ -181,9 +181,9 @@ def generate_samples_input_from_file(model):
+                     decode_tokens = decode_tokens[0].cpu().numpy().tolist()
+                     trim_decode_tokens = tokenizer.detokenize(
+                         decode_tokens)[raw_text_len:]
+-                    print("\nMegatron-LM:", trim_decode_tokens, flush=True)
++                    print("\ntag_v2.7:", trim_decode_tokens, flush=True)
+
+-                    fname_out.write("\n\nMegatron-LM:")
++                    fname_out.write("\n\ntag_v2.7:")
+                     fname_out.write(trim_decode_tokens)
+似乎自动改的！！！
