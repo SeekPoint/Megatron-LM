@@ -1,0 +1,304 @@
+【BBuf的cuda学习笔记十】Megatron-LM的gradient_accumulation_fusion优化
+
+https://zhuanlan.zhihu.com/p/651875478
+
+
+BBuf
+已关注
+15 人赞同了该文章
+0x0. 前言
+这篇文章来解析一下Megaton-LM涉及到的一个优化gradient_accumulation_fusion。
+这里fusion的意思是在gemm接口中会将当前的结果累加到先前计算的梯度上，
+所有这些都在一个操作中完成，可以避免多次访问global memory提升算子的带宽。
+下面解析一下这个优化的调度逻辑和cuda实现。
+
+
+
+https://github.com/BBuf/how-to-optim-algorithm-in-cuda
+​github.com/BBuf/how-to-optim-algorithm-in-cuda
+这个仓库整理了一些cuda优化相关链接以及大模型训练推理相关的知识链接（large-language-model-note子目录下），欢迎查看。
+
+0x1. 调度逻辑解析
+gradient_accumulation_fusion的调度逻辑是和LinearWithGradAccumulationAndAsyncCommunication这个类的实现有关的，
+LinearWithGradAccumulationAndAsyncCommunication 这个类又被包了一层变成
+linear_with_grad_accumulation_and_async_allreduce 这个函数，
+这个函数又给RowParallelLinear和ColumnParallelLinear这两个实现模型并行的Linear类使用。
+...
+
+
+0x2. fused_weight_gradient_mlp_cuda 实现 ===yknote注意以下是apex代码
+fused_weight_gradient_mlp_cuda接口分别为float32和float16/bfloat16提供了2个cuda kernel实现，我们先看一下上层的接口。
+（https://github.com/NVIDIA/apex/blob/master/csrc/megatron/fused_weight_gradient_dense.cpp）
+
+// 定义了一个名为 wgrad_gemm_accum_fp32_cuda_stub 的函数原型。这是一个CUDA C++函数，
+// 用于处理float32数据类型的权重梯度累积。该函数接受三个at::Tensor参数：
+// input_2d, d_output_2d, 和 d_weight。
+void wgrad_gemm_accum_fp32_cuda_stub(
+  at::Tensor &input_2d,
+  at::Tensor &d_output_2d,
+  at::Tensor &d_weight
+);
+
+// 定义了一个名为 wgrad_gemm_accum_fp16_cuda_stub 的函数原型，与上面的函数类似，
+// 但它是为float16数据类型设计的。
+void wgrad_gemm_accum_fp16_cuda_stub(
+  at::Tensor &input_2d,
+  at::Tensor &d_output_2d,
+  at::Tensor &d_weight
+);
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("wgrad_gemm_accum_fp32", &wgrad_gemm_accum_fp32_cuda_stub, "wgrad gemm accum in fp32");
+    m.def("wgrad_gemm_accum_fp16", &wgrad_gemm_accum_fp16_cuda_stub, "wgrad gemm accum in fp16");
+}
+接下来解析一下wgrad_gemm_accum_fp32这个kernel，
+对应 https://github.com/NVIDIA/apex/blob/master/csrc/megatron/fused_weight_gradient_dense_cuda.cu 这个文件。
+
+// 这个函数是一个封装了NVIDIA cuBLAS库中的cublasGemmEx函数的C++函数，
+// 专门用于执行BFloat16（BF16）的矩阵乘法（GEMM）操作。
+// 函数的名称为gemmex_wrapper，它的设计意图是提供一个简单的接口，
+// 使得PyTorch可以方便地利用cuBLAS中的高效GEMM操作，特别是当使用BFloat16数据类型时。
+// BF16 Tensor core wrapper around cublas GEMMEx
+void gemmex_wrapper(
+    cublasHandle_t handle, // cuBLAS库的句柄，用于管理cuBLAS调用。
+    cublasOperation_t transa,
+    cublasOperation_t transb, // 这两个参数描述了两个输入矩阵A和B是否需要转置。
+    // 定义了矩阵A, B和输出矩阵C的维度。具体来说，矩阵A的维度为m x k，
+    // 矩阵B的维度为k x n，输出矩阵C的维度为m x n。
+    int m,
+    int n,
+    int k,
+    const float* alpha, // 标量系数，用于计算alpha * A * B。
+    at::BFloat16* A, // 输入矩阵A，它们都是BFloat16数据类型。
+    int lda, //  这个参数是矩阵A的leading dim，通常与矩阵的行数相同。
+    at::BFloat16* B,
+    int ldb,
+    const float* beta, // 标量系数，用于计算beta * C。
+    float* C, // 输出矩阵C，它是float数据类型。
+    int ldc) { // 矩阵C的leading 维度，通常与矩阵C的行数相同。
+  // 使用TORCH_CUDABLAS_CHECK宏调用了cublasGemmEx函数。这是cuBLAS库中用于执行混合精度矩阵乘法的函数。
+  // cublasGemmEx函数的参数主要用于描述输入和输出矩阵的属性，以及要执行的具体操作。
+  // 在这里，输入矩阵A和B都是BFloat16数据类型，而输出矩阵C是float数据类型。
+  // CUDA_R_16BF和CUDA_R_32F是枚举值，用于描述矩阵的数据类型。
+  // CUBLAS_GEMM_DEFAULT_TENSOR_OP是一个枚举值，指示cuBLAS使用默认的Tensor Core操作来执行GEMM。
+  TORCH_CUDABLAS_CHECK(cublasGemmEx(
+      handle,
+      transa,
+      transb,
+      m,
+      n,
+      k,
+      alpha,
+      A,
+      CUDA_R_16BF,
+      lda,
+      B,
+      CUDA_R_16BF,
+      ldb,
+      beta,
+      C,
+      CUDA_R_32F,
+      ldc,
+      CUDA_R_32F,
+      CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+}
+
+// 类似上面的函数，用于执行FP16的矩阵乘法
+// FP16 Tensor core wrapper around cublas GEMMEx
+void gemmex_wrapper(
+    cublasHandle_t handle,
+    cublasOperation_t transa,
+    cublasOperation_t transb,
+    int m,
+    int n,
+    int k,
+    const float* alpha,
+    at::Half* A,
+    int lda,
+    at::Half* B,
+    int ldb,
+    const float* beta,
+    float* C,
+    int ldc) {
+  TORCH_CUDABLAS_CHECK(cublasGemmEx(
+      handle,
+      transa,
+      transb,
+      m,
+      n,
+      k,
+      alpha,
+      A,
+      CUDA_R_16F,
+      lda,
+      B,
+      CUDA_R_16F,
+      ldb,
+      beta,
+      C,
+      CUDA_R_32F,
+      ldc,
+      CUDA_R_32F,
+      CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+}
+
+// 类似上面的函数，用于执行FP32的矩阵乘法
+// FP32 wrapper around cublas GEMMEx
+void gemmex_wrapper(
+    cublasHandle_t handle,
+    cublasOperation_t transa,
+    cublasOperation_t transb,
+    int m,
+    int n,
+    int k,
+    const float *alpha,
+    float *A,
+    int lda,
+    float *B,
+    int ldb,
+    const float *beta,
+    float *C,
+    int ldc) {
+  TORCH_CUDABLAS_CHECK(cublasGemmEx(
+      handle,
+      transa,
+      transb,
+      m,
+      n,
+      k,
+      alpha,
+      A,
+      CUDA_R_32F,
+      lda,
+      B,
+      CUDA_R_32F,
+      ldb,
+      beta,
+      C,
+      CUDA_R_32F,
+      ldc,
+      CUDA_R_32F,
+      CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+}
+
+// 这个函数wgrad_gemm_accum_fp32_cuda是一个模板函数，用于在CUDA上执行累加的权重梯度计算（矩阵乘法）。
+// 它使用了前面提到的gemmex_wrapper函数，该函数是NVIDIA cuBLAS库中的cublasGemmEx函数的封装，
+// 用于执行高效的矩阵乘法。
+template <typename T>
+void wgrad_gemm_accum_fp32_cuda(T *input, T *d_output, float *d_weight, int in_dim, int hidden_dim, int out_dim) {
+    // 获取当前CUDA cuBLAS句柄。
+    cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
+    // 获取CUDA Stream。
+    cudaStream_t stream;
+    // 从cuBLAS句柄获取当前CUDA流。
+    cublasGetStream(handle, &stream);
+    // 定义矩阵乘法的标量系数，用于计算alpha * A * B + beta * C。
+    const float alpha = 1.0;
+    const float beta  = 1.0;
+
+    // 使用CUBLAS_OP_N和CUBLAS_OP_T作为参数，表示输入矩阵不需要转置，但d_output矩阵需要转置。
+    // 使用输入矩阵input和输出矩阵的梯度d_output作为输入，将结果存储在权重梯度d_weight中。
+    gemmex_wrapper(
+        handle,
+        CUBLAS_OP_N,
+        CUBLAS_OP_T,
+        in_dim,
+        out_dim,
+        hidden_dim,
+        &alpha,
+        input,
+        in_dim,
+        d_output,
+        out_dim,
+        &beta,
+        d_weight,
+        in_dim);
+}
+
+// 这是为数据类型at::Half（即半精度浮点型，也称为FP16）显式实例化的wgrad_gemm_accum_fp32_cuda函数。
+// 使用此数据类型的版本，可以进行更快速的计算，尤其是在支持FP16计算的硬件上。
+template void wgrad_gemm_accum_fp32_cuda<at::Half>(at::Half *input, at::Half *d_output, float *d_weight, int in_dim, int hidden_dim, int out_dim);
+template void wgrad_gemm_accum_fp32_cuda<at::BFloat16>(at::BFloat16 *input, at::BFloat16 *d_output, float *d_weight, int in_dim, int hidden_dim, int out_dim);
+template void wgrad_gemm_accum_fp32_cuda<float>(float *input, float *d_output, float *d_weight, int in_dim, int hidden_dim, int out_dim);
+
+// 这个函数名为wgrad_gemm_accum_fp32_cuda_stub，从名字中可以看出这是一个为CUDA定义的存根函数。
+// 它处理输入的张量，调整它们的维度，然后调用对应的CUDA模板函数来完成具体的操作。
+void wgrad_gemm_accum_fp32_cuda_stub(
+  at::Tensor &input,
+  at::Tensor &d_output,
+  at::Tensor &d_weight
+) {
+    at::Tensor input_2d, d_output_2d;
+    // input tensor: collapse to the first dim
+    auto in_sizes = input.sizes();
+    // 如果input张量的维度大于2，它将最后一个维度以外的所有维度折叠为第一个维度，
+    // 使其成为一个2D张量input_2d。否则，它将使用原始input张量。
+    if (input.dim() > 2) {
+        input_2d = input.view({-1, in_sizes[in_sizes.size() - 1]});
+    } else {
+        input_2d = input;
+    }
+    // d_output tensor: collapse to the first dim
+    // 类似地，如果d_output张量的维度大于2，它也会进行同样的维度转换。
+    // 否则，它会使用原始的d_output张量。
+    auto d_out_sizes = d_output.sizes();
+    if (d_output.dim() > 2) {
+        d_output_2d = d_output.view({-1, d_out_sizes[d_out_sizes.size() - 1]});
+    } else {
+        d_output_2d = d_output;
+    }
+
+    // hidden_dim是input_2d的第一个维度的大小。
+    const int hidden_dim = input_2d.size(0);
+    // in_dim是input_2d的第二个维度的大小。
+    const int in_dim = input_2d.size(1);
+    // out_dim是d_weight的第一个维度的大小。
+    const int out_dim = d_weight.size(0);
+
+    // 使用DISPATCH_FLOAT_HALF_AND_BFLOAT宏来基于input_2d的数据类型调用相应的函数。
+    // 这意味着，根据输入数据的数据类型（浮点、半精度或BFloat16），
+    // 它将选择正确的版本的wgrad_gemm_accum_fp32_cuda函数进行调用。
+    DISPATCH_FLOAT_HALF_AND_BFLOAT(input_2d.scalar_type(), 0, "wgrad_gemm_accum_fp32",
+        wgrad_gemm_accum_fp32_cuda<scalar_t_0>(
+            input_2d.data_ptr<scalar_t_0>(),
+            d_output_2d.data_ptr<scalar_t_0>(),
+            d_weight.data_ptr<float>(),
+            in_dim,
+            hidden_dim,
+            out_dim);
+    );
+}
+注意，在Kernel中这里会将当前的结果累加到先前计算的梯度上，所有这些都在一个操作中完成，这是fuse的思想，
+可以避免多次访问global memory提升算子的带宽。
+
+
+0x3. 总结
+不需要总结，文本很短。
+
+编辑于 2023-08-23 16:23・IP 属地新加坡
+深度学习（Deep Learning）
+CUDA
+​赞同 15​
+​2 条评论
+​分享
+​喜欢
+​收藏
+​申请转载
+​
+
+发布一条带图评论吧
+
+2 条评论
+默认
+最新
+nobody
+nobody
+该条评论已删除
+08-27 · IP 属地日本
+​回复
+​喜欢
+hello
+hello
+好像核心工作就是把beta设为1，并没有真正的fused_kernel
+
+08-24 · IP 属地上海

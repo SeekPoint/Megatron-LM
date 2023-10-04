@@ -220,36 +220,55 @@ class VocabParallelEmbedding(torch.nn.Module):
         output = reduce_from_tensor_model_parallel_region(output_parallel)
         return output
 
-
+# 这定义了一个名为LinearWithGradAccumulationAndAsyncCommunication的类，
+# 该类继承自torch.autograd.Function。
 class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
     """See linear_with_grad_accumulation_and_async_allreduce"""
 
+    # 使用两个装饰器标记forward方法。其中@staticmethod表示这是一个静态方法，
+    # 而@custom_fwd是一个自定义装饰器，用于特定的前向传播操作。
     @staticmethod
     @custom_fwd
-    def forward(ctx, input, weight, bias, gradient_accumulation_fusion,
-                async_grad_allreduce, sequence_parallel):
+    def forward(
+        ctx,
+        input,
+        weight,
+        bias,
+        gradient_accumulation_fusion,
+        async_grad_allreduce,
+        sequence_parallel,
+    ):
+        # 使用上下文对象ctx保存输入和权重，以便在后向传播中使用。
         ctx.save_for_backward(input, weight)
+        # 在上下文对象ctx中存储其他变量和标志。
         ctx.use_bias = bias is not None
         ctx.gradient_accumulation_fusion = gradient_accumulation_fusion
         ctx.async_grad_allreduce = async_grad_allreduce
         ctx.sequence_parallel = sequence_parallel
 
+        # 如果启用了序列并行，则进行以下操作：
         if sequence_parallel:
+            # 获取模型并行的world_size（通常是参与并行处理的GPU数量）。
             world_size = get_tensor_model_parallel_world_size()
+            # 更改输入的第一个维度以考虑模型并行的全部大小。
             dim_size = list(input.size())
             dim_size[0] = dim_size[0] * world_size
 
-            all_gather_buffer = \
+            # 收集所有GPU上的输入。
                 get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
             torch.distributed._all_gather_base(
                 all_gather_buffer,
                 input,
                 group=get_tensor_model_parallel_group())
+            # 更新total_input为收集的数据。
             total_input = all_gather_buffer
         else:
+            # 如果不使用序列并行，则total_input仅仅是传入的输入。
             total_input = input
 
+        # 对total_input和weight的转置进行矩阵乘法以计算输出。
         output = torch.matmul(total_input, weight.t())
+        # 如果提供了偏置，则将其添加到输出中
         if bias is not None:
             output = output + bias
         return output
@@ -257,9 +276,13 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output):
+        # 从上下文对象中恢复前向传播保存的张量。
         input, weight = ctx.saved_tensors
+        # 从上下文对象中恢复偏置使用的信息。
         use_bias = ctx.use_bias
 
+        # 如果启用了序列并行，要如何获取完整的输入数据。
+        # 它通过分布式的_all_gather_base函数来异步地聚集所有输入。
         if ctx.sequence_parallel:
             world_size = get_tensor_model_parallel_world_size()
             dim_size = list(input.size())
@@ -275,31 +298,42 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the
             # gather is scheduled before the input gradient computation
             total_input = all_gather_buffer
+        # 如果没有启用序列并行，那么完整的输入就是原始输入。
         else:
             total_input = input
+        # 通过矩阵乘法计算关于输入的梯度。
         grad_input = grad_output.matmul(weight)
 
+        # 如果启用了序列并行，则等待所有聚集操作完成。
         if ctx.sequence_parallel:
             handle.wait()
 
-        # Doing gather + slicing during the NeMo forward pass can make this tensor 
-        # not be contiguous. PyTorch only checks if the tensor is contiguous, and only 
-        # clones it if it's not contiguous: 
+        # Doing gather + slicing during the NeMo forward pass can make this tensor
+        # not be contiguous. PyTorch only checks if the tensor is contiguous, and only
+        # clones it if it's not contiguous:
         # https://github.com/pytorch/pytorch/blob/c47cf9bc7f9e02f649ab4ed53fe4d35732c92ab6/torch/_refs/__init__.py#L2761
-        grad_output = grad_output.contiguous()
+        # 这些是注释，提到在NeMo的前向传递中，执行gather和slicing操作可能会导致grad_output张量
+        # 不是连续的。PyTorch只检查张量是否是连续的，并且只在不连续时克隆它。
+        grad_output = grad_output.contiguous() # 确保grad_output是连续的
         # Convert the tensor shapes to 2D for execution compatibility
+        # 将grad_output张量的形状转化为2D，以确保兼容性。
         grad_output = grad_output.view(grad_output.shape[0] * grad_output.shape[1],
                                        grad_output.shape[2])
+        # 同样地，将total_input张量也转化为2D。
         total_input = total_input.view(total_input.shape[0] * total_input.shape[1],
 				       total_input.shape[2])
-
+        # 如果启用了异步的梯度all-reduce，执行该操作。这是一个分布式操作，用于聚合所有工作节点上的梯度。
         if ctx.async_grad_allreduce:
             # Asynchronous all-reduce
             handle = torch.distributed.all_reduce(
-                    grad_input, group=get_tensor_model_parallel_group(), async_op=True)
+                grad_input, group=get_tensor_model_parallel_group(), async_op=True
+            )
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the
             # all-reduce is scheduled before the weight gradient computation
 
+        # 如果启用了序列并行，则不应该在此处启用异步all-reduce（由assert语句确保）。
+        # 接着，创建一个新的sub_grad_input张量，并执行一个reduce_scatter操作。
+        # 这是一个分布式操作，它会将输入的梯度从所有工作节点上聚合到一个工作节点上。
         if ctx.sequence_parallel:
             assert not ctx.async_grad_allreduce
             dim_size = list(input.size())
@@ -313,7 +347,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the
             # reduce scatter is scheduled before the weight gradient computation
 
-
+        # 根据是否启用了梯度累积融合，使用特定的CUDA操作或标准的矩阵乘法来计算权重的梯度。
+        # 这个条件检查是否启用了梯度累积融合。梯度累积通常在小批量训练中用于累积梯度以在较大的有效批量上更新模型。
         if ctx.gradient_accumulation_fusion:
             if weight.main_grad.dtype == torch.float32:
                 fused_weight_gradient_mlp_cuda.wgrad_gemm_accum_fp32(total_input, grad_output, weight.main_grad)
@@ -321,20 +356,28 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
                 fused_weight_gradient_mlp_cuda.wgrad_gemm_accum_fp16(total_input, grad_output, weight.main_grad)
             else:
                 raise RuntimeError("Unsupported gradient type for gradient accumulation fusion")
+            # 在梯度累积融合的情况下，设置grad_weight为None，
+            # 这意味着梯度已经在前面的CUDA函数中直接更新了（weight.main_grad），所以在这里没有返回值。
             grad_weight = None
         else:
             grad_weight = grad_output.t().matmul(total_input)
+        # 如果使用偏置，则计算关于偏置的梯度。
         grad_bias = grad_output.sum(dim=0) if use_bias else None
 
+        # 如果启用了序列并行，等待上述操作完成，并返回计算得到的梯度。
         if ctx.sequence_parallel:
             handle.wait()
             return sub_grad_input, grad_weight, grad_bias, None, None, None
 
+        # 如果启用了异步all-reduce，等待all-reduce操作完成。
         if ctx.async_grad_allreduce:
             handle.wait()
 
         return grad_input, grad_weight, grad_bias, None, None, None
+#可以看到gradient_accumulation_fusion这个优化作用于Linear层中对weight求梯度的时候，调用了apex库提供的2个fuse cuda kernel原地更新了weight的梯度。
 
+# 这部分定义了一个函数，名为linear_with_grad_accumulation_and_async_allreduce，
+# 它接收七个参数：输入张量、权重张量、一个可选的偏置张量和3个布尔标志。
 def linear_with_grad_accumulation_and_async_allreduce(
     input: torch.Tensor,
     weight: torch.Tensor,
@@ -395,6 +438,40 @@ def linear_with_grad_accumulation_and_async_allreduce(
         all gathered, and the backward pass the input gradients are
         reduce scattered.
     """
+    """带有反向传播的异步通信和梯度累积融合的线性层实现.
+
+    此函数提供了一个选项，可以将反向传播计算的结果累积到一个现有的梯度缓冲区中，
+    从而避免在梯度计算后进行额外的加法核操作。
+
+    此外，输入梯度的张量并行all reduce可以与权重梯度的计算异步进行。
+
+    在使用序列并行的情况下，输入梯度的reduce scatter与权重梯度的计算异步进行。
+
+    使用此模块需要环境变量CUDA_DEVICE_MAX_CONNECTIONS=1。代码中有一些集合操作，
+    应该在计算核之前调度，以使通信与计算重叠，这对于加速是必要的，但对于正确性则不是必要的，
+    因此调度器不会强制这种排序。将CUDA_DEVICE_MAX_CONNECTIONS设置为1会强制按照它们被调用的顺序调度内核。
+
+    Arguments:
+
+    input (torch.Tensor required): 输入，类似torch.nn.functional.linear
+
+    weight (torch.Tensor required): 权重，类似torch.nn.functional.linear
+
+    bias (torch.Tensor optional): 偏置，类似torch.nn.functional.linear
+
+    gradient_accumulation_fusion (bool required): 执行梯度累积融合，
+    需要自定义的CUDA扩展模块fused_weight_gradient_mlp_cuda。
+    要使用gradient_accumulation_fusion，你必须使用--cpp_ext和--cuda_ext安装APEX。
+    例如："pip install --global-option="--cpp_ext" --global-option="--cuda_ext ." 
+    注意，此扩展要求CUDA版本大于或等于11。否则，你必须关闭梯度累积融合。
+
+    async_grad_allreduce (bool required): 异步地与权重梯度的计算进行输入梯度的allreduce。
+    如果sequence_parallel_enabled为True，这必须为False，因为不执行allreduce。
+
+    sequence_parallel_enabled (bool required): 表示使用了序列并行，
+    因此在前向传播中，输入是add gather后的，在反向传播中，输入梯度是reduce scatter后的。
+    """
+    # 这部分创建了一个名为args的列表，它基本上是函数输入参数的集合。
     args = [
         input,
         weight,
@@ -404,7 +481,11 @@ def linear_with_grad_accumulation_and_async_allreduce(
         sequence_parallel_enabled,
     ]
 
+    # 这部分检查是否已经发出警告。函数使用一个类级别变量warned来记住是否已经向用户显示了警告。
     if not linear_with_grad_accumulation_and_async_allreduce.warned:
+        # 这部分检查环境变量CUDA_DEVICE_MAX_CONNECTIONS是否设置为"1"。
+        # 如果没有，并且满足某些条件（sequence_parallel_enabled或async_grad_allreduce），
+        # 它会发出警告。然后将warned标志设置为True，以便不会重复发出此警告。
         if os.environ.get('CUDA_DEVICE_MAX_CONNECTIONS') != "1":
             if sequence_parallel_enabled:
                 warnings.warn(
@@ -420,8 +501,10 @@ def linear_with_grad_accumulation_and_async_allreduce(
                     "maximum speedup")
                 linear_with_grad_accumulation_and_async_allreduce.warned = True
 
+    # 最后，函数调用另一个名为LinearWithGradAccumulationAndAsyncCommunication的类并返回其结果。
     return LinearWithGradAccumulationAndAsyncCommunication.apply(*args)
 
+# 在函数外部，初始化属性warned为False。这用于检查是否已经向用户发出警告。
 linear_with_grad_accumulation_and_async_allreduce.warned = False
 
 '''
