@@ -1,0 +1,11 @@
+[细读经典]Megatron论文和代码详细分析(1)
+https://zhuanlan.zhihu.com/p/366906920
+
+[细读经典]Megatron论文和代码详细分析(2)
+https://zhuanlan.zhihu.com/p/388830967
+
+
+
+
+root@9daa04e3405e:/share/llm_dev/Megatron-LM# 
+python tools/preprocess_data.py        --input idata/my-corpus.json        --output-prefix my-bert        --vocab-file idata/bert-large-cased-vocab.txt        --dataset-impl mmap        --tokenizer-type BertWordPieceLowerCase        --split-sentence --worker 8

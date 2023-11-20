@@ -255,7 +255,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             dim_size[0] = dim_size[0] * world_size
 
             # 收集所有GPU上的输入。
-                get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
+            get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
             torch.distributed._all_gather_base(
                 all_gather_buffer,
                 input,
@@ -276,8 +276,9 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output):
-        # 从上下文对象中恢复前向传播保存的张量。
+        # 从上下文对象中恢复前向传播保存的张量
         input, weight = ctx.saved_tensors
+
         # 从上下文对象中恢复偏置使用的信息。
         use_bias = ctx.use_bias
 
@@ -301,6 +302,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         # 如果没有启用序列并行，那么完整的输入就是原始输入。
         else:
             total_input = input
+
         # 通过矩阵乘法计算关于输入的梯度。
         grad_input = grad_output.matmul(weight)
 
@@ -315,13 +317,16 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         # 这些是注释，提到在NeMo的前向传递中，执行gather和slicing操作可能会导致grad_output张量
         # 不是连续的。PyTorch只检查张量是否是连续的，并且只在不连续时克隆它。
         grad_output = grad_output.contiguous() # 确保grad_output是连续的
+
         # Convert the tensor shapes to 2D for execution compatibility
         # 将grad_output张量的形状转化为2D，以确保兼容性。
         grad_output = grad_output.view(grad_output.shape[0] * grad_output.shape[1],
                                        grad_output.shape[2])
+
         # 同样地，将total_input张量也转化为2D。
         total_input = total_input.view(total_input.shape[0] * total_input.shape[1],
-				       total_input.shape[2])
+    			       total_input.shape[2])
+
         # 如果启用了异步的梯度all-reduce，执行该操作。这是一个分布式操作，用于聚合所有工作节点上的梯度。
         if ctx.async_grad_allreduce:
             # Asynchronous all-reduce
@@ -374,6 +379,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             handle.wait()
 
         return grad_input, grad_weight, grad_bias, None, None, None
+
 #可以看到gradient_accumulation_fusion这个优化作用于Linear层中对weight求梯度的时候，调用了apex库提供的2个fuse cuda kernel原地更新了weight的梯度。
 
 # 这部分定义了一个函数，名为linear_with_grad_accumulation_and_async_allreduce，
@@ -642,16 +648,16 @@ class ColumnParallelLinear(torch.nn.Module):
                 "cannot be enabled at the same time."
             )
 
-'''
-4.4.1 ColumnParallelLinear
-
-ColumnParallelLinear 的 forward 代码之中，
-主要是实施了 f 和 g 的forward操作，同时把 f和 g 的 backward 操作搭建起来：
-
-    如果gather_output为 True，则在前向传播时候把 Yi 做all-gather，
-    因为反向传播时需要把完整梯度scatter到对应GPU之上，所以要搭建对于的split操作。
-    MLP实现之中，此处设置为 False，这样每个GPU 输出的是自己对应 partition 的 4h/p，直接传送给下一个线性层。
-'''
+    '''
+    4.4.1 ColumnParallelLinear
+    
+    ColumnParallelLinear 的 forward 代码之中，
+    主要是实施了 f 和 g 的forward操作，同时把 f和 g 的 backward 操作搭建起来：
+    
+        如果gather_output为 True，则在前向传播时候把 Yi 做all-gather，
+        因为反向传播时需要把完整梯度scatter到对应GPU之上，所以要搭建对于的split操作。
+        MLP实现之中，此处设置为 False，这样每个GPU 输出的是自己对应 partition 的 4h/p，直接传送给下一个线性层。
+    '''
     def forward(self, input_):
         """Forward of ColumnParallelLinear
 
