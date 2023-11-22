@@ -468,7 +468,10 @@ def linear_with_grad_accumulation_and_async_allreduce(
     gradient_accumulation_fusion (bool required): 执行梯度累积融合，
     需要自定义的CUDA扩展模块fused_weight_gradient_mlp_cuda。
     要使用gradient_accumulation_fusion，你必须使用--cpp_ext和--cuda_ext安装APEX。
-    例如："pip install --global-option="--cpp_ext" --global-option="--cuda_ext ." 
+    例如："pip install --global-option="--cpp_ext" --global-option="--cuda_ext" ." ===这是打印出来的建议，实际还可以尝试
+    pip install -v --no-cache-dir ./
+    或者
+    pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation --global-option="--cpp_ext" --global-option="--cuda_ext" ./
     注意，此扩展要求CUDA版本大于或等于11。否则，你必须关闭梯度累积融合。
 
     async_grad_allreduce (bool required): 异步地与权重梯度的计算进行输入梯度的allreduce。

@@ -1,7 +1,7 @@
 VOCAB_FILE=pt2-vocab.json
 MERGE_FILE=gpt2-merges.txt
 
-python3 tools/preprocess_data.py \
+python tools/preprocess_data.py \
     --input $1 \
     --output-prefix $2 \
     --vocab-file $VOCAB_FILE \

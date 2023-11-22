@@ -1,0 +1,4 @@
+如何使用 Megatron-LM 训练语言模型
+https://huggingface.co/blog/zh/megatron-training
+
+---基本可以跑通，具体指令有改动！！！

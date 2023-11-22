@@ -1,0 +1,78 @@
+# https://zhuanlan.zhihu.com/p/471484611
+
+# CUDA基础镜像
+FROM pytorch/pytorch:1.13.0-cuda11.6-cudnn8-devel
+#自带的python是3.9的，相关命令用python3.8即可！！
+
+# 安装基础包
+RUN apt update && \
+    apt install -y \
+        wget build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev \
+        libreadline-dev libffi-dev libsqlite3-dev libbz2-dev liblzma-dev && \
+        apt-get install -y liblzma-dev && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /temp
+
+# 下载python # 编译&安装python
+RUN wget https://www.python.org/ftp/python/3.8.7/Python-3.8.7.tgz && \
+    tar -xvf Python-3.8.7.tgz && \
+    cd Python-3.8.7 && \
+    ./configure --enable-optimizations && \
+    make && \
+    make install
+
+WORKDIR /workspace
+
+RUN rm -r /temp && \
+    ln -s /usr/local/bin/python3 /usr/local/bin/python && \
+    ln -s /usr/local/bin/pip3 /usr/local/bin/pip && \
+    set -x; buildDeps='gcc libc6-dev make wget vim gcc g++ libxml2 libstdc++6 pciutils software-properties-common ninja-build git python3.8-dev cmake mpich' \
+    && apt-get update \
+    && apt-get install -y $buildDeps \
+    && mkdir -p /.pip \
+    && cd /.pip \
+    && export PATH="/usr/local/cuda-11.6/bin:$PATH" \
+    && export LD_LIBRARY_PATH="/usr/local/cuda-11.6/lib64:$LD_LIBRARY_PATH" \
+    && echo "[global]\nindex-url = https://pypi.tuna.tsinghua.edu.cn/simple\n[install]trusted-host = https://pypi.tuna.tsinghua.edu.cn" > pip.config
+
+
+
+##执行
+#sudo docker build -t pytorch/pytorch:1.13.0-cuda11.6-cudnn8-devel -f dockerfile_pytorch1.13.0-cuda11.6-cudnn8-devel.txt .
+#amd00@MZ32-00:~/yk_repo/Megatron-LM/tag_23.06$ sudo docker images
+# REPOSITORY                    TAG                                      IMAGE ID       CREATED          SIZE
+# pytorch/pytorch               1.13.0-cuda11.6-cudnn8-devel             18cf1e033e16   16 minutes ago   19.5GB
+
+
+#启动方式
+#为什么加 --entrypoint=/bin/bash  https://stackoverflow.com/questions/38992850/trying-to-run-cloudera-image-in-docker
+# amd00@MZ32-00:~/yk_repo/Megatron-LM/tag_23.06$
+# sudo docker run -it --entrypoint=/bin/bash -v /home/amd00:/share --name meg_codeparrot --gpus=all --shm-size="100G" 18cf1e033e16
+# sudo docker run -it --entrypoint=/bin/bash -v /home/amd00:/share --name meg_codeparrot --gpus=all --shm-size="100G" pytorch/pytorch:1.13.0-cuda11.6-cudnn8-devel
+
+
+
+# /usr/local/bin/python3.8 -m pip install --upgrade pip -i https://mirror.baidu.com/pypi/simple/
+# root@0defa034f2a4:/workspace#
+# python3.8 -m pip install  numpy six regex wheel mpi4py pybind11 -i https://mirror.baidu.com/pypi/simple/
+# python3.8 -m pip install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
+# tag_23.06/apex# export PATH="/usr/local/cuda-11.6/bin:$PATH"
+# tag_23.06/apex# export LD_LIBRARY_PATH="/usr/local/cuda-11.6/lib64:$LD_LIBRARY_PATH"
+# =====apex 注意编译的时候使用的那是python！！！！
+# 所以最好直接指定python的版本
+#tag_23.06/apex# python3.8 -m pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+#同时修改相关makefile
+#CPPFLAGS += $(shell python3.8 -m pybind11 --includes)
+#LIBNAME = helpers
+#LIBEXT = $(shell python3.8-config --extension-suffix)
+
+# 以下还有其他问题，但也不是必要的
+#git clone https://github.com/pybind/pybind11.git
+#cd pybind11   mkdir build  cd build
+# pybind11/build# cmake -D PYTHON_EXECUTABLE=/usr/local/bin/python3.8 ..  ===必须指定版本！！！！！
+# make check -j 4
+# sudo make install
+
+

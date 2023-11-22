@@ -1,0 +1,54 @@
+[细读经典]Megatron论文和代码详细分析(1)
+https://zhuanlan.zhihu.com/p/366906920
+
+[细读经典]Megatron论文和代码详细分析(2)
+https://zhuanlan.zhihu.com/p/388830967
+
+
+https://www.mltalks.com/posts/2216816847/
+Megatron-LM源码系列(二)：Tensor模型并行和Sequence模型并行训练
+代码库地址: https://github.com/NVIDIA/Megatron-LM/tree/23.05
+
+https://www.mltalks.com/posts/2207923116/
+Megatron-LM源码系列(一)：模型并行初始化
+
+https://www.mltalks.com/posts/2553632961/
+Megatron-LM源码系列(四)：重计算(recompute)
+
+https://www.mltalks.com/posts/4123368446/
+Megatron-LM源码系列(三)：详解Pipeline模型并行训练实现
+
+
+==========bug fix
+
+ModuleNotFoundError: No module named '_lzma'
+https://support.huawei.com/enterprise/en/doc/EDOC1100289998/db0db8f0/modulenotfounderror-no-module-named-_lzma-
+apt-get install -y liblzma-dev
+ pip install backports.lzma
+Modify line 27 in the /usr/local/python3XXX/lib/python3.XXXX/lzma.py file as follows:
+root@cb2df10fd755:/share/yk_repo/Megatron-LM/tag_23.06# find / -name lzma.py
+/usr/lib/python3.6/lzma.py
+/usr/local/lib/python3.9/lzma.py   ====
+
+# Before modification
+/lilfrom _lzma import _encode_filter_properties, _decode_filter_properties
+
+# After modification
+try:
+    from _lzma import *
+    from _lzma import _encode_filter_properties, _decode_filter_properties
+except ImportError:
+    from backports.lzma import *
+    from backports.lzma import _encode_filter_properties, _decode_filter_properties
+
+
+pip install lzma
+apt-get install -y liblzma-dev
+
+  之后
+
+  File "/usr/local/lib/python3.9/_compression.py", line 96, in read
+    if self._decompressor.needs_input:
+AttributeError: '_lzma.LZMADecompressor' object has no attribute 'needs_input'
+Extracting data files:   0%|
+据说是python版本太高导致，暂时没有好办法修复！所以放到windows下执行

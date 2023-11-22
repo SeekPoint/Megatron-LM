@@ -1,4 +1,4 @@
-__pycache__
+__pycache__/
 *.so
 build
 .coverage_*
@@ -6,5 +6,12 @@ build
 *~
 slurm*
 .idea/
-logs
-idata
+logs/
+idata/
+apex
+openwebtxt/
+*-log.txt
+index-cache/
+pybind11/
+experiments_codeparrot-small/
+megatron/data/helpers*

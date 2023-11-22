@@ -16,7 +16,7 @@ import numpy as np
 import multiprocessing
 try:
     import nltk
-    nltk_available = True
+    nltk_available = True    #屏蔽download
 except ImportError:
     nltk_available = False
 
@@ -261,7 +261,8 @@ def main():
 
     if args.split_sentences:
         if nltk_available:
-            nltk.download("punkt", quiet=True)
+            # nltk.download("punkt", quiet=True)
+            pass
         else:
             raise Exception(
                 "nltk library required for sentence splitting is not available.")
@@ -269,7 +270,8 @@ def main():
     in_ss_out_names = []
     if args.partitions == 1:
         file_name, extension = os.path.splitext(args.input)
-        sentence_split_file = file_name + "_ss" + extension
+        # why???? yknote sentence_split_file = file_name + "_ss" + extension
+        sentence_split_file = file_name + extension
         file_names = {
             'partition': args.input,
             'sentence_split': sentence_split_file,

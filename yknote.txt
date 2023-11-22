@@ -1,0 +1,60 @@
+自己的语料
+
+
+root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06#
+python tools/preprocess_data.py --input idata/my-corpus.json --output-prefix my-bert --vocab-file idata/bert-large-cased-vocab.txt --dataset-impl mmap --tokenizer-type BertWordPieceLowerCase --split-sentence --worker 8
+Opening idata/my-corpus_ss.json
+Time to startup: 0.053218841552734375
+root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06#
+
+
+=============================================================
+
+codeparrot案例:
+预处理
+PS C:\yk_repo\Megatron-LM\tag_23.06> python .\get_data_codeparrot.py
+Repo card metadata block was not found. Setting CardData to empty.
+Resolving data files: 100%|███████████████████████████████████████████████████████████████████████████████████████████| 53/53 [00:00<00:00, 53117.83it/s]
+Downloading data files: 100%|█████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 199.88it/s]
+Extracting data files: 100%|██████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [08:54<00:00, 534.18s/it]
+Generating train split: 5300000 examples [07:56, 11133.31 examples/s]
+Creating json from Arrow format: 100%|███████████████████████████████████████████████████████████████████████████████| 5300/5300 [21:12<00:00,  4.16ba/s]
+PS C:\yk_repo\Megatron-LM\tag_23.06>
+-a----        11/21/2023   1:37 AM    57081022977 codeparrot_data.json
+
+预处理
+root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06# python tools/preprocess_data.py --input codeparrot_data.json --output-prefix codeparrot --vocab-file idata/gpt2-vocab.json --dataset-impl mmap --tokenizer-type GPT2BPETokenizer --merge-file idata/gpt2-merges.txt --json-keys content --workers 32 --append-eod
+Opening codeparrot_data.json
+Time to startup: 0.3265244960784912
+Processed 1000 documents (396.7319751403099 docs/s, 4.29438178759541 MB/s).
+Processed 2000 documents (611.5106272158637 docs/s, 6.4317268492244954 MB/s).
+
+-rw-r--r--  1 root root 48823029086 Nov 20 21:59 codeparrot_content_document.bin
+-rw-r--r--  1 root root   106000042 Nov 20 21:59 codeparrot_content_document.idx
+
+
+
+ImportError: cannot import name 'helpers' from 'megatron.data' (/share/yk_repo/Megatron-LM/tag_23.06/megatron/data/__init__.py)
+https://github.com/bigscience-workshop/Megatron-DeepSpeed/commit/648ee17fc1b32ade877d7cadec79a9079b9826ac
+https://github.com/NVIDIA/Megatron-LM/issues/143
+
+
+root@d17688c1a428:/share/yk_repo/Megatron-LM/tag_23.06# bash train_codeparrot.sh 2>&1 | tee train_codeparrot-log.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
