@@ -1,0 +1,47 @@
+
+
+https://help.aliyun.com/zh/pai/use-cases/llm-on-dlc-megatron-on-dlc-best-practices#8cc382a006ryf
+参考，
+
+记录
+amd00@MZ32-00:~/yk_repo/Megatron-LM/tag_23.06$   下面是挂载两个目录  ---也可以运行codeparrot！需要修改路径！！
+sudo docker run -it --entrypoint=/bin/bash -v /home/amd00:/share -v /data:/share2 --name meg_wiki --gpus=all --shm-size="100G" pytorch/pytorch:1.13.0-cuda11.6-cudnn8-devel
+root@f0b94dd9cded:/workspace# python
+Python 3.9.12 (main, Apr  5 2022, 06:56:58)
+root@f0b94dd9cded:/workspace# python3.8
+Python 3.8.7 (default, Nov 22 2023, 07:55:24)
+root@f0b94dd9cded:/workspace# cd /share2/enwiki-latest-pages-articles/
+root@f0b94dd9cded:/share2/enwiki-latest-pages-articles#
+
+# 1. Install wikiextractor
+root@f0b94dd9cded:/share2/enwiki-latest-pages-articles# python3.8 -m pip install wikiextractor nltk -i https://mirror.baidu.com/pypi/simple/
+# 2. Download & extract to loose json
+wget https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2
+python3.8 -m wikiextractor.WikiExtractor --json ./enwiki-latest-pages-articles.xml.bz2
+# 3. Use nltk/spacy/ftfy to clean the corpus
+
+# 4. Convert the corpus into indexed datasets
+find text/ -type d | sed 's|text|mkdir -p datasets/text|' | sh
+drwxr-xr-x   3 root root        4096 Nov 22 14:21 datasets/
+
+python3.8 -m pip install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
+
+
+root@f0b94dd9cded:/share2/enwiki-latest-pages-articles# find text/ -type f -name "wiki_*" | xargs -P $(nproc) -I{} bash -c "python3.8 /share/yk_repo/Megatron-LM/tag_23.06/tools/preprocess_data.py --input {} \
+--output-prefix datasets/{} \
+--vocab-file  ../Megatron-LM_tag_23.06_idata/gpt2-vocab.json \
+--dataset-impl mmap --tokenizer-type GPT2BPETokenizer \
+--merge-file  ../Megatron-LM_tag_23.06_idata/gpt2-merges.txt \
+--append-eod --workers 1"
+
+root@f0b94dd9cded:/share2/enwiki-latest-pages-articles# mkdir -p flatten_datasets/datasets/text
+find datasets/text/ -type f | sed 's|\(.*\)/wiki\(.*\)|cp \1/wiki\2 flatten_datasets/\1_wiki\2|' | sh
+python3.8 /share/yk_repo/Megatron-LM/tag_23.06/tools/merge_datasets.py --output-prefix ./enwiki-latest-pages-articles --input flatten_datasets/
+
+-rw-r--r--   1 root root  7185208098 Nov 22 16:57 enwiki-latest-pages-articles.bin
+-rw-r--r--   1 root root   218947526 Nov 22 16:57 enwiki-latest-pages-articles.idx
+
+
+
+root@d17688c1a428:/share/yk_repo/Megatron-LM/tag_23.06# bash train_enwiki.sh 2>&1 | tee train_enwiki-log.txt
+

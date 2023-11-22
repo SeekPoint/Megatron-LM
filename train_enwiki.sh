@@ -6,10 +6,10 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE --nnodes $NNODES --node_rank $NODE_RANK --master_addr $MASTER_ADDR --master_port $MASTER_PORT"
-CHECKPOINT_PATH=experiments_codeparrot-small/
+CHECKPOINT_PATH=experiments_enwiki-small/
 VOCAB_FILE=/share2/Megatron-LM_tag_23.06_idata/gpt2-vocab.json
 MERGE_FILE=/share2/Megatron-LM_tag_23.06_idata/gpt2-merges.txt
-DATA_PATH=/share2/Megatron-LM_tag_23.06_idata/codeparrot_content_document
+DATA_PATH=/share2/enwiki-latest-pages-articles/enwiki-latest-pages-articles
 GPT_ARGS="--num-layers 12
 --hidden-size 768
 --num-attention-heads 12

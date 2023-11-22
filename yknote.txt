@@ -23,7 +23,8 @@ PS C:\yk_repo\Megatron-LM\tag_23.06>
 -a----        11/21/2023   1:37 AM    57081022977 codeparrot_data.json
 
 预处理
-root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06# python tools/preprocess_data.py --input codeparrot_data.json --output-prefix codeparrot --vocab-file idata/gpt2-vocab.json --dataset-impl mmap --tokenizer-type GPT2BPETokenizer --merge-file idata/gpt2-merges.txt --json-keys content --workers 32 --append-eod
+root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06#
+python tools/preprocess_data.py --input codeparrot_data.json --output-prefix codeparrot --vocab-file idata/gpt2-vocab.json --dataset-impl mmap --tokenizer-type GPT2BPETokenizer --merge-file idata/gpt2-merges.txt --json-keys content --workers 32 --append-eod
 Opening codeparrot_data.json
 Time to startup: 0.3265244960784912
 Processed 1000 documents (396.7319751403099 docs/s, 4.29438178759541 MB/s).
@@ -40,6 +41,9 @@ https://github.com/NVIDIA/Megatron-LM/issues/143
 
 
 root@d17688c1a428:/share/yk_repo/Megatron-LM/tag_23.06# bash train_codeparrot.sh 2>&1 | tee train_codeparrot-log.txt
+
+
+=======================
 
 
 
