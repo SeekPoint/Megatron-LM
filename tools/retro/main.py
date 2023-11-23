@@ -240,4 +240,4 @@ if __name__ == "__main__":
 
         torch.distributed.barrier()
 
-        print_rank_0("end '%s'." % task)
+        gd.debuginfo(prj="mt", info=f"end '%s'." % task)

@@ -23,7 +23,7 @@ def general_ict_model_provider(only_query_model=False, only_block_model=False):
     assert mpu.get_tensor_model_parallel_world_size() == 1 and mpu.get_pipeline_model_parallel_world_size() == 1, \
         "Model parallel size > 1 not supported for ICT"
 
-    print_rank_0('building ICTBertModel...')
+    gd.debuginfo(prj="mt", info=f'building ICTBertModel...')
 
     # simpler to just keep using 2 tokentypes since the LM we initialize with has 2 tokentypes
     model = ICTBertModel(

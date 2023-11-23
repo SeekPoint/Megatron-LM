@@ -47,7 +47,7 @@ def print_datetime(string):
     """Note that this call will sync across all ranks."""
     torch.distributed.barrier()
     time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print_rank_0('[' + string + '] datetime: {} '.format(time_str))
+    gd.debuginfo(prj="mt", info=f'datetime: {time_str} ')
 
 '''
 3. 预训练
@@ -112,8 +112,10 @@ def pretrain(train_valid_test_dataset_provider,
     torch.distributed.all_reduce(start_time_tensor,
                                  op=torch.distributed.ReduceOp.MIN)
     _TRAIN_START_TIME = start_time_tensor.item()
-    print_rank_0('time to initialize megatron (seconds): {:.3f}'.format(
-        time.time() - _TRAIN_START_TIME))
+    
+    gd.debuginfo(prj="mt",
+                 info=f'time to initialize megatron (seconds): {time.time() - _TRAIN_START_TIME:.3f}')
+
     print_datetime('after megatron is initialized')
 
     args = get_args()
@@ -154,16 +156,16 @@ def pretrain(train_valid_test_dataset_provider,
     print_datetime('after dataloaders are built')
 
     # Print setup timing.
-    print_rank_0('done with setup ...')
+    gd.debuginfo(prj="mt", info=f'done with setup ...')
     timers.log(['model-and-optimizer-setup',
                 'train/valid/test-data-iterators-setup'], barrier=True)
 
     if not args.skip_train:
-        print_rank_0('training ...')
+        gd.debuginfo(prj="mt", info=f'training ...')
 
         if args.dataloader_type == 'cyclic' and args.retro_add_retriever:
             args.train_iters = args.retro_cyclic_train_iters
-            print_rank_0("retro cyclic train iters : %d" % args.train_iters)
+            gd.debuginfo(prj="mt", info=f"retro cyclic train iters : %d" % args.train_iters)
 
         iteration = 0
         #7. 训练
@@ -179,7 +181,7 @@ def pretrain(train_valid_test_dataset_provider,
         if args.save and iteration != 0:
             save_checkpoint(iteration, model, optimizer, opt_param_scheduler)
     else:
-        print_rank_0('skipping training (--skip-train is on) ...')
+        gd.debuginfo(prj="mt", info=f'skipping training (--skip-train is on) ...')
 
         iteration = args.iteration
 
@@ -225,7 +227,8 @@ def update_train_iters(args):
                       args.global_batch_size
         args.train_iters = iterations
 
-    print_rank_0('setting training iterations to {}'.format(args.train_iters))
+    gd.debuginfo(prj="mt", 
+                 info=f'setting training iterations to {args.train_iters}')
 
 '''
 5.3 get_model
@@ -445,7 +448,7 @@ def setup_model_and_optimizer(model_provider_func,
     # get model without FP16 and/or TorchDDP wrappers
     if args.iteration == 0 and len(unwrapped_model) == 1 \
         and hasattr(unwrapped_model[0], 'init_state_dict_from_bert'):
-        print_rank_0("Initializing ICT from pretrained BERT model")
+        gd.debuginfo(prj="mt", info=f"Initializing ICT from pretrained BERT model")
         unwrapped_model[0].init_state_dict_from_bert()
         if args.fp16:
             optimizer.reload_model_params()
@@ -855,8 +858,8 @@ def evaluate(forward_step_func,
         while iteration < args.eval_iters:
             iteration += 1
             if verbose and iteration % args.log_interval == 0:
-                print_rank_0('Evaluating iter {}/{}'.format(iteration,
-                                                            args.eval_iters))
+                gd.debuginfo(prj="mt",
+                             info=f'Evaluating iter {iteration}/{args.eval_iters}')
 
             forward_backward_func = get_forward_backward_func()
             loss_dicts = forward_backward_func(
@@ -962,10 +965,10 @@ def build_train_valid_test_datasets(build_train_valid_test_datasets_provider):
     train_val_test_num_samples = [train_samples,
                                   eval_iters * args.global_batch_size,
                                   test_iters * args.global_batch_size]
-    print_rank_0(' > datasets target sizes (minimum size):')
-    print_rank_0('    train:      {}'.format(train_val_test_num_samples[0]))
-    print_rank_0('    validation: {}'.format(train_val_test_num_samples[1]))
-    print_rank_0('    test:       {}'.format(train_val_test_num_samples[2]))
+    gd.debuginfo(prj="mt", info=f' > datasets target sizes (minimum size):')
+    gd.debuginfo(prj="mt", info=f'    train:      {train_val_test_num_samples[0]}')
+    gd.debuginfo(prj="mt", info=f'    validation: {train_val_test_num_samples[1]}')
+    gd.debuginfo(prj="mt", info=f'    test:       {train_val_test_num_samples[2]}')
 
     # Build the datasets.
     return build_train_valid_test_datasets_provider(train_val_test_num_samples)
@@ -979,7 +982,7 @@ def build_train_valid_test_data_loaders(
 
     (train_dataloader, valid_dataloader, test_dataloader) = (None, None, None)
 
-    print_rank_0('> building train, validation, and test datasets ...')
+    gd.debuginfo(prj="mt", info=f'> building train, validation, and test datasets ...')
 
     # Backward compatibility, assume fixed batch size.
     if args.iteration > 0 and args.consumed_train_samples == 0:

@@ -138,10 +138,10 @@ def check_adlr_autoresume_termination(iteration, model,
     if autoresume.termination_requested():
         if args.save:
             save_checkpoint(iteration, model, optimizer, opt_param_scheduler)
-        print_rank_0(">>> autoresume termination request found!")
+        gd.debuginfo(prj="mt", info=f">>> autoresume termination request found!")
         if torch.distributed.get_rank() == 0:
             autoresume.request_resume()
-        print_rank_0(">>> training terminated. Returning")
+        gd.debuginfo(prj="mt", info=f">>> training terminated. Returning")
         sys.exit(0)
 
 
@@ -205,7 +205,7 @@ def get_ltor_masks_and_position_ids(data,
     return attention_mask, loss_mask, position_ids
 
 
-# def print_rank_0(message):
+# def gd.debuginfo(prj="mt", info=fmessage):
 #     """If distributed is initialized, print only on rank 0."""
 #     if torch.distributed.is_initialized():
 #         if torch.distributed.get_rank() == 0:

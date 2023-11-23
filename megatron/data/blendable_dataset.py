@@ -42,7 +42,7 @@ class BlendableDataset(torch.utils.data.Dataset):
             helpers.build_blending_indices(dataset_index, dataset_sample_index,
                                            weights, num_datasets, self.size,
                                            torch.distributed.get_rank() == 0)
-            print_rank_0('> elapsed time for building blendable dataset indices: '
+            gd.debuginfo(prj="mt", info=f'> elapsed time for building blendable dataset indices: '
                          '{:.2f} (sec)'.format(time.time() - start_time))
             return dataset_index, dataset_sample_index
 
@@ -86,15 +86,15 @@ class BlendableDataset(torch.utils.data.Dataset):
             if counts[0].item() != (
                 torch.distributed.get_world_size() //
                 torch.distributed.get_world_size(group=mpu.get_tensor_model_parallel_group())):
-                print_rank_0("Data index creation unsuccessful, exiting.")
+                gd.debuginfo(prj="mt", info=f"Data index creation unsuccessful, exiting.")
                 exit()
 
             # Load on all ranks.
-            print_rank_0(f'> loading blendable dataset index: {index_path}')
+            gd.debuginfo(prj="mt", info=ff'> loading blendable dataset index: {index_path}')
             self.dataset_index = np.load(index_path, allow_pickle=True, mmap_mode='r')
             assert self.dataset_index.size == self.size
 
-            print_rank_0(f'> loading blendable dataset sample index: {sample_index_path}')
+            gd.debuginfo(prj="mt", info=ff'> loading blendable dataset sample index: {sample_index_path}')
             self.dataset_sample_index = np.load(sample_index_path, allow_pickle=True, mmap_mode='r')
             assert self.dataset_sample_index.size == self.size
         else:
@@ -108,7 +108,7 @@ class BlendableDataset(torch.utils.data.Dataset):
             raise RuntimeError('BlendedDataset size is improperly bounded')
         except IndexError:
             pass
-        print_rank_0('> size of blendable dataset: '
+        gd.debuginfo(prj="mt", info=f'> size of blendable dataset: '
                      '{} samples'.format(self.size))
 
 

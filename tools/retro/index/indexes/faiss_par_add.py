@@ -49,7 +49,7 @@ class FaissParallelAddIndex(FaissBaseIndex):
         codes = index.sa_encode(embeddings)
 
         # Save neighbors.
-        print_rank_0("save codes.")
+        gd.debuginfo(prj="mt", info=f"save codes.")
         os.makedirs(os.path.dirname(block["path"]), exist_ok=True)
         with h5py.File(block["path"], "w") as f:
             f.create_dataset("data", data=codes)
@@ -84,7 +84,7 @@ class FaissParallelAddIndex(FaissBaseIndex):
             if block is not None:
 
                 # Progress.
-                print_rank_0("encode block %d / %d ... %s." % (
+                gd.debuginfo(prj="mt", info=f"encode block %d / %d ... %s." % (
                     block_index,
                     len(missing_code_blocks),
                     block["path"],
@@ -94,7 +94,7 @@ class FaissParallelAddIndex(FaissBaseIndex):
                 self.encode_block(index, embedder, text_dataset, block)
 
             # Synchronize progress across all ranks. (for easier observation)
-            print_rank_0(" > waiting for other ranks to finish block.")
+            gd.debuginfo(prj="mt", info=f" > waiting for other ranks to finish block.")
             torch.distributed.barrier()
 
     def add_codes(self):
@@ -109,12 +109,12 @@ class FaissParallelAddIndex(FaissBaseIndex):
         args = get_retro_args()
 
         # Index.
-        print_rank_0("read empty index.")
+        gd.debuginfo(prj="mt", info=f"read empty index.")
         index = self.get_empty_index()
         index_ivf = faiss.extract_index_ivf(index)
 
         # Add codes.
-        print_rank_0("add codes.")
+        gd.debuginfo(prj="mt", info=f"add codes.")
         code_paths = get_added_code_paths()
         pbar = tqdm(code_paths)
         for code_path in pbar:
@@ -134,7 +134,7 @@ class FaissParallelAddIndex(FaissBaseIndex):
         index.ntotal = index_ivf.ntotal
 
         # Write index.
-        print_rank_0("write added index.")
+        gd.debuginfo(prj="mt", info=f"write added index.")
         faiss.write_index(index, added_index_path)
 
     def remove_codes(self):

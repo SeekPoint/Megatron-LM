@@ -87,8 +87,8 @@ def compute_feature_bank(model):
     feature_banks = torch.cat(feature_banks, dim=0).t().contiguous()
     # [N]
     feature_labels = torch.cat(feature_labels, dim=0).contiguous()
-    print_rank_0("feature_banks size is {}".format(feature_banks.size()))
-    print_rank_0("feature labels size is {}".format(feature_labels.size()))
+    gd.debuginfo(prj="mt", info=f"feature_banks size is {feature_banks.size()}")
+    gd.debuginfo(prj="mt", info=f"feature labels size is {feature_labels.size()}")
 
     _FEATURE_BANK = (feature_banks, feature_labels, classes)
 

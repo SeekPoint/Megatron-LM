@@ -22,7 +22,7 @@ def get_model_provider(only_query_model=False, only_context_model=False,
     def model_provider(pre_process=True, post_process=True):
         """Build the model."""
 
-        print_rank_0('building Bienoder model ...')
+        gd.debuginfo(prj="mt", info=f'building Bienoder model ...')
         model = biencoder_model_provider(only_query_model=only_query_model,
                 only_context_model = only_context_model,
                 biencoder_shared_query_context_model = \
@@ -45,7 +45,7 @@ def biencoder_model_provider(only_query_model=False,
         mpu.get_pipeline_model_parallel_world_size() == 1, \
         "Model parallel size > 1 not supported for ICT"
 
-    print_rank_0('building BiEncoderModel...')
+    gd.debuginfo(prj="mt", info=f'building BiEncoderModel...')
 
     # simpler to just keep using 2 tokentypes since
     # the LM we initialize with has 2 tokentypes
@@ -163,17 +163,17 @@ class BiEncoderModel(MegatronModule):
     def load_state_dict(self, state_dict, strict=True):
         """Load the state dicts of each of the models"""
         if self.biencoder_shared_query_context_model:
-            print_rank_0("Loading shared query-context model")
+            gd.debuginfo(prj="mt", info=f"Loading shared query-context model")
             self.model.load_state_dict(state_dict[self._model_key], \
                 strict=strict)
         else:
             if self.use_query_model:
-                print_rank_0("Loading query model")
+                gd.debuginfo(prj="mt", info=f"Loading query model")
                 self.query_model.load_state_dict( \
                     state_dict[self._query_key], strict=strict)
 
             if self.use_context_model:
-                print_rank_0("Loading context model")
+                gd.debuginfo(prj="mt", info=f"Loading context model")
                 self.context_model.load_state_dict( \
                     state_dict[self._context_key], strict=strict)
 
@@ -183,7 +183,7 @@ class BiEncoderModel(MegatronModule):
         args = get_args()
 
         if args.bert_load is None:
-            print_rank_0("bert-load argument is None")
+            gd.debuginfo(prj="mt", info=f"bert-load argument is None")
             return
 
         tracker_filename = get_checkpoint_tracker_filename(args.bert_load)
@@ -203,7 +203,7 @@ class BiEncoderModel(MegatronModule):
         except ModuleNotFoundError:
             from megatron.fp16_deprecated import loss_scaler
             # For backward compatibility.
-            print_rank_0(' > deserializing using the old code structure ...')
+            gd.debuginfo(prj="mt", info=f' > deserializing using the old code structure ...')
             sys.modules['fp16.loss_scaler'] = sys.modules[
                 'megatron.fp16_deprecated.loss_scaler']
             sys.modules['megatron.fp16.loss_scaler'] = sys.modules[
@@ -212,7 +212,7 @@ class BiEncoderModel(MegatronModule):
             sys.modules.pop('fp16.loss_scaler', None)
             sys.modules.pop('megatron.fp16.loss_scaler', None)
         except BaseException:
-            print_rank_0('could not load the BERT checkpoint')
+            gd.debuginfo(prj="mt", info=f'could not load the BERT checkpoint')
             sys.exit()
 
         checkpoint_version = state_dict.get('checkpoint_version', 0)
@@ -318,11 +318,11 @@ class PretrainedBertModel(MegatronModule):
 
     def load_state_dict(self, state_dict, strict=True):
         """Customized load."""
-        print_rank_0("loading pretrained weights")
+        gd.debuginfo(prj="mt", info=f"loading pretrained weights")
         self.language_model.load_state_dict(
             state_dict[self._language_model_key], strict=strict)
 
         if self.biencoder_projection_dim > 0:
-            print_rank_0("loading projection head weights")
+            gd.debuginfo(prj="mt", info=f"loading projection head weights")
             self.projection_enc.load_state_dict(
                 state_dict[self._projection_enc_key], strict=strict)

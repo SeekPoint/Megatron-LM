@@ -12,8 +12,7 @@ gd.debuginfo(prj="mt")
 def test_set_cuda_rng_state(tensor_model_parallel_size):
 
     if torch.distributed.get_rank() == 0:
-        gd.debuginfo(prj="mt", info=f'> testing set_rng_state with size {} ...'.
-              format(tensor_model_parallel_size))
+        gd.debuginfo(prj="mt", info=f'> testing set_rng_state with size {tensor_model_parallel_size} ...')
 
     mpu.initialize_model_parallel(tensor_model_parallel_size)
     tensor_model_parallel_size = mpu.get_tensor_model_parallel_world_size()
@@ -38,8 +37,7 @@ def test_set_cuda_rng_state(tensor_model_parallel_size):
     # State should be different.
     new_rng_state = torch.cuda.get_rng_state()
     max_diff = new_rng_state.sub(rng_state).max()
-    gd.debuginfo(prj="mt", info=f'   max diff in rng state (should be non-zero) on global rank {}: {}'.
-          format(torch.distributed.get_rank(), max_diff))
+    gd.debuginfo(prj="mt", info=f'   max diff in rng state (should be non-zero) on global rank {torch.distributed.get_rank()}: {max_diff}')
     assert max_diff > 0
 
     # Reset the rng state and do the same stuff.
@@ -59,8 +57,8 @@ def test_set_cuda_rng_state(tensor_model_parallel_size):
 
     # Input state should have remained intact.
     error = rng_state.sub(rng_state_copy).max()
-    gd.debuginfo(prj="mt", info=f'   max error in rng state (should be zero) on global rank {}: {}'.
-          format(torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt",
+                 info=f' max error in rng state (should be zero) on global rank {torch.distributed.get_rank()}: {error}')
     assert error == 0
 
     # Reset groups
@@ -74,8 +72,7 @@ def test_set_cuda_rng_state(tensor_model_parallel_size):
 def test_cuda_rng_tracker(tensor_model_parallel_size):
 
     if torch.distributed.get_rank() == 0:
-        gd.debuginfo(prj="mt", info=f'> testing cuda rng tracker with size {} ...'.
-              format(tensor_model_parallel_size))
+        gd.debuginfo(prj="mt", info=f'> testing cuda rng tracker with size {tensor_model_parallel_size} ...')
 
     mpu.initialize_model_parallel(tensor_model_parallel_size)
     tensor_model_parallel_size = mpu.get_tensor_model_parallel_world_size()
@@ -145,8 +142,7 @@ def test_cuda_rng_tracker(tensor_model_parallel_size):
 def test_model_parallel_cuda_manual_seed(tensor_model_parallel_size):
 
     if torch.distributed.get_rank() == 0:
-        gd.debuginfo(prj="mt", info=f'> testing model parallel cuda manual seed with size {} ...'.
-              format(tensor_model_parallel_size))
+        gd.debuginfo(prj="mt", info=f'> testing model parallel cuda manual seed with size {tensor_model_parallel_size} ...')
 
     mpu.initialize_model_parallel(tensor_model_parallel_size)
     tensor_model_parallel_size = mpu.get_tensor_model_parallel_world_size()

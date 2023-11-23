@@ -130,20 +130,19 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
         self.dataset_name = dataset_name
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
-        print_rank_0(' > building {} dataset for {}:'.format(self.task_name,
-                                                            self.dataset_name))
+        gd.debuginfo(prj="mt", 
+                     info=f' > building {self.task_name} dataset for {self.dataset_name}:')
         # Process the files.
-        print_rank_0(datapath)
-        self.samples, self.id2text = self.process_samples_from_single_path(
-                                        datapath)
+        gd.debuginfo(prj="mt", info=datapath)
+        self.samples, self.id2text = self.process_samples_from_single_path(datapath)
 
         args = get_args()
         if args.sample_rate < 1:  # subsample
             k = int(len(self.samples) * args.sample_rate)
             self.samples = random.sample(self.samples, k)
 
-        print_rank_0('  >> total number of samples: {}'.format(
-            len(self.samples)))
+        gd.debuginfo(prj="mt", 
+                     info=f'  >> total number of samples: {len(self.samples)}')
 
     def __len__(self):
         return len(self.samples)
@@ -163,7 +162,7 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
 
     @staticmethod
     def process_samples_from_single_path(filename):
-        print_rank_0(' > Processing {} ...'.format(filename))
+        gd.debuginfo(prj="mt", info=f' > Processing {filename} ...')
         total = 0
 
         rows = []
@@ -187,8 +186,7 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
 
                 total += 1
                 if total % 100000 == 0:
-                    print_rank_0('  > processed {} rows so far ...'.format(
-                        total))
+                    gd.debuginfo(prj="mt", info=f'  > processed {total} rows so far ...')
 
-        print_rank_0(' >> processed {} samples.'.format(len(rows)))
+        gd.debuginfo(prj="mt", info=f' >> processed {len(rows)} samples.')
         return rows, id2text

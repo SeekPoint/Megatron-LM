@@ -510,18 +510,22 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
     splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
 
     # Print stats about the splits.
-    print_rank_0(' > dataset split:')
+    gd.debuginfo(prj="mt", info=f' > dataset split:')
 
     def print_split_stats(name, index):
-        print_rank_0('    {}:'.format(name))
-        print_rank_0('     document indices in [{}, {}) total of {} '
-                     'documents'.format(splits[index], splits[index + 1],
-                                        splits[index + 1] - splits[index]))
+        gd.debuginfo(prj="mt",
+                     info=f'    {name}:')
+
+        gd.debuginfo(prj="mt",
+                     info=f'     document indices in [{splits[index]}, '
+                          f'{splits[index + 1]}) '
+                          f'total of {splits[index + 1] - splits[index]} documents')
         start_index = indexed_dataset.doc_idx[splits[index]]
         end_index = indexed_dataset.doc_idx[splits[index + 1]]
-        print_rank_0('     sentence indices in [{}, {}) total of {} '
-                     'sentences'.format(start_index, end_index,
-                                        end_index - start_index))
+        gd.debuginfo(prj="mt", 
+                     info=f'sentence indices in [{start_index}, '
+                          f'{end_index}) '
+                          f'total of {end_index - start_index} sentences')
     print_split_stats('train', 0)
     print_split_stats('validation', 1)
     print_split_stats('test', 2)
@@ -596,21 +600,18 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
 
 def get_indexed_dataset_(data_prefix, data_impl, skip_warmup):
 
-    print_rank_0(' > building dataset index ...')
+    gd.debuginfo(prj="mt", info=f' > building dataset index ...')
 
     start_time = time.time()
     indexed_dataset = make_indexed_dataset(data_prefix,
                                            data_impl,
                                            skip_warmup)
     assert indexed_dataset.sizes.shape[0] == indexed_dataset.doc_idx[-1]
-    print_rank_0(' > finished creating indexed dataset in {:4f} '
-                 'seconds'.format(time.time() - start_time))
+    gd.debuginfo(prj="mt", info=f' > finished creating indexed dataset in {time.time() - start_time:4f} seconds')
 
-    print_rank_0(' > indexed dataset stats:')
-    print_rank_0('    number of documents: {}'.format(
-        indexed_dataset.doc_idx.shape[0] - 1))
-    print_rank_0('    number of sentences: {}'.format(
-        indexed_dataset.sizes.shape[0]))
+    gd.debuginfo(prj="mt", info=f' > indexed dataset stats:')
+    gd.debuginfo(prj="mt", info=f'    number of documents: {indexed_dataset.doc_idx.shape[0] - 1}')
+    gd.debuginfo(prj="mt", info=f'    number of sentences: {indexed_dataset.sizes.shape[0]}')
 
     return indexed_dataset
 
@@ -676,8 +677,8 @@ def get_samples_mapping(indexed_dataset,
     # Build the indexed mapping if not exist.
     if torch.distributed.get_rank() == 0 and \
        not os.path.isfile(indexmap_filename):
-        gd.debuginfo(prj="mt", info=f' > WARNING: could not find index map file {}, building '
-              'the indices on rank 0 ...'.format(indexmap_filename))
+        gd.debuginfo(prj="mt", info=f' > WARNING: could not find index map file {indexmap_filename}, '
+                                    f'building the indices on rank 0 ...')
 
         # Make sure the types match the helpers input types.
         assert indexed_dataset.doc_idx.dtype == np.int64
@@ -686,8 +687,7 @@ def get_samples_mapping(indexed_dataset,
         # Build samples mapping
         verbose = torch.distributed.get_rank() == 0
         start_time = time.time()
-        print_rank_0(' > building samples index mapping for {} ...'.format(
-            name))
+        gd.debuginfo(prj="mt", info=f' > building samples index mapping for {name} ...')
         # First compile and then import.
         from megatron.data import helpers
         samples_mapping = helpers.build_mapping(
@@ -700,12 +700,11 @@ def get_samples_mapping(indexed_dataset,
             seed,
             verbose,
             2 if binary_head else 1)
-        print_rank_0(' > done building samples index maping')
+        gd.debuginfo(prj="mt", info=f' > done building samples index maping')
         np.save(indexmap_filename, samples_mapping, allow_pickle=True)
-        print_rank_0(' > saved the index mapping in {}'.format(
-            indexmap_filename))
+        gd.debuginfo(prj="mt", info=f' > saved the index mapping in {indexmap_filename}')
         # Make sure all the ranks have built the mapping
-        print_rank_0(' > elasped time to build and save samples mapping '
+        gd.debuginfo(prj="mt", info=f' > elasped time to build and save samples mapping '
                      '(seconds): {:4f}'.format(
                          time.time() - start_time))
     # This should be a barrier but nccl barrier assumes
@@ -719,13 +718,12 @@ def get_samples_mapping(indexed_dataset,
         torch.distributed.get_world_size(group=mpu.get_tensor_model_parallel_group()))
 
     # Load indexed dataset.
-    print_rank_0(' > loading indexed mapping from {}'.format(
-        indexmap_filename))
+    gd.debuginfo(prj="mt", info=f' > loading indexed mapping from {indexmap_filename}')
     start_time = time.time()
     samples_mapping = np.load(indexmap_filename, allow_pickle=True, mmap_mode='r')
-    print_rank_0('    loaded indexed file in {:3.3f} seconds'.format(
-        time.time() - start_time))
-    print_rank_0('    total number of samples: {}'.format(
-        samples_mapping.shape[0]))
+    gd.debuginfo(prj="mt", 
+                 info=f'loaded indexed file in {time.time() - start_time:3.3f} seconds')
+    gd.debuginfo(prj="mt", 
+                 info=f' total number of samples: {samples_mapping.shape[0]}')
 
     return samples_mapping

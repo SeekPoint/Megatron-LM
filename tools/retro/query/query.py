@@ -62,15 +62,15 @@ def query_embeddings(db_dataset, index,
     args = get_retro_args()
 
     # Query neighbor ids.
-    if verbose: print_rank_0("search.")
+    if verbose: gd.debuginfo(prj="mt", info=f"search.")
     t = time.time()
     assert index.ntotal > 0, "check we don't accidentally have an empty index."
     _, query_neighbor_ids = \
         index.search(embeddings, args.retro_query_num_neighbors_query)
-    if verbose: print_rank_0("  time : %.3f sec." % (time.time() - t))
+    if verbose: gd.debuginfo(prj="mt", info=f"  time : %.3f sec." % (time.time() - t))
 
     # Filter banned neighbor ids.
-    if verbose: print_rank_0("filter banned neighbor ids.")
+    if verbose: gd.debuginfo(prj="mt", info=f"filter banned neighbor ids.")
     filtered_neighbor_ids = np.full(
         shape=(len(query_neighbor_ids), args.retro_query_num_neighbors_save),
         fill_value=-1,
@@ -165,7 +165,7 @@ def query_block_neighbors(db_dataset, query_dataset,
         sample_map, n_chunks_per_sample)
 
     # Save neighbors.
-    print_rank_0("save neighbors.")
+    gd.debuginfo(prj="mt", info=f"save neighbors.")
     os.makedirs(os.path.dirname(block["path"]), exist_ok=True)
     f = h5py.File(block["path"], "w")
     f.create_dataset("neighbors", data=filtered_neighbor_ids)
@@ -198,7 +198,7 @@ def query_dataset_neighbors(db_dataset, query_dataset,
         if block is not None:
 
             # Progress.
-            print_rank_0("query '%s' block %d / %d ... %s ... mem %.3f gb, %.1f%%." % (
+            gd.debuginfo(prj="mt", info=f"query '%s' block %d / %d ... %s ... mem %.3f gb, %.1f%%." % (
                 prefix,
                 block_index,
                 len(missing_neighbor_blocks),
@@ -213,7 +213,7 @@ def query_dataset_neighbors(db_dataset, query_dataset,
                                   block)
 
         # Synchronize progress across all ranks. (for easier observation)
-        print_rank_0(" > waiting for other ranks to finish block.")
+        gd.debuginfo(prj="mt", info=f" > waiting for other ranks to finish block.")
         torch.distributed.barrier()
 
 
@@ -226,16 +226,16 @@ def query_pretraining_neighbors():
     faiss.omp_set_num_threads(64)
 
     # Load chunk db dataset.
-    print_rank_0("load chunk db dataset.")
+    gd.debuginfo(prj="mt", info=f"load chunk db dataset.")
     db_dataset = get_db_merged_train_dataset()
     db_dataset.load_doc_tuples()
 
     # Load index.
-    print_rank_0(" > get index.")
+    gd.debuginfo(prj="mt", info=f" > get index.")
     index = get_index()
 
     # Load datasets.
-    print_rank_0(" > get dataset map.")
+    gd.debuginfo(prj="mt", info=f" > get dataset map.")
     query_dataset_map = get_query_dataset_map()
 
     # Bert embedder.
@@ -244,9 +244,9 @@ def query_pretraining_neighbors():
                             args.bert_embedder_type)
 
     # Query each (i.e., train, valid, test) dataset.
-    print_rank_0(" > query.")
+    gd.debuginfo(prj="mt", info=f" > query.")
     for prefix, info in query_dataset_map.items():
-        print_rank_0(" > query '%s' dataset ... %d samples." %
+        gd.debuginfo(prj="mt", info=f" > query '%s' dataset ... %d samples." %
                      (prefix, len(info["data"])))
         query_dataset_neighbors(db_dataset, info["data"],
                                 prefix, info["neighbor_dir"],

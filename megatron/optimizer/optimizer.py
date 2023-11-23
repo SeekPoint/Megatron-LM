@@ -663,20 +663,20 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
         optimizer_key = 'optimizer'
         if optimizer_key not in state_dict:
             optimizer_key = 'optimizer_state_dict'
-            print_rank_0('***WARNING*** loading optimizer from '
+            gd.debuginfo(prj="mt", info=f'***WARNING*** loading optimizer from '
                          'an old checkpoint ...')
         self.optimizer.load_state_dict(state_dict[optimizer_key])
 
         # Grad scaler.
         if 'grad_scaler' not in state_dict:
             if self.fp16:
-                print_rank_0('***WARNING*** found an old checkpoint, will not '
+                gd.debuginfo(prj="mt", info=f'***WARNING*** found an old checkpoint, will not '
                              'load grad scaler ...')
         else:
             if self.grad_scaler:
                 self.grad_scaler.load_state_dict(state_dict['grad_scaler'])
             else:
-                print_rank_0('***WARNING*** fould the grad scaler in the '
+                gd.debuginfo(prj="mt", info=f'***WARNING*** fould the grad scaler in the '
                              'checkpoint but it is None in the class. '
                              'Skipping loading grad scaler ...')
 

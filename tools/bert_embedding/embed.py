@@ -26,7 +26,7 @@ gd.debuginfo(prj="mt")
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
 
-    print_rank_0(" > build Bert model.")
+    gd.debuginfo(prj="mt", info=f" > build Bert model.")
 
     args = get_args()
     num_tokentypes = 2 if args.bert_binary_head else 0
@@ -279,7 +279,7 @@ class DiskDataParallelBertEmbedder:
             if block_info is not None:
 
                 # Progress. (*note*: move world progress to here.)
-                print_rank_0("embed '%s' block %d / %d ... %s." % (
+                gd.debuginfo(prj="mt", info=f"embed '%s' block %d / %d ... %s." % (
                     name,
                     block_index,
                     len(missing_embedding_blocks),
@@ -296,7 +296,7 @@ class DiskDataParallelBertEmbedder:
                 f.close()
 
             # Synchronize progress across all ranks. (for easier observation)
-            print_rank_0(" > waiting for other ranks to finish block.")
+            gd.debuginfo(prj="mt", info=f" > waiting for other ranks to finish block.")
             torch.distributed.barrier()
 
     def embed_text_dataset(self, name, workdir, text_dataset):

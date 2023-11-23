@@ -29,7 +29,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
     """Build train, valid, and test datasets."""
 
     if data_prefix:
-        print_rank_0("Single data path provided for train, valid & test")
+        gd.debuginfo(prj="mt", info=f"Single data path provided for train, valid & test")
 
         # Single dataset.
         if len(data_prefix) == 1:
@@ -85,7 +85,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                 blending_test_dataset)
 
     else:
-        print_rank_0("Separate data paths provided for train, valid & test. Split string will be ignored.")
+        gd.debuginfo(prj="mt", info=f"Separate data paths provided for train, valid & test. Split string will be ignored.")
 
         train_dataset, valid_dataset, test_dataset = None, None, None
         # Single dataset.
@@ -130,13 +130,15 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
     splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
 
     # Print stats about the splits.
-    print_rank_0(' > dataset split:')
+    gd.debuginfo(prj="mt", info=f' > dataset split:')
 
     def print_split_stats(name, index):
-        print_rank_0('    {}:'.format(name))
-        print_rank_0('     document indices in [{}, {}) total of {} '
-                     'documents'.format(splits[index], splits[index + 1],
-                                        splits[index + 1] - splits[index]))
+        gd.debuginfo(prj="mt",
+                     info=f'    {name}:')
+        gd.debuginfo(prj="mt",
+                     info=f'     document indices in [{splits[index]}, '
+                          f'{splits[index + 1]}) '
+                          f'total of {splits[index + 1] - splits[index]} documents')
     print_split_stats('train', 0)
     print_split_stats('validation', 1)
     print_split_stats('test', 2)
@@ -212,9 +214,9 @@ def _build_dataset(dataset_name, data_prefix, data_impl, splits_string,
 
     total_num_of_documents = indexed_dataset.sizes.shape[0]
 
-    print_rank_0('    {}:'.format(dataset_name))
-    print_rank_0('     document indices in [0, {}) total of {} '
-                 'documents'.format(total_num_of_documents, total_num_of_documents))
+    gd.debuginfo(prj="mt", info=f'    {dataset_name}:')
+    gd.debuginfo(prj="mt", info=f'     document indices in [0, {total_num_of_documents}) '
+                                f'total of {total_num_of_documents} documents')
 
     documents = np.arange(start=0, stop=total_num_of_documents,
                         step=1, dtype=np.int32)
@@ -228,16 +230,14 @@ def _build_dataset(dataset_name, data_prefix, data_impl, splits_string,
 
 def get_indexed_dataset_(data_prefix, data_impl, skip_warmup):
     """Build indexed dataset."""
-    print_rank_0(' > building dataset index ...')
+    gd.debuginfo(prj="mt", info=f' > building dataset index ...')
 
     start_time = time.time()
     indexed_dataset = make_indexed_dataset(data_prefix,
                                            data_impl,
                                            skip_warmup)
-    print_rank_0(' > finished creating indexed dataset in {:4f} '
-                 'seconds'.format(time.time() - start_time))
-    print_rank_0('    number of documents: {}'.format(
-        indexed_dataset.sizes.shape[0]))
+    gd.debuginfo(prj="mt", info=f' > finished creating indexed dataset in {time.time() - start_time:4f} seconds')
+    gd.debuginfo(prj="mt", info=f'    number of documents: {indexed_dataset.sizes.shape[0]}')
 
     return indexed_dataset
 
@@ -365,7 +365,7 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
 
     # Build the indexed mapping if not exist.
     if build_indices and torch.distributed.get_rank() == 0:
-        print_rank_0(' > WARNING: could not find index map files, building '
+        gd.debuginfo(prj="mt", info=f' > WARNING: could not find index map files, building '
                      'the indices on rank 0 ...')
 
         # For the last epoch, decide whether include the entire epoch
@@ -417,7 +417,7 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
             doc_idx = _build_doc_idx(documents, num_epochs, np_rng,
                                      separate_last_epoch)
             np.save(idx_path['doc'], doc_idx, allow_pickle=True)
-            print_rank_0(' > elasped time to build and save doc-idx mapping '
+            gd.debuginfo(prj="mt", info=f' > elasped time to build and save doc-idx mapping '
                          '(seconds): {:4f}'.format(time.time() - start_time))
             # sample-idx.
             start_time = time.time()
@@ -429,7 +429,7 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
             sample_idx = helpers.build_sample_idx(sizes, doc_idx, seq_length,
                                                   num_epochs, tokens_per_epoch)
             np.save(idx_path['sample'], sample_idx, allow_pickle=True)
-            print_rank_0(' > elasped time to build and save sample-idx mapping '
+            gd.debuginfo(prj="mt", info=f' > elasped time to build and save sample-idx mapping '
                          '(seconds): {:4f}'.format(time.time() - start_time))
             # shuffle-idx.
             start_time = time.time()
@@ -442,7 +442,7 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
             shuffle_idx = _build_shuffle_idx(num_samples_,
                                              sample_idx.shape[0] - 1, np_rng)
             np.save(idx_path['shuffle'], shuffle_idx, allow_pickle=True)
-            print_rank_0(' > elasped time to build and save shuffle-idx mapping'
+            gd.debuginfo(prj="mt", info=f' > elasped time to build and save shuffle-idx mapping'
                          ' (seconds): {:4f}'.format(time.time() - start_time))
         except OSError:
             gd.debuginfo(prj="mt", info=f'There was an error trying to create the data cache directory ({data_cache_dir})')
@@ -458,25 +458,23 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
     if counts[0].item() != (
         torch.distributed.get_world_size() //
         torch.distributed.get_world_size(group=mpu.get_tensor_model_parallel_group())):
-        print_rank_0("Data index creation unsuccessful, exiting.")
+        gd.debuginfo(prj="mt", info=f"Data index creation unsuccessful, exiting.")
         exit()
 
     # Load mappings.
     start_time = time.time()
-    print_rank_0(f" > loading doc-idx mapping from {idx_path['doc']}")
+    gd.debuginfo(prj="mt", info=f" > loading doc-idx mapping from {idx_path['doc']}")
     doc_idx = np.load(idx_path['doc'], allow_pickle=True, mmap_mode='r')
 
-    print_rank_0(f" > loading sample-idx mapping from {idx_path['sample']}")
+    gd.debuginfo(prj="mt", info=f" > loading sample-idx mapping from {idx_path['sample']}")
     sample_idx = np.load(idx_path['sample'], allow_pickle=True, mmap_mode='r')
 
-    print_rank_0(f" > loading shuffle-idx mapping from {idx_path['shuffle']}")
+    gd.debuginfo(prj="mt", info=f" > loading shuffle-idx mapping from {idx_path['shuffle']}")
     shuffle_idx = np.load(idx_path['shuffle'], allow_pickle=True, mmap_mode='r')
 
-    print_rank_0('    loaded indexed file in {:3.3f} seconds'.format(
-        time.time() - start_time))
-    print_rank_0('    total number of samples: {}'.format(
-        sample_idx.shape[0]))
-    print_rank_0('    total number of epochs: {}'.format(num_epochs))
+    gd.debuginfo(prj="mt", info=f'    loaded indexed file in {time.time() - start_time:3.3f} seconds')
+    gd.debuginfo(prj="mt", info=f'    total number of samples: {sample_idx.shape[0]}')
+    gd.debuginfo(prj="mt", info=f'    total number of epochs: {num_epochs}')
 
     return doc_idx, sample_idx, shuffle_idx, desc, desc_hash
 

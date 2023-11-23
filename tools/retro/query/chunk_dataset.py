@@ -86,7 +86,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
 
     args = get_retro_args()
 
-    print_rank_0('> building train, validation, and test datasets '
+    gd.debuginfo(prj="mt", info=f'> building train, validation, and test datasets '
                  'for GPT ...')
     train_ds, valid_ds, test_ds = build_gpt_train_valid_test_datasets(
         data_prefix=args.retro_gpt_data_path,
@@ -97,7 +97,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
         seed=args.retro_gpt_seed,
         skip_warmup=(not args.retro_gpt_mmap_warmup),
         return_doc_ids=args.retro_return_doc_ids)
-    print_rank_0("> finished creating pretrained GPT datasets ...")
+    gd.debuginfo(prj="mt", info=f"> finished creating pretrained GPT datasets ...")
 
     return train_ds, valid_ds, test_ds
 
@@ -117,7 +117,7 @@ def get_chunk_dataset_map():
     verify_indexed_dataset_order()
 
     # Datasets.
-    print_rank_0(" > datasets.")
+    gd.debuginfo(prj="mt", info=f" > datasets.")
     train_ds, valid_ds, test_ds = build_pretraining_train_valid_test_datasets(
         train_valid_test_datasets_provider)
 

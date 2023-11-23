@@ -161,8 +161,7 @@ def get_block_samples_mapping(block_dataset, title_dataset, data_prefix, num_epo
         # Build samples mapping
         verbose = torch.distributed.get_rank() == 0
         start_time = time.time()
-        print_rank_0(' > building samples index mapping for {} ...'.format(
-            name))
+        gd.debuginfo(prj="mt", info=f' > building samples index mapping for {name} ...')
 
         from megatron.data import helpers
         mapping_array = helpers.build_blocks_mapping(
@@ -177,12 +176,11 @@ def get_block_samples_mapping(block_dataset, title_dataset, data_prefix, num_epo
             use_one_sent_docs)
 
 
-        print_rank_0(' > done building samples index mapping')
+        gd.debuginfo(prj="mt", info=f' > done building samples index mapping')
         np.save(indexmap_filename, mapping_array, allow_pickle=True)
-        print_rank_0(' > saved the index mapping in {}'.format(
-            indexmap_filename))
+        gd.debuginfo(prj="mt", info=f' > saved the index mapping in {indexmap_filename}')
         # Make sure all the ranks have built the mapping
-        print_rank_0(' > elapsed time to build and save samples mapping '
+        gd.debuginfo(prj="mt", info=f' > elapsed time to build and save samples mapping '
                      '(seconds): {:4f}'.format(
             time.time() - start_time))
 
@@ -195,16 +193,13 @@ def get_block_samples_mapping(block_dataset, title_dataset, data_prefix, num_epo
         group=mpu.get_data_parallel_group())
 
     # Load indexed dataset.
-    print_rank_0(' > loading indexed mapping from {}'.format(
-        indexmap_filename))
+    gd.debuginfo(prj="mt", info=f' > loading indexed mapping from {indexmap_filename}')
     start_time = time.time()
 
     mapping_array = np.load(indexmap_filename, allow_pickle=True, mmap_mode='r')
     samples_mapping = BlockSamplesMapping(mapping_array)
 
-    print_rank_0('    loaded indexed file in {:3.3f} seconds'.format(
-        time.time() - start_time))
-    print_rank_0('    total number of samples: {}'.format(
-        mapping_array.shape[0]))
+    gd.debuginfo(prj="mt", info=f'    loaded indexed file in {time.time() - start_time:3.3f} seconds')
+    gd.debuginfo(prj="mt", info=f'    total number of samples: {mapping_array.shape[0]}')
 
     return samples_mapping

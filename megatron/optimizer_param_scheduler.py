@@ -47,7 +47,7 @@ class OptimizerParamScheduler(object):
 
         # Set the learning rate
         self.step(0)
-        print_rank_0('> learning rate decay style: {}'.format(self.lr_decay_style))
+        gd.debuginfo(prj="mt", info=f'> learning rate decay style: {self.lr_decay_style}')
 
 
     def get_wd(self):
@@ -147,15 +147,14 @@ class OptimizerParamScheduler(object):
         """Auxiliary function for checking the values in the checkpoint and
         setting them."""
         if self.override_opt_param_scheduler:
-            print_rank_0(' > overriding {} value to {}'.format(name, cls_value))
+            gd.debuginfo(prj="mt", info=f' > overriding {name} value to {cls_value}')
             return cls_value
 
         if not self.use_checkpoint_opt_param_scheduler:
             assert cls_value == sd_value, \
                 f'OptimizerParamScheduler: class input value {cls_value} and checkpoint' \
                 f'value {sd_value} for {name} do not match'
-        print_rank_0(' > using checkpoint value {} for {}'.format(sd_value,
-                                                                  name))
+        gd.debuginfo(prj="mt", info=f' > using checkpoint value {sd_value} for {name}')
         return sd_value
 
 

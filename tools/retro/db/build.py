@@ -220,7 +220,7 @@ def build_individual_db(dataset_idx, n_datasets, dataset_info, tokenizers):
                 db_path = block["path"]
 
                 # Build partial dbs.
-                print_rank_0(' > build partial dbs.')
+                gd.debuginfo(prj="mt", info=f' > build partial dbs.')
                 futures = []
                 for proc_id in range(n_procs): # not true process id
                     futures.append(executor.submit(
@@ -249,7 +249,7 @@ def build_individual_db(dataset_idx, n_datasets, dataset_info, tokenizers):
                                     for item in partial_chunk_db[2]]
 
                 # Convert to numpy.
-                print_rank_0(' > converting chunk db to numpy.')
+                gd.debuginfo(prj="mt", info=f' > converting chunk db to numpy.')
                 chunk_db_valid = np.array(chunk_db_valid, dtype="uint32")
                 chunk_db_invalid = np.array(chunk_db_invalid, dtype="uint32")
 
@@ -265,7 +265,7 @@ def build_individual_db(dataset_idx, n_datasets, dataset_info, tokenizers):
                     doc_offsets), axis=1)
 
                 # Save DB.
-                print_rank_0(" > saving individual db.")
+                gd.debuginfo(prj="mt", info=f" > saving individual db.")
                 with h5py.File(db_path, "w") as f:
                     dset = f.create_dataset("chunks_valid", data=chunk_db_valid)
                     dset = f.create_dataset("chunks_invalid",
@@ -273,10 +273,10 @@ def build_individual_db(dataset_idx, n_datasets, dataset_info, tokenizers):
                     dset = f.create_dataset("doc_offsets", data=doc_offsets)
 
             # Wait for all ranks to finish block.
-            print_rank_0(" > waiting for all ranks to finish block.")
+            gd.debuginfo(prj="mt", info=f" > waiting for all ranks to finish block.")
             torch.distributed.barrier()
 
-    print_rank_0(" > finished saving individual db.")
+    gd.debuginfo(prj="mt", info=f" > finished saving individual db.")
 
 
 def build_individual_dbs(indexed_dataset_infos):
@@ -291,11 +291,11 @@ def build_individual_dbs(indexed_dataset_infos):
     )
 
     # Build individual DBs.
-    print_rank_0(" > build individual chunk dbs.")
+    gd.debuginfo(prj="mt", info=f" > build individual chunk dbs.")
     for ds_idx, ds_info in enumerate(indexed_dataset_infos):
 
         # Progress.
-        print_rank_0(" > building individual db, dataset %d / %d ... '%s'." % (
+        gd.debuginfo(prj="mt", info=f" > building individual db, dataset %d / %d ... '%s'." % (
             ds_idx,
             len(indexed_dataset_infos),
             ds_info["name"],
@@ -322,7 +322,7 @@ def update_chunk_counts(indexed_dataset_infos):
     assert train_fraction > 0 and train_fraction <= 1
 
     # Set n_chunks (including n_chunks_sampled for unambiguity).
-    print_rank_0(" > compute n_chunks.")
+    gd.debuginfo(prj="mt", info=f" > compute n_chunks.")
     for ds_index, ds_info in enumerate(indexed_dataset_infos):
 
         db_dir = ds_info["db_dir"]
