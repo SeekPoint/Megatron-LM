@@ -158,8 +158,7 @@ def read_metadata(tracker_filename):
         except ValueError:
             release = metastring == 'release'
             if not release:
-                print_rank_0('ERROR: Invalid metadata file {}. Exiting'.format(
-                    tracker_filename))
+                gd.debuginfo(prj="mt", info=f'ERROR: Invalid metadata file {tracker_filename}. Exiting')
                 sys.exit()
     assert iteration > 0 or release, 'error parsing metadata file {}'.format(
         tracker_filename)
@@ -174,10 +173,9 @@ def read_metadata(tracker_filename):
         # If not, print a warning and chose the maximum
         # iteration across all ranks.
         if iteration != max_iter:
-            print('WARNING: on rank {} found iteration {} in the '
-                  'metadata while max iteration across the ranks '
-                  'is {}, replacing it with max iteration.'.format(
-                      rank, iteration, max_iter), flush=True)
+            gd.debuginfo(prj="mt", info=f'WARNING: on rank {rank} found iteration {iteration} '
+                                        f'in the metadata while max iteration across the ranks is {max_iter}, '
+                                        f'replacing it with max iteration.')
     else:
         # When loading a checkpoint outside of training (for example,
         # when editing it), we might not have torch distributed
@@ -663,8 +661,8 @@ def load_biencoder_checkpoint(model, only_query_model=False,
                                           release=False)
 
     if mpu.get_data_parallel_rank() == 0:
-        print('global rank {} is loading checkpoint {}'.format(
-            torch.distributed.get_rank(), checkpoint_name))
+        gd.debuginfo(prj="mt", info=f'global rank {torch.distributed.get_rank()} '
+                                    f'is loading checkpoint {checkpoint_name}')
 
     state_dict = torch.load(model_checkpoint_name, map_location='cpu')
     ret_state_dict = state_dict['model']
@@ -679,6 +677,6 @@ def load_biencoder_checkpoint(model, only_query_model=False,
     torch.distributed.barrier()
 
     if mpu.get_data_parallel_rank() == 0:
-        print(' successfully loaded {}'.format(checkpoint_name))
+        gd.debuginfo(prj="mt", info=f' successfully loaded {checkpoint_name}')
 
     return model

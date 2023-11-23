@@ -694,7 +694,7 @@ class SwinTransformer(nn.Module):
                         x_ = self.norm(x_)
 
                     x_avg = torch.flatten(self.avgpool(x_.transpose(1, 2)), 1)  # B C     
-                    # print(f'Stage {i},  x_avg {x_avg.shape}')          
+                    # gd.debuginfo(prj="mt", info=f'Stage {i},  x_avg {x_avg.shape}')          
                     output.append(x_avg)
 
                 start_blk = 0
@@ -709,7 +709,7 @@ class SwinTransformer(nn.Module):
         for i, layer in enumerate(self.layers):
             flops += layer.flops()
             if dist.get_rank() == 0:
-                print(f"GFLOPs layer_{i}: {layer.flops() / 1e9}")
+                gd.debuginfo(prj="mt", info=f"GFLOPs layer_{i}: {layer.flops() / 1e9}")
         flops += self.num_features * self.patches_resolution[0] * self.patches_resolution[1] // (2 ** self.num_layers)
         flops += self.num_features * self.num_classes
         return flops

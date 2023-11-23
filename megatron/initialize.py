@@ -59,7 +59,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         
         # Random seeds for reproducibility.
         if args.rank == 0:
-            print('> setting random seeds to {} ...'.format(args.seed))
+            gd.debuginfo(prj="mt", info=f'> setting random seeds to {args.seed} ...')
         _set_random_seed(args.seed, args.data_parallel_random_init)
 
     args = get_args()
@@ -97,11 +97,11 @@ def _compile_dependencies():
     # TODO: move this to ninja
     if torch.distributed.get_rank() == 0:
         start_time = time.time()
-        print('> compiling dataset index builder ...')
+        gd.debuginfo(prj="mt", info=f'> compiling dataset index builder ...')
         from megatron.data.dataset_utils import compile_helper
         compile_helper()
-        print('>>> done with dataset index builder. Compilation time: {:.3f} '
-              'seconds'.format(time.time() - start_time), flush=True)
+        gd.debuginfo(prj="mt", info=f'>>> done with dataset index builder. Compilation time: {:.3f} '
+              'seconds'.format(time.time() - start_time))
 
     # ==================
     # Load fused kernels
@@ -121,14 +121,14 @@ def _compile_dependencies():
             custom_kernel_constraint and
             args.masked_softmax_fusion):
         if args.rank == 0:
-            print('WARNING: constraints for invoking optimized'
+            gd.debuginfo(prj="mt", info=f'WARNING: constraints for invoking optimized'
                   ' fused softmax kernel are not met. We default'
-                  ' back to unfused kernel invocations.', flush=True)
+                  ' back to unfused kernel invocations.')
     
     # Always build on rank zero first.
     if torch.distributed.get_rank() == 0:
         start_time = time.time()
-        print('> compiling and loading fused kernels ...', flush=True)
+        gd.debuginfo(prj="mt", info=f'> compiling and loading fused kernels ...')
         fused_kernels.load(args)
         torch.distributed.barrier()
     else:
@@ -140,9 +140,9 @@ def _compile_dependencies():
     # the lock is released.
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print('>>> done with compiling and loading fused kernels. '
+        gd.debuginfo(prj="mt", info=f'>>> done with compiling and loading fused kernels. '
               'Compilation time: {:.3f} seconds'.format(
-                  time.time() - start_time), flush=True)
+                  time.time() - start_time))
 
 
 '''
@@ -166,15 +166,15 @@ def _initialize_distributed():
     if torch.distributed.is_initialized():
 
         if args.rank == 0:
-            print('torch distributed is already initialized, '
-                  'skipping initialization ...', flush=True)
+            gd.debuginfo(prj="mt", info=f'torch distributed is already initialized, '
+                  'skipping initialization ...')
         args.rank = torch.distributed.get_rank()
         args.world_size = torch.distributed.get_world_size()
 
     else:
 
         if args.rank == 0:
-            print('> initializing torch distributed ...', flush=True)
+            gd.debuginfo(prj="mt", info=f'> initializing torch distributed ...')
         # Manually set the device ids.
         if device_count > 0:
             device = args.rank % device_count
@@ -194,16 +194,16 @@ def _initialize_distributed():
     # data-parallel communicators.
     if device_count > 0:
         if mpu.model_parallel_is_initialized():
-            print('model parallel is already initialized')
+            gd.debuginfo(prj="mt", info=f'model parallel is already initialized')
         else:
             mpu.initialize_model_parallel(args.tensor_model_parallel_size,
                                            args.pipeline_model_parallel_size,
                                            args.virtual_pipeline_model_parallel_size,
                                            args.pipeline_model_parallel_split_rank)
             if args.rank == 0:
-                print(f'> initialized tensor model parallel with size '
+                gd.debuginfo(prj="mt", info=f'> initialized tensor model parallel with size '
                       f'{mpu.get_tensor_model_parallel_world_size()}')
-                print(f'> initialized pipeline model parallel with size '
+                gd.debuginfo(prj="mt", info=f'> initialized pipeline model parallel with size '
                       f'{mpu.get_pipeline_model_parallel_world_size()}')
 
 

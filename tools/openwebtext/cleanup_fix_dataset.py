@@ -76,8 +76,8 @@ def process_doc(json_line, args):
             return output, cleaned_text, document, False
 
     except Exception as e:
-        print('Error: *************************\n{}\ntext: {}'.format(e, \
-            text), flush=True)
+        gd.debuginfo(prj="mt", info=f'Error: '
+                                    f'*************************\n{e}\ntext: {text}')
         return output, text, document, True
 
     # don't remove
@@ -86,7 +86,7 @@ def process_doc(json_line, args):
 
 def process_set(args, input_file, output_f_cleaned, output_f_filtered):
 
-    print(' > working on {} ...'.format(input_file), flush=True)
+    gd.debuginfo(prj="mt", info=f' > working on {input_file} ...')
     
     num_docs = num_remove_512 = num_remove_java = num_remove_512_non_english \
         = num_ftfy_fix_text = num_general_cleaning = 0
@@ -126,8 +126,8 @@ def process_set(args, input_file, output_f_cleaned, output_f_filtered):
             output_cleaned.write('\n'.encode('utf-8'))
 
         if num_docs % args.log_interval == 0:
-            print('    processed {:9d} documents in {:.2f} seconds ...'.format(
-                num_docs, time.time() - start_time), flush=True)
+            gd.debuginfo(prj="mt", info=f'processed {num_docs:9d} documents in '
+                                        f'{time.time() - start_time:.2f} seconds ...')
 
     # Close the file.
     output_cleaned.close()
@@ -135,16 +135,16 @@ def process_set(args, input_file, output_f_cleaned, output_f_filtered):
     fin.close()
 
     # Print stats.
-    print('  >> total docs: {} remove_512 {} remove_256_javascript {} '\
+    gd.debuginfo(prj="mt", info=f'  >> total docs: {} remove_512 {} remove_256_javascript {} '\
         'remove_512_non_english {} ftfy_fix_text {} general_cleaning {}'.\
         format(num_docs, num_remove_512, num_remove_java,\
         num_remove_512_non_english, num_ftfy_fix_text, \
-        num_general_cleaning), flush=True)
+        num_general_cleaning))
 
 if __name__ == '__main__':
 
 
-    print('parsing the arguments ...')
+    gd.debuginfo(prj="mt", info=f'parsing the arguments ...')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--input-files', nargs = '*', required=True, default=\
@@ -164,7 +164,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print('cleanup dataset ...')
+    gd.debuginfo(prj="mt", info=f'cleanup dataset ...')
 
     for input_file in args.input_files:
         input_filename, input_filename_ext = os.path.splitext(Path(input_file)\
@@ -177,4 +177,4 @@ if __name__ == '__main__':
 
         process_set(args, input_file, output_f_cleaned, output_f_filtered)
 
-    print('done :-)', flush=True)
+    gd.debuginfo(prj="mt", info=f'done :-)')

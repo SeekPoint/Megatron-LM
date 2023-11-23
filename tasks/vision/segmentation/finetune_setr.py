@@ -16,7 +16,7 @@ from tasks.vision.segmentation.metrics import CFMatrix
 from tasks.vision.segmentation.data import build_train_valid_datasets
 from tasks.vision.segmentation.seg_models import SetrSegmentationModel
 from tasks.vision.segmentation.utils import slidingcrops, slidingjoins
-
+from pydebug import gd, infoTensor
 def segmentation():
     def train_valid_datasets_provider():
         """Build train and validation dataset."""
@@ -86,7 +86,7 @@ def segmentation():
         # Forward model.
         if not model.training:
             images, masks, _, _ = slidingcrops(images, masks)
-        #print_rank_0("images size = {}".format(images.size()))
+        gd.debuginfo(prj="mt", info=f"images size = {images.size()}")
        
         if not model.training:
             output_tensor = torch.cat([model(image) for image in torch.split(images, args.micro_batch_size)])

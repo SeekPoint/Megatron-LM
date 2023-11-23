@@ -9,7 +9,7 @@ gd.debuginfo(prj="mt")
 if __name__ == '__main__':
 
 
-    print('grouping duplicate urls ...')
+    gd.debuginfo(prj="mt", info=f'grouping duplicate urls ...')
 
     input = sys.argv[1]
     output = sys.argv[2]
@@ -54,8 +54,7 @@ if __name__ == '__main__':
                 index_to_urls[index] = None
 
             if counter % 100000 == 0:
-                print(' > processed {} lines in {} seconds ...'.format(
-                    counter, time.time() - start_time))
+                gd.debuginfo(prj="mt", info=f' > processed {counter} lines in {time.time() - start_time} seconds ...')
 
 
     total_remove = 0
@@ -65,8 +64,8 @@ if __name__ == '__main__':
             if len(urls) > 1:
                 total_remove += (len(urls) - 1)
                 total_remain += 1
-    print('out of {} urls, only {} are unique and {} should be removed'.format(
-        total_remove+total_remain, total_remain, total_remove))
+    gd.debuginfo(prj="mt", info=f'out of {total_remove+total_remain} urls, '
+                                f'only {total_remain} are unique and {total_remove} should be removed')
 
     with open(output, 'wb') as f:
         for i, urls in enumerate(index_to_urls):

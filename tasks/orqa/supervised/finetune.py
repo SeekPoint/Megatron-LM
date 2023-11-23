@@ -194,7 +194,7 @@ def orqa(Dataset):
     def model_provider(pre_process=True, post_process=True):
         """Build the model."""
         args = get_args()
-        print_rank_0('building retriever model for {} ...'.format(args.task))
+        gd.debuginfo(prj="mt", info=f'building retriever model for {args.task} ...')
 
         model = biencoder_model_provider(only_context_model=False,
                     only_query_model=False,

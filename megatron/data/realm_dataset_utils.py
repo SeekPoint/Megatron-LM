@@ -141,7 +141,7 @@ def get_block_samples_mapping(block_dataset, title_dataset, data_prefix, num_epo
     # Build the indexed mapping if not exist.
     if mpu.get_data_parallel_rank() == 0 and \
             not os.path.isfile(indexmap_filename):
-        print(' > WARNING: could not find index map file {}, building '
+        gd.debuginfo(prj="mt", info=f' > WARNING: could not find index map file {}, building '
               'the indices on rank 0 ...'.format(indexmap_filename))
 
         # Make sure the types match the helpers input types.

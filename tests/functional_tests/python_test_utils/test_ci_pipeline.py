@@ -35,8 +35,8 @@ def read_tb_logs_as_list(path, summary_name):
         ea.Reload()
         summary = ea.Scalars(summary_name)
         summary_list = [round(x.value, 5) for x in summary]
-        print(f'\nObtained the following list for {summary_name} ------------------')
-        print(summary_list)
+        gd.debuginfo(prj="mt", info=f'\nObtained the following list for {summary_name} ------------------')
+        gd.debuginfo(prj="mt", info=fsummary_list)
         return summary_list
     raise FileNotFoundError(f"File not found matching: {path}/events*")
 
@@ -55,13 +55,13 @@ class TestCIPipeline:
             raise FileNotFoundError("Expected data is none")
         expected = self.expected[loss_type]
         expected_list = expected["values"]
-        print(expected_list)
+        gd.debuginfo(prj="mt", info=fexpected_list)
         actual_list = read_tb_logs_as_list(LOGS_DIR, loss_type)
         assert actual_list is not None, f"No TensorBoard events file was found in the logs for {loss_type}."
         actual_list_sliced = actual_list[expected["start_step"]:expected["end_step"]:expected["step_interval"]]
         for i, (expected_val, actual_val) in enumerate(zip(expected_list, actual_list_sliced)):
             step = i * expected["step_interval"]
-            print(f"Checking step {step} against expected {i}")
+            gd.debuginfo(prj="mt", info=f"Checking step {step} against expected {i}")
             if test_type == TypeOfTest.APPROX:
                 assert actual_val == pytest.approx(expected=expected_val, rel=self.margin_loss), f"{self.job_name} : The loss at step {step} should be approximately {expected_val} but it is {actual_val}."
             else:

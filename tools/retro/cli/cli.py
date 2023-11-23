@@ -215,15 +215,15 @@ class retro:
     @classmethod
     def print_neighbor_texts(cls, sample_id, chunk_id, data_key="train"):
         tokens = cls.get_neighbor_tokens(sample_id, chunk_id, data_key)
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        gd.debuginfo(prj="mt", info=f"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         try:
-            print("PRETRAINING CHUNK:")
-            print("  - %s" % shorten_str(cls.gpt_to_text(tokens["chunk_tokens"]), 150))
-            print("NEIGHBOR_CHUNKS:")
+            gd.debuginfo(prj="mt", info=f"PRETRAINING CHUNK:")
+            gd.debuginfo(prj="mt", info=f"  - %s" % shorten_str(cls.gpt_to_text(tokens["chunk_tokens"]), 150))
+            gd.debuginfo(prj="mt", info=f"NEIGHBOR_CHUNKS:")
             for token_ids in tokens["neighbor_tokens"]:
-                print("  - %s" % shorten_str(cls.gpt_to_text(token_ids), 150))
+                gd.debuginfo(prj="mt", info=f"  - %s" % shorten_str(cls.gpt_to_text(token_ids), 150))
         except:
-            print("<no neighbors for sample %d>" % sample_id)
+            gd.debuginfo(prj="mt", info=f"<no neighbors for sample %d>" % sample_id)
 
     ##############################################
     # usage.
@@ -233,46 +233,46 @@ class retro:
     def print_usage(cls):
         '''Print usage.'''
 
-        print()
-        print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
-        print("examples ... [ *note*: 'db' = chunk db; 'pt' = pretraining corpus. ]")
-        print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
+        gd.debuginfo(prj="mt", info=f)
+        gd.debuginfo(prj="mt", info=f"+++++++++++++++++++++++++++++++++++++++++++++++++++")
+        gd.debuginfo(prj="mt", info=f"examples ... [ *note*: 'db' = chunk db; 'pt' = pretraining corpus. ]")
+        gd.debuginfo(prj="mt", info=f"+++++++++++++++++++++++++++++++++++++++++++++++++++")
 
-        print()
-        print("~~~~ indexed datasets ~~~~")
-        print("retro.get_db_num_indexed_datasets() : %s" %
+        gd.debuginfo(prj="mt", info=f)
+        gd.debuginfo(prj="mt", info=f"~~~~ indexed datasets ~~~~")
+        gd.debuginfo(prj="mt", info=f"retro.get_db_num_indexed_datasets() : %s" %
               cls.get_db_num_indexed_datasets())
-        print("retro.get_db_indexed_dataset_infos() :")
+        gd.debuginfo(prj="mt", info=f"retro.get_db_indexed_dataset_infos() :")
         for i, (ratio,prefix) in enumerate(cls.get_db_indexed_dataset_infos()):
-            print("  %s(%f, %s)%s" % (
+            gd.debuginfo(prj="mt", info=f"  %s(%f, %s)%s" % (
                 "[" if i == 0 else " ",
                 ratio,
                 prefix,
                 "]" if i == len(cls.db_indexed_dataset_infos) - 1 else ",",
             ))
 
-        print()
-        print("~~~~ counts ~~~~")
-        print("retro.get_db_num_chunks : %d." % cls.get_db_num_chunks())
+        gd.debuginfo(prj="mt", info=f)
+        gd.debuginfo(prj="mt", info=f"~~~~ counts ~~~~")
+        gd.debuginfo(prj="mt", info=f"retro.get_db_num_chunks : %d." % cls.get_db_num_chunks())
 
-        print()
+        gd.debuginfo(prj="mt", info=f)
         for sq_key in ("sample", "chunk"):
             for data_key in ("train", "valid"): # test?
-                print("retro.get_pt_num_%ss('%s') : %d." % (
+                gd.debuginfo(prj="mt", info=f"retro.get_pt_num_%ss('%s') : %d." % (
                     sq_key, data_key,
                     getattr(cls, f"get_pt_num_{sq_key}s")(data_key)))
 
-        print()
-        print("~~~~ tokens, text ~~~~")
-        print("retro.get_db_chunk_gpt(chunk_id) : %s" %
+        gd.debuginfo(prj="mt", info=f)
+        gd.debuginfo(prj="mt", info=f"~~~~ tokens, text ~~~~")
+        gd.debuginfo(prj="mt", info=f"retro.get_db_chunk_gpt(chunk_id) : %s" %
               shorten_str(str(retro.get_db_chunk_gpt(0)), 50))
-        print("retro.get_db_chunk_bert(chunk_id) : %s" %
+        gd.debuginfo(prj="mt", info=f"retro.get_db_chunk_bert(chunk_id) : %s" %
               shorten_str(str(retro.get_db_chunk_bert(0)), 50))
-        print("retro.get_db_chunk_text(chunk_id) : %s" %
+        gd.debuginfo(prj="mt", info=f"retro.get_db_chunk_text(chunk_id) : %s" %
               shorten_str(retro.get_db_chunk_text(0).strip(), 50))
-        print("retro.get_db_chunk_and_continuation_text(chunk_id) :")
+        gd.debuginfo(prj="mt", info=f"retro.get_db_chunk_and_continuation_text(chunk_id) :")
         for i, t in enumerate(retro.get_db_chunk_and_continuation_text(0)):
-            print("  %s'%s'%s" % (
+            gd.debuginfo(prj="mt", info=f"  %s'%s'%s" % (
                 "[" if i == 0 else " ",
                 shorten_str(t.strip().replace("\n", " "), 50),
                 "]" if i == 1 else ",",
@@ -281,21 +281,21 @@ class retro:
         sample = cls.get_pt_sample("train", 0)
         sample_chunk_id = sample["neighbor_tokens"].shape[0] // 2
         sample_neighbor_id = 0
-        print()
-        print("retro.get_pt_sample('train', sample_id) :")
-        print("  {")
+        gd.debuginfo(prj="mt", info=f)
+        gd.debuginfo(prj="mt", info=f"retro.get_pt_sample('train', sample_id) :")
+        gd.debuginfo(prj="mt", info=f"  {")
         for k, v in sample.items():
-            print("    '%s' : %s" % (k, shorten_str(str(v), 50)))
-        print("  }")
+            gd.debuginfo(prj="mt", info=f"    '%s' : %s" % (k, shorten_str(str(v), 50)))
+        gd.debuginfo(prj="mt", info=f"  }")
 
-        print()
-        print("(e.g., sample = retro.get_pt_sample(...))")
-        print()
-        print("  sample['text'].shape : %s" % str(sample["text"].shape))
-        print("  sample['neighbor_tokens'].shape : %s" % str(sample["neighbor_tokens"].shape))
-        print("  sample['text'] : %s" % shorten_str(str(sample["text"]), 50))
-        print("  sample['neighbor_tokens'][17][1] : %s" % shorten_str(str(sample["neighbor_tokens"][sample_chunk_id][sample_neighbor_id]), 50))
-        print("  retro.gpt_to_text(sample['text']) : %s" % shorten_str(cls.gpt_to_text(sample["text"]), 50))
-        print("  retro.gpt_to_text(sample['neighbor_tokens']) : %s" % shorten_str(cls.gpt_to_text(sample["neighbor_tokens"][sample_chunk_id][sample_neighbor_id]), 50))
+        gd.debuginfo(prj="mt", info=f)
+        gd.debuginfo(prj="mt", info=f"(e.g., sample = retro.get_pt_sample(...))")
+        gd.debuginfo(prj="mt", info=f)
+        gd.debuginfo(prj="mt", info=f"  sample['text'].shape : %s" % str(sample["text"].shape))
+        gd.debuginfo(prj="mt", info=f"  sample['neighbor_tokens'].shape : %s" % str(sample["neighbor_tokens"].shape))
+        gd.debuginfo(prj="mt", info=f"  sample['text'] : %s" % shorten_str(str(sample["text"]), 50))
+        gd.debuginfo(prj="mt", info=f"  sample['neighbor_tokens'][17][1] : %s" % shorten_str(str(sample["neighbor_tokens"][sample_chunk_id][sample_neighbor_id]), 50))
+        gd.debuginfo(prj="mt", info=f"  retro.gpt_to_text(sample['text']) : %s" % shorten_str(cls.gpt_to_text(sample["text"]), 50))
+        gd.debuginfo(prj="mt", info=f"  retro.gpt_to_text(sample['neighbor_tokens']) : %s" % shorten_str(cls.gpt_to_text(sample["neighbor_tokens"][sample_chunk_id][sample_neighbor_id]), 50))
 
-        print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
+        gd.debuginfo(prj="mt", info=f"+++++++++++++++++++++++++++++++++++++++++++++++++++")

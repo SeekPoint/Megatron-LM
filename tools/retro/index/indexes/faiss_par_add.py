@@ -45,7 +45,7 @@ class FaissParallelAddIndex(FaissBaseIndex):
         )
 
         # Encode block.
-        print_rank_0("encode.")
+        gd.debuginfo(prj="mt", info=f"encode.")
         codes = index.sa_encode(embeddings)
 
         # Save neighbors.

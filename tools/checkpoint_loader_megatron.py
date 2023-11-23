@@ -35,7 +35,7 @@ def _load_checkpoint(queue, args):
         from megatron.core.enums import ModelType
         from megatron import fused_kernels
     except ModuleNotFoundError:
-        print("Unable to import Megatron, please specify the path to Megatron using --megatron-path. Exiting.")
+        gd.debuginfo(prj="mt", info=f"Unable to import Megatron, please specify the path to Megatron using --megatron-path. Exiting.")
         queue.put("exit")
         exit(1)
 
@@ -69,8 +69,8 @@ def _load_checkpoint(queue, args):
             if default is not None:
                 setattr(margs, arg_name, default)
             else:
-                print(f"Checkpoint does not specify the argument {arg_name}. Exiting.")
-                print(f"Arguments: {margs}")
+                gd.debuginfo(prj="mt", info=f"Checkpoint does not specify the argument {arg_name}. Exiting.")
+                gd.debuginfo(prj="mt", info=f"Arguments: {margs}")
                 queue.put("exit")
                 exit(1)
 
@@ -162,7 +162,7 @@ def _load_checkpoint(queue, args):
         vocab = json.load(open(args.vocab_file))
         true_vocab_size = len(vocab)
         if args.true_vocab_size is not None and true_vocab_size != args.true_vocab_size:
-            print("Both --true-vocab-size and --vocab-file specified and the vocab size does not match, aborting.")
+            gd.debuginfo(prj="mt", info=f"Both --true-vocab-size and --vocab-file specified and the vocab size does not match, aborting.")
             queue.put("exit")
             exit(1)
     else:
@@ -207,7 +207,7 @@ def _load_checkpoint(queue, args):
     queue.put(md)
 
     def queue_put(name, msg):
-        print(f"sending {name}")
+        gd.debuginfo(prj="mt", info=f"sending {name}")
         msg["name"] = name
         queue.put(msg)
 

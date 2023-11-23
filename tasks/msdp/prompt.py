@@ -144,7 +144,7 @@ def generate_samples_by_calling_api():
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
 
-    print_rank_0('building GPT model ...')
+    gd.debuginfo(prj="mt", info=f'building GPT model ...')
     model = GPTModel(
         num_tokentypes=0,
         parallel_output=True,
@@ -170,8 +170,8 @@ def generate_samples_by_prompting_input_from_file(model):
         input_count = len(all_raw_text)
         if args.sample_output_file is None:
             sample_output_file = args.sample_input_file + ".out"
-            print('`sample-output-file` not specified, setting '
-                    'it to {}'.format(sample_output_file))
+            gd.debuginfo(prj="mt", info=f'sample-output-file` not specified, '
+                                        f'setting it to {sample_output_file}')
         else:
             sample_output_file = args.sample_output_file
 
@@ -261,7 +261,7 @@ def generate_samples_by_prompting_input_from_file(model):
                 raw_text = "EMPTY TEXT"
 
             if input_pos % 100 == 0:
-                print_rank_0("input_pos: %d" % input_pos)
+                gd.debuginfo(prj="mt", info=f"input_pos: %d" % input_pos)
 
             outputs = generate_and_post_process(
                         model=model, 
@@ -295,7 +295,7 @@ def main():
         return
 
     if args.num_layers_per_virtual_pipeline_stage is not None:
-        print("Interleaved pipeline schedule is not yet supported for text generation.")
+        gd.debuginfo(prj="mt", info=f"Interleaved pipeline schedule is not yet supported for text generation.")
         exit()
 
     # Set up model and load checkpoint.

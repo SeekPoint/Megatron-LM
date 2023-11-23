@@ -12,8 +12,7 @@ gd.debuginfo(prj="mt")
 def test_initialize_model_parallel(tensor_model_parallel_size):
 
     if torch.distributed.get_rank() == 0:
-        print('> testing initialize_model_parallel with size {} ...'.format(
-            tensor_model_parallel_size))
+        gd.debuginfo(prj="mt", info=f'> testing initialize_model_parallel with size {tensor_model_parallel_size} ...')
     tensor_model_parallel_size_ = min(tensor_model_parallel_size,
                                torch.distributed.get_world_size())
     assert not mpu.model_parallel_is_initialized()
@@ -44,14 +43,13 @@ def test_initialize_model_parallel(tensor_model_parallel_size):
 
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print('>> passed the test :-)')
+        gd.debuginfo(prj="mt", info=f'>> passed the test :-)')
 
 
 def test_get_tensor_model_parallel_src_rank(tensor_model_parallel_size_):
 
     if torch.distributed.get_rank() == 0:
-        print('> testing get_tensor_model_parallel_src_rank with size {} ...'.format(
-            tensor_model_parallel_size_))
+        gd.debuginfo(prj="mt", info=f'> testing get_tensor_model_parallel_src_rank with size {tensor_model_parallel_size_} ...')
     tensor_model_parallel_size = min(tensor_model_parallel_size_,
                               torch.distributed.get_world_size())
     assert not mpu.model_parallel_is_initialized()
@@ -67,7 +65,7 @@ def test_get_tensor_model_parallel_src_rank(tensor_model_parallel_size_):
 
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print('>> passed the test :-)')
+        gd.debuginfo(prj="mt", info=f'>> passed the test :-)')
 
 
 if __name__ == '__main__':

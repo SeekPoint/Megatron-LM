@@ -71,7 +71,7 @@ def generate_samples_unconditional(model):
     while True:
         if torch.distributed.get_rank() == 0:
             sentences = [''] * args.global_batch_size
-            print("global batch size", args.global_batch_size)
+            gd.debuginfo(prj="mt", info=f"global batch size", args.global_batch_size)
             max_len = args.out_seq_length
             resp_sentences, resp_sentences_seg, output_logits, \
             tokens = generate_and_post_process(model, prompts=sentences,
@@ -115,10 +115,10 @@ def generate_samples_conditional(model):
         torch.distributed.barrier()
         if torch.distributed.get_rank() == 0:
             sentences = []
-            print("global batch size", args.global_batch_size)
+            gd.debuginfo(prj="mt", info=f"global batch size", args.global_batch_size)
             for _ in range(args.global_batch_size):
                 if input_pos >= input_count:
-                    print(f"input pos: {input_pos}, input count: {input_count}")
+                    gd.debuginfo(prj="mt", info=f"input pos: {input_pos}, input count: {input_count}")
                     raw_text = "EMPTY TEXT"
                 else:
                     raw_text = all_raw_text[input_pos]
@@ -162,7 +162,7 @@ def generate_and_write_samples_conditional(model):
     args = get_args()
     if args.sample_output_file is None:
         sample_output_file = args.sample_input_file + ".out"
-        print('`sample-output-file` not specified, setting '
+        gd.debuginfo(prj="mt", info=f'`sample-output-file` not specified, setting '
               'it to {}'.format(sample_output_file))
     else:
         sample_output_file = args.sample_output_file
@@ -192,7 +192,7 @@ def main():
 
     # Generate samples.
     if args.sample_input_file != None:
-        print(f"{args.sample_input_file}")
+        gd.debuginfo(prj="mt", info=f"{args.sample_input_file}")
         generate_and_write_samples_conditional(model)
     else:
         generate_and_write_samples_unconditional(model)

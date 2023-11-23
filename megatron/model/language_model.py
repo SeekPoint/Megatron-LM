@@ -215,8 +215,7 @@ class Embedding(MegatronModule):
         if self.tokentype_embeddings is not None:
             raise Exception('tokentype embeddings is already initialized')
         if torch.distributed.get_rank() == 0:
-            print('adding embedding for {} tokentypes'.format(num_tokentypes),
-                  flush=True)
+            gd.debuginfo(prj="mt", info=f'adding embedding for {num_tokentypes} tokentypes')
         self.num_tokentypes = num_tokentypes
         self.tokentype_embeddings = torch.nn.Embedding(num_tokentypes,
                                                        self.hidden_size)
@@ -322,8 +321,8 @@ class Embedding(MegatronModule):
                 self.tokentype_embeddings.load_state_dict(state_dict_,
                                                           strict=strict)
             else:
-                print('***WARNING*** expected tokentype embeddings in the '
-                      'checkpoint but could not find it', flush=True)
+                gd.debuginfo(prj="mt", info=f'***WARNING*** expected tokentype embeddings in the '
+                      'checkpoint but could not find it')
 
 '''
 TransformerLanguageModel 就是具体的语言模型，其中重要的是 ParallelTransformer。这里会依据传入的配置来进行生成。

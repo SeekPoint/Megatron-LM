@@ -319,12 +319,12 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
 
     # Print number of parameters.
     if mpu.get_data_parallel_rank() == 0:
-        print(' > number of parameters on (tensor, pipeline) '
+        gd.debuginfo(prj="mt", info=f' > number of parameters on (tensor, pipeline) '
               'model parallel rank ({}, {}): {}'.format(
             mpu.get_tensor_model_parallel_rank(),
             mpu.get_pipeline_model_parallel_rank(),
             sum([sum([p.nelement() for p in model_module.parameters()])
-                 for model_module in model])), flush=True)
+                 for model_module in model])))
 
     # GPU allocation.
     for model_module in model:

@@ -13,7 +13,7 @@ def evaluate_f1(guess_file, answer_file):
     """Evaluating F1 Score"""
 
     guess_list = []
-    print_rank_0('reading %s' % guess_file)
+    gd.debuginfo(prj="mt", info=f'reading {guess_file}')
     with open(guess_file, "r") as f:
         for i, line in enumerate(tqdm(f)):
             line = line.strip()
@@ -22,7 +22,7 @@ def evaluate_f1(guess_file, answer_file):
             guess_list.append(line)
 
     answer_list = []
-    print_rank_0('reading %s' % answer_file)
+    gd.debuginfo(prj="mt", info=f'reading {answer_file}')
     with open(answer_file, "r") as f:
         for i, line in enumerate(tqdm(f)):
             line = line.strip()
@@ -34,9 +34,9 @@ def evaluate_f1(guess_file, answer_file):
         "lengths of guess and answer are different!"
 
     precision, recall, f1 = F1Metric.compute_all_pairs(guess_list, answer_list)
-    print_rank_0('Precision: %.4f; recall: %.4f; f1: %.4f' % (precision, recall, f1))
+    gd.debuginfo(prj="mt", info=f'Precision: {precision:%.4f}; recall: {recall:%.4f}; f1: {f1:%.4f}')
 
-    print_rank_0('done :-)')
+    gd.debuginfo(prj="mt", info=f'done :-)')
 
 
 def main():

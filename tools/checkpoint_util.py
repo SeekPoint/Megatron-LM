@@ -101,7 +101,7 @@ def load_plugin(plugin_type, name):
     if not hasattr(plugin, 'add_arguments'):
         sys.exit(f"{module_name} module is not a plugin. Exiting.")
 
-    print(f"Loaded {module_name} as the {plugin_type}.")
+    gd.debuginfo(prj="mt", info=f"Loaded {module_name} as the {plugin_type}.")
     return plugin
 
 def main():
@@ -137,14 +137,14 @@ def main():
 
     queue = mp.Queue(maxsize=args.max_queue_size)
 
-    print("Starting saver...")
+    gd.debuginfo(prj="mt", info=f"Starting saver...")
     saver_proc = mp.Process(target=saver.save_checkpoint, args=(queue, args))
     saver_proc.start()
 
-    print("Starting loader...")
+    gd.debuginfo(prj="mt", info=f"Starting loader...")
     loader.load_checkpoint(queue, args)
 
-    print("Waiting for saver to complete...")
+    gd.debuginfo(prj="mt", info=f"Waiting for saver to complete...")
     saver_proc.join()
 
 

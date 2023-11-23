@@ -180,9 +180,9 @@ class MegatronGenerate(Resource):
         with lock:  # Need to get lock to keep multiple threads from hitting code
             
             if not no_log:
-                print("request IP: " + str(request.remote_addr))
-                print(json.dumps(request.get_json()),flush=True)
-                print("start time: ", datetime.datetime.now())
+                gd.debuginfo(prj="mt", info=f"request IP: " + str(request.remote_addr))
+                gd.debuginfo(prj="mt", info=fjson.dumps(request.get_json()),flush=True)
+                gd.debuginfo(prj="mt", info=f"start time: ", datetime.datetime.now())
             
             try:
                 if beam_width is not None:
@@ -229,7 +229,7 @@ class MegatronGenerate(Resource):
 
             except ValueError as ve:
                 return ve.args[0]
-            print("end time: ", datetime.datetime.now())
+            gd.debuginfo(prj="mt", info=f"end time: ", datetime.datetime.now())
         
 
 class MegatronServer(object):

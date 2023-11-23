@@ -40,7 +40,7 @@ def initialize_distributed(backend='nccl'):
     rank = int(os.getenv('RANK', '0'))
     world_size = int(os.getenv("WORLD_SIZE", '1'))
 
-    print('> initializing torch.distributed with local rank: {}, '
+    gd.debuginfo(prj="mt", info=f'> initializing torch.distributed with local rank: {}, '
           'rank: {}, world size: {}'.format(local_rank, rank, world_size))
 
     # Set the device id.
@@ -67,5 +67,5 @@ def print_separator(message):
     filler = '-' * filler_len
     string = '\n' + filler + ' {} '.format(message) + filler
     if torch.distributed.get_rank() == 0:
-        print(string, flush=True)
+        gd.debuginfo(prj="mt", info=fstring)
     torch.distributed.barrier()

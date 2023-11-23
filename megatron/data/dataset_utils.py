@@ -88,7 +88,7 @@ def compile_helper():
     path = os.path.abspath(os.path.dirname(__file__))
     ret = subprocess.run(['make', '-C', path])
     if ret.returncode != 0:
-        print("Making C++ dataset helpers module failed, exiting.")
+        gd.debuginfo(prj="mt", info=f"Making C++ dataset helpers module failed, exiting.")
         import sys
         sys.exit(1)
 
@@ -127,7 +127,7 @@ def get_a_and_b_segments(sample, np_rng):
 
 def truncate_segments(tokens_a, tokens_b, len_a, len_b, max_num_tokens, np_rng):
     """Truncates a pair of sequences to a maximum sequence length."""
-    #print(len_a, len_b, max_num_tokens)
+    #gd.debuginfo(prj="mt", info=flen_a, len_b, max_num_tokens)
     assert len_a > 0
     if len_a + len_b <= max_num_tokens:
         return False
@@ -676,7 +676,7 @@ def get_samples_mapping(indexed_dataset,
     # Build the indexed mapping if not exist.
     if torch.distributed.get_rank() == 0 and \
        not os.path.isfile(indexmap_filename):
-        print(' > WARNING: could not find index map file {}, building '
+        gd.debuginfo(prj="mt", info=f' > WARNING: could not find index map file {}, building '
               'the indices on rank 0 ...'.format(indexmap_filename))
 
         # Make sure the types match the helpers input types.

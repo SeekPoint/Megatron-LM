@@ -30,7 +30,7 @@ def process_files(args):
                     all_predictions[name] += np.array(predictions)
                     assert np.allclose(all_uid[name], np.array(uid))
         except Exception as e:
-            print(e)
+            gd.debuginfo(prj="mt", info=f'e={e}')
             continue
     return all_predictions, all_labels, all_uid
 
@@ -84,7 +84,7 @@ def postprocess_predictions(all_predictions, all_labels, args):
 
     if args.calc_threshold:
         args.threshold = get_threshold(all_predictions, all_labels, args.one_threshold)
-        print('threshold', args.threshold)
+        gd.debuginfo(prj="mt", info=f'threshold={args.threshold}')
 
     if args.threshold is not None:
         all_predictions = threshold_predictions(all_predictions, args.threshold)
@@ -105,7 +105,7 @@ def write_predictions(all_predictions, all_labels, all_uid, args):
             count += num
             all_correct += correct
             accuracy = (preds == all_labels[dataset]).mean()
-            print(accuracy)
+            gd.debuginfo(prj="mt", info=f'accuracy={accuracy}')
         if not os.path.exists(os.path.join(args.outdir, dataset)):
             os.makedirs(os.path.join(args.outdir, dataset))
         outpath = os.path.join(
@@ -116,7 +116,7 @@ def write_predictions(all_predictions, all_labels, all_uid, args):
             f.write('\n'.join(str(uid) + '\t' + str(args.labels[p])
                               for uid, p in zip(all_uid[dataset], preds.tolist())))
     if args.eval:
-        print(all_correct / count)
+        gd.debuginfo(prj="mt", info=fall_correct / count)
 
 
 def ensemble_predictions(args):

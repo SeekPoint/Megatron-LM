@@ -106,12 +106,12 @@ class ICTBertModel(MegatronModule):
     def load_state_dict(self, state_dict, strict=True):
         """Load the state dicts of each of the models"""
         if self.use_query_model:
-            print("Loading ICT query model", flush=True)
+            gd.debuginfo(prj="mt", info=f"Loading ICT query model")
             self.query_model.load_state_dict(
                 state_dict[self._query_key], strict=strict)
 
         if self.use_block_model:
-            print("Loading ICT block model", flush=True)
+            gd.debuginfo(prj="mt", info=f"Loading ICT block model")
             self.block_model.load_state_dict(
                 state_dict[self._block_key], strict=strict)
 
@@ -127,8 +127,7 @@ class ICTBertModel(MegatronModule):
 
         checkpoint_name = get_checkpoint_name(args.bert_load, iteration, False)
         if mpu.get_data_parallel_rank() == 0:
-            print('global rank {} is loading checkpoint {}'.format(
-                torch.distributed.get_rank(), checkpoint_name))
+            gd.debuginfo(prj="mt", info=f'global rank {torch.distributed.get_rank()} is loading checkpoint {checkpoint_name}')
 
         try:
             state_dict = torch.load(checkpoint_name, map_location='cpu')

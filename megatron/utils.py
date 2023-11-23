@@ -20,30 +20,38 @@ from megatron.model.module import param_is_not_shared
 
 from pydebug import gd, infoTensor
 gd.debuginfo(prj="mt")
+
 def unwrap_model(model, module_instances=(torchDDP)):
+    gd.debuginfo(prj="mt")
     return_list = True
     if not isinstance(model, list):
+        gd.debuginfo(prj="mt")
         model = [model]
         return_list = False
     unwrapped_model = []
     for model_module in model:
+        gd.debuginfo(prj="mt", info=f'model_module=f{model_module}')
         while isinstance(model_module, module_instances):
             model_module = model_module.module
         unwrapped_model.append(model_module)
     if not return_list:
+        gd.debuginfo(prj="mt")
         return unwrapped_model[0]
     return unwrapped_model
 
 
 def calc_params_l2_norm(model):
     """Calculate l2 norm of parameters """
+    gd.debuginfo(prj="mt")
     args = get_args()
     if not isinstance(model, list):
+        gd.debuginfo(prj="mt")
         model = [model]
     # Remove duplicate params.
     params_data = []
     for model_ in model:
         for param in model_.parameters():
+            gd.debuginfo(prj="mt", info=f'model_=f{model_}, param={infoTensor(param)}')
             is_not_shared = param_is_not_shared(param)
             is_not_tp_duplicate = param_is_not_tensor_parallel_duplicate(param)
             if is_not_shared and is_not_tp_duplicate:
@@ -51,8 +59,11 @@ def calc_params_l2_norm(model):
                     params_data.append(param.data.float())
                 else:
                     params_data.append(param.data)
+
     # Calculate norm
     dummy_overflow_buf = torch.cuda.IntTensor([0])
+    gd.debuginfo(prj="mt", info=f'dummy_overflow_buf=f{infoTensor(dummy_overflow_buf)}')
+
     norm, _ = multi_tensor_applier(
         amp_C.multi_tensor_l2norm,
         dummy_overflow_buf,
@@ -71,6 +82,8 @@ def average_losses_across_data_parallel_group(losses):
     """Reduce a tensor of losses across all GPUs."""
     averaged_losses = torch.cat(
         [loss.clone().detach().view(1) for loss in losses])
+    gd.debuginfo(prj="mt", info=f'averaged_losses=f{infoTensor(averaged_losses)}')
+
     torch.distributed.all_reduce(averaged_losses,
                                  group=mpu.get_data_parallel_group())
     averaged_losses = averaged_losses / \
@@ -92,8 +105,7 @@ def report_memory(name):
     string += ' | max reserved: {}'.format(
         torch.cuda.max_memory_reserved() / mega_bytes)
     if mpu.get_data_parallel_rank() == 0:
-        print("[Rank {}] {}".format(torch.distributed.get_rank(), string),
-              flush=True)
+        gd.debuginfo(prj="mt", info=f"[Rank {torch.distributed.get_rank()}] {string}")
 
 
 def print_params_min_max_norm(optimizer, iteration):
@@ -111,7 +123,7 @@ def print_params_min_max_norm(optimizer, iteration):
             string += '{:7d}, {:4d}, {:4d}, {:2d}, '.format(
                 iteration, rank, index, int(param.tensor_model_parallel))
             string += '{:.6E}, {:.6E}, {:.6E}\n'.format(min_, max_, norm)
-    print(string, flush=True)
+    gd.debuginfo(prj="mt", info=fstring)
 
 
 def check_adlr_autoresume_termination(iteration, model,
@@ -193,13 +205,13 @@ def get_ltor_masks_and_position_ids(data,
     return attention_mask, loss_mask, position_ids
 
 
-def print_rank_0(message):
-    """If distributed is initialized, print only on rank 0."""
-    if torch.distributed.is_initialized():
-        if torch.distributed.get_rank() == 0:
-            print(message, flush=True)
-    else:
-        print(message, flush=True)
+# def print_rank_0(message):
+#     """If distributed is initialized, print only on rank 0."""
+#     if torch.distributed.is_initialized():
+#         if torch.distributed.get_rank() == 0:
+#             gd.debuginfo(prj="mt", info=fmessage)
+#     else:
+#         gd.debuginfo(prj="mt", info=fmessage)
 
 def is_last_rank():
     return torch.distributed.get_rank() == (
@@ -209,6 +221,6 @@ def print_rank_last(message):
     """If distributed is initialized, print only on last rank."""
     if torch.distributed.is_initialized():
         if is_last_rank():
-            print(message, flush=True)
+            gd.debuginfo(prj="mt", info=fmessage)
     else:
-        print(message, flush=True)
+        gd.debuginfo(prj="mt", info=fmessage)

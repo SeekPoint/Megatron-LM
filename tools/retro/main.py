@@ -209,7 +209,7 @@ if __name__ == "__main__":
     # Select task to run.
     for task in args.retro_tasks:
 
-        print_rank_0("start '%s'." % task)
+        gd.debuginfo(prj="mt", info=f"start '%s'." % task)
 
         # Run all stages.
         if task == "build":

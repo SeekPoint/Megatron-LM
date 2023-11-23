@@ -375,8 +375,8 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
         # not mean anything.
         if num_epochs == 1:
             separate_last_epoch = False
-            print(' > only one epoch required, setting '
-                  'separate_last_epoch to False', flush=True)
+            gd.debuginfo(prj="mt", info=f' > only one epoch required, setting '
+                                        f'separate_last_epoch to False')
 
         else:
             # Get the number of samples for the last epoch
@@ -396,16 +396,14 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
             separate_last_epoch = (last_epoch_num_samples <
                                    int(0.80 * num_samples_per_epoch))
             if separate_last_epoch:
-                string = ' > last epoch number of samples ({}) is smaller '\
-                         'than 80% of number of samples per epoch ({}), '\
-                         'setting separate_last_epoch to True'
+                string = f' > last epoch number of samples ({last_epoch_num_samples}) is smaller ' \
+                         f'than 80% of number of samples per epoch ({num_samples_per_epoch}), ' \
+                         f'setting separate_last_epoch to True'
             else:
-                string = ' > last epoch number of samples ({}) is larger '\
-                         'than 80% of number of samples per epoch ({}), '\
-                         'setting separate_last_epoch to False'
-            print(string.format(last_epoch_num_samples,
-                                num_samples_per_epoch), flush=True)
-
+                string = f' > last epoch number of samples ({last_epoch_num_samples}) is larger ' \
+                         f'than 80% of number of samples per epoch ({num_samples_per_epoch}), ' \
+                         f'setting separate_last_epoch to False'
+            gd.debuginfo(prj="mt", info=string)
 
         try:
             os.makedirs(data_cache_dir, exist_ok=True)
@@ -447,11 +445,11 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
             print_rank_0(' > elasped time to build and save shuffle-idx mapping'
                          ' (seconds): {:4f}'.format(time.time() - start_time))
         except OSError:
-            print(f'There was an error trying to create the data cache directory ({data_cache_dir})')
-            print('or a file in it. This defaults to a directory "index-cache" within the directory')
-            print('the data files are in and can be set with the --data-cache-path argument. Please')
-            print('ensure you have write access to this directory or specify one that you do have')
-            print('write access to.')
+            gd.debuginfo(prj="mt", info=f'There was an error trying to create the data cache directory ({data_cache_dir})')
+            gd.debuginfo(prj="mt", info=f'or a file in it. This defaults to a directory "index-cache" within the directory')
+            gd.debuginfo(prj="mt", info=f'the data files are in and can be set with the --data-cache-path argument. Please')
+            gd.debuginfo(prj="mt", info=f'ensure you have write access to this directory or specify one that you do have')
+            gd.debuginfo(prj="mt", info=f'write access to.')
             data_cache_success = False
 
     counts = torch.cuda.LongTensor([data_cache_success])
@@ -570,8 +568,8 @@ def _build_sample_idx(sizes, doc_idx, seq_length,
 
 def _build_shuffle_idx(num_samples, total_size, np_rng):
     """Build the range [0, size) and shuffle."""
-    print(' > building shuffle index with split [0, {}) and [{}, {}) '
-          '...'.format(num_samples, num_samples, total_size), flush=True)
+    gd.debuginfo(prj="mt", info=f' > building shuffle index with split '
+                                f'[0, {num_samples}) and [{num_samples}, {total_size})')
 
     dtype_ = np.uint32
     if total_size >= (np.iinfo(np.uint32).max - 1):

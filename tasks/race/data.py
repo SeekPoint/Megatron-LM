@@ -14,7 +14,7 @@ from tasks.data_utils import clean_text
 
 NUM_CHOICES = 4
 MAX_QA_LENGTH = 128
-
+from pydebug import gd, infoTensor
 
 class RaceDataset(Dataset):
 
@@ -22,13 +22,12 @@ class RaceDataset(Dataset):
                  max_qa_length=MAX_QA_LENGTH):
 
         self.dataset_name = dataset_name
-        print_rank_0(' > building RACE dataset for {}:'.format(
-            self.dataset_name))
+        gd.debuginfo(prj="mt", info=f' > building RACE dataset for {self.dataset_name}')
 
         string = '  > paths:'
         for path in datapaths:
             string += ' ' + path
-        print_rank_0(string)
+        gd.debuginfo(prj="mt", info=string)
 
         self.samples = []
         for datapath in datapaths:
@@ -36,8 +35,7 @@ class RaceDataset(Dataset):
                                                         max_qa_length,
                                                         max_seq_length))
 
-        print_rank_0('  >> total number of samples: {}'.format(
-            len(self.samples)))
+        gd.debuginfo(prj="mt", info=f'  >> total number of samples: {len(self.samples)}')
 
         # This indicates that each "sample" has multiple samples that
         # will collapse into batch dimension
@@ -54,7 +52,7 @@ def process_single_datapath(datapath, tokenizer, max_qa_length, max_seq_length):
     """Read in RACE files, combine, clean-up, tokenize, and convert to
     samples."""
 
-    print_rank_0('   > working on {}'.format(datapath))
+    gd.debuginfo(prj="mt", info=f'   > working on {datapath}')
     start_time = time.time()
 
     # Get list of files.
@@ -128,7 +126,7 @@ def process_single_datapath(datapath, tokenizer, max_qa_length, max_seq_length):
                     num_samples += 1
 
     elapsed_time = time.time() - start_time
-    print_rank_0('    > processed {} document, {} questions, and {} samples'
+    gd.debuginfo(prj="mt", info=f'    > processed {} document, {} questions, and {} samples'
                  ' in {:.2f} seconds'.format(num_docs, num_questions,
                                              num_samples, elapsed_time))
 

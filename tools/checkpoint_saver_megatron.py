@@ -38,20 +38,20 @@ def save_checkpoint(queue, args):
         from megatron import fused_kernels
         from megatron.core import mpu
     except ModuleNotFoundError:
-        print("Unable to import Megatron, please specify the path to Megatron using --megatron-path. Exiting.")
+        gd.debuginfo(prj="mt", info=f"Unable to import Megatron, please specify the path to Megatron using --megatron-path. Exiting.")
         exit(1)
 
     def queue_get(name=None):
         val = queue.get()
         if val == "exit":
-            print("Loader exited, exiting saver")
+            gd.debuginfo(prj="mt", info=f"Loader exited, exiting saver")
             exit(1)
         if name is not None and args.checking and val["name"] != name:
             val_name = val["name"]
-            print(f'Unexpected message. Expecting "{name}" but got "{val_name}". Exiting saver.')
+            gd.debuginfo(prj="mt", info=f'Unexpected message. Expecting "{name}" but got "{val_name}". Exiting saver.')
             exit(1)
         if name is not None:
-            print(f"received {name}")
+            gd.debuginfo(prj="mt", info=f"received {name}")
         return val
 
     def check_message(msg):
@@ -59,10 +59,10 @@ def save_checkpoint(queue, args):
             return
         msg_name = msg.pop("name")
         if len(msg.keys()) > 0:
-            print(f"Unexpected values in {msg_name}:")
+            gd.debuginfo(prj="mt", info=f"Unexpected values in {msg_name}:")
             for key in msg.keys():
-                print(f"   {key}")
-            print(f"Exiting. If you want to ignore this, use the argument --no-checking.")
+                gd.debuginfo(prj="mt", info=f"   {key}")
+            gd.debuginfo(prj="mt", info=f"Exiting. If you want to ignore this, use the argument --no-checking.")
             exit(1)
 
 
@@ -72,7 +72,7 @@ def save_checkpoint(queue, args):
         if hasattr(md, 'previous_tensor_parallel_size'):
             args.target_tensor_parallel_size = md.previous_tensor_parallel_size
         else:
-            print("loader did not provide a tensor parallel size and --target-tensor-parallel-size not provided on command line. "
+            gd.debuginfo(prj="mt", info=f"loader did not provide a tensor parallel size and --target-tensor-parallel-size not provided on command line. "
                   "Default to 1.")
             args.target_tensor_parallel_size = 1
 
@@ -80,7 +80,7 @@ def save_checkpoint(queue, args):
         if hasattr(md, 'previous_pipeline_parallel_size'):
             args.target_pipeline_parallel_size = md.previous_pipeline_parallel_size
         else:
-            print("loader did not provide a pipeline parallel size and --target-pipeline-parallel-size not provided on command line. "
+            gd.debuginfo(prj="mt", info=f"loader did not provide a pipeline parallel size and --target-pipeline-parallel-size not provided on command line. "
                   "Default to 1.")
             args.target_pipeline_parallel_size = 1
 
@@ -156,10 +156,10 @@ def save_checkpoint(queue, args):
             if arg in args_to_keep:
                 continue
             if not hasattr(margs, arg):
-                print(f"Checkpoint had argument {arg} but new arguments does not have this.")
+                gd.debuginfo(prj="mt", info=f"Checkpoint had argument {arg} but new arguments does not have this.")
                 continue
             if getattr(margs, arg) != value:
-                print(f"Overwriting default {arg} value {getattr(margs, arg)} with value from checkpoint {value}.")
+                gd.debuginfo(prj="mt", info=f"Overwriting default {arg} value {getattr(margs, arg)} with value from checkpoint {value}.")
                 setattr(margs, arg, value)
 
     validate_args(margs)
@@ -172,10 +172,10 @@ def save_checkpoint(queue, args):
     if hasattr(md, 'consumed_train_samples'):
         margs.consumed_train_samples = md.consumed_train_samples
         margs.consumed_valid_samples = md.consumed_valid_samples
-        print(f"Setting consumed_train_samples to {margs.consumed_train_samples}"
+        gd.debuginfo(prj="mt", info=f"Setting consumed_train_samples to {margs.consumed_train_samples}"
               f" and consumed_valid_samples to {margs.consumed_valid_samples}")
     else:
-        print("consumed_train_samples not provided.")
+        gd.debuginfo(prj="mt", info=f"consumed_train_samples not provided.")
 
     # Determine how to make our models
     if md.model_type == 'GPT':
@@ -229,7 +229,7 @@ def save_checkpoint(queue, args):
         else:
             full_word_embed = orig_word_embed
     else:
-        print("Original vocab size not specified, leaving embedding table as-is. "
+        gd.debuginfo(prj="mt", info=f"Original vocab size not specified, leaving embedding table as-is. "
               "If you've changed the tensor parallel size this could cause problems.")
         margs.padded_vocab_size = orig_word_embed.shape[0]
         full_word_embed = orig_word_embed
@@ -330,7 +330,7 @@ def save_checkpoint(queue, args):
             if md.output_layer:
                 msg = queue_get("output layer")
                 if not hasattr(models[0].language_model, 'output_layer'):
-                    print("ERROR: got an output layer, but model does not have one")
+                    gd.debuginfo(prj="mt", info=f"ERROR: got an output layer, but model does not have one")
                     exit(1)
                 output_layer_weight = torch.chunk(msg.pop("weight"), args.target_tensor_parallel_size, dim=0)
                 for tp_rank in range(args.target_tensor_parallel_size):
@@ -341,9 +341,9 @@ def save_checkpoint(queue, args):
             msg = queue_get()
             if msg != "done" and msg["name"] == "pooler":
                 if not hasattr(models[0].language_model, 'pooler'):
-                    print("ERROR: got a pooler, but model does not have one")
+                    gd.debuginfo(prj="mt", info=f"ERROR: got a pooler, but model does not have one")
                     exit(1)
-                print("received pooler")
+                gd.debuginfo(prj="mt", info=f"received pooler")
                 pooler_weight = msg.pop("weight")
                 pooler_bias = msg.pop("bias")
                 for tp_rank in range(args.target_tensor_parallel_size):
@@ -356,9 +356,9 @@ def save_checkpoint(queue, args):
 
             if msg != "done" and msg["name"] == "lm head":
                 if not hasattr(models[0], 'lm_head'):
-                    print("ERROR: got an lm head, but model does not have one")
+                    gd.debuginfo(prj="mt", info=f"ERROR: got an lm head, but model does not have one")
                     exit(1)
-                print("received lm head")
+                gd.debuginfo(prj="mt", info=f"received lm head")
                 lm_head_dense_weight = msg.pop("dense weight")
                 lm_head_dense_bias = msg.pop("dense bias")
                 lm_head_layernorm_weight = msg.pop("layernorm weight")
@@ -373,9 +373,9 @@ def save_checkpoint(queue, args):
 
             if msg != "done" and msg["name"] == "binary head":
                 if not hasattr(models[0], 'binary_head'):
-                    print("ERROR: got a binary head, but model does not have one")
+                    gd.debuginfo(prj="mt", info=f"ERROR: got a binary head, but model does not have one")
                     exit(1)
-                print("received binary head")
+                gd.debuginfo(prj="mt", info=f"received binary head")
                 binary_head_weight = msg.pop("weight")
                 binary_head_bias = msg.pop("bias")
                 for tp_rank in range(args.target_tensor_parallel_size):
@@ -385,9 +385,9 @@ def save_checkpoint(queue, args):
                 msg = queue_get()
 
             if msg != "done":
-                print("ERROR: got some more data but was expecting to be done")
+                gd.debuginfo(prj="mt", info=f"ERROR: got some more data but was expecting to be done")
 
         for tp_rank in range(args.target_tensor_parallel_size):
             mpu.set_tensor_model_parallel_rank(tp_rank)
             save_checkpoint(md.iteration, [models[tp_rank]], None, None)
-    print("Done!")
+    gd.debuginfo(prj="mt", info=f"Done!")

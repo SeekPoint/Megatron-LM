@@ -23,7 +23,7 @@ gd.debuginfo(prj="mt")
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
 
-    print_rank_0('building GPT model ...')
+    gd.debuginfo(prj="mt", info=f'building GPT model ...')
     model = GPTModel(
         num_tokentypes=0,
         parallel_output=True,
@@ -103,7 +103,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     args = get_args()
 
-    print_rank_0('> building train, validation, and test datasets '
+    gd.debuginfo(prj="mt", info=f'> building train, validation, and test datasets '
                  'for GPT ...')
     train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
         data_prefix=args.data_path,
@@ -117,7 +117,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
         valid_data_prefix=args.valid_data_path,
         test_data_prefix=args.test_data_path,
         data_cache_path=args.data_cache_path)
-    print_rank_0("> finished creating GPT datasets ...")
+    gd.debuginfo(prj="mt", info=f"> finished creating GPT datasets ...")
 
     return train_ds, valid_ds, test_ds
 

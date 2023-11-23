@@ -13,8 +13,7 @@ gd.debuginfo(prj="mt")
 def build_tokenizer(args):
     """Initialize tokenizer."""
     if args.rank == 0:
-        print('> building {} tokenizer ...'.format(args.tokenizer_type),
-              flush=True)
+        gd.debuginfo(prj="mt", info=f'> building {args.tokenizer_type} tokenizer ...')
 
     # Select and instantiate the tokenizer.
     if args.tokenizer_type == 'BertWordPieceLowerCase':
@@ -61,9 +60,9 @@ def _vocab_size_with_padding(orig_vocab_size, args):
     while (after % multiple) != 0:
         after += 1
     if args.rank == 0:
-        print(' > padded vocab (size: {}) with {} dummy tokens '
+        gd.debuginfo(prj="mt", info=f' > padded vocab (size: {}) with {} dummy tokens '
               '(new size: {})'.format(
-                  orig_vocab_size, after - orig_vocab_size, after), flush=True)
+                  orig_vocab_size, after - orig_vocab_size, after))
     return after
 
 

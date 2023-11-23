@@ -72,8 +72,7 @@ class IndexBuilder(object):
         self.iteration += 1
         self.total_processed += batch_size * self.num_total_builders
         if self.is_main_builder and self.iteration % self.log_interval == 0:
-            print('Batch {:10d} | Total {:10d}'.format(self.iteration,
-                self.total_processed), flush=True)
+            gd.debuginfo(prj="mt", info=f'Batch {self.iteration:10d} | Total {self.total_processed:10d}')
 
     def build_and_save_index(self):
         """

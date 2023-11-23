@@ -54,7 +54,7 @@ def check_and_clean_text(args, words, ngrams, text, start_position, \
 
     seq = " ".join(words)
     if seq in ngrams:
-        print(" [matched]: {}".format(seq), flush=True)
+        gd.debuginfo(prj="mt", info=f" [matched]: {seq}")
 
         if args.get_ngram_freq_only:
             # increase freq of this seq and then only consider the later part
@@ -63,7 +63,9 @@ def check_and_clean_text(args, words, ngrams, text, start_position, \
                 local_ngram[seq] += 1
             else:
                 local_ngram[seq] = 1
-            #print(" [increased]: {} {}".format(seq, ngrams[seq]), flush=True)
+                
+            gd.debuginfo(prj="mt", info=f" [increased]: {seq} {ngrams[seq]}")
+            
             if (start_position + len(seq) + 1) < len(text):
                 text_buf.append(text[start_position + len(seq) + 1:len(text)])
             return False            
@@ -93,7 +95,7 @@ def free_ngram(line, args, key, ngrams, ngrams_freq_sorted):
         myjson = json.loads(line)
         text_buf = [myjson[key]]
     except Exception as e:
-        print("Error: {}".format(e), flush=True)
+        gd.debuginfo(prj="mt", info=f"Error: {e}")
         text_buf = []
 
     text_buf_ngram_free = []
@@ -193,7 +195,7 @@ def compute_ngrams_insert_dict(args, text, ngrams):
 
 # Build ngrams for the lambada dataset
 def process_task_lambda(args, task_file, ngrams):
-    print(' reading from {} and computing ngrams'.format(task_file))
+    gd.debuginfo(prj="mt", info=f' reading from {task_file} and computing ngrams')
     with open(task_file, 'r') as f:
         for line in f:
             try:
@@ -201,15 +203,15 @@ def process_task_lambda(args, task_file, ngrams):
                 text = myjson['text']
                 compute_ngrams_insert_dict(args, text, ngrams)
             except Exception as e:
-                print('Error:', e)
-    print(" Entities in ngrams {}".format(len(ngrams)), flush=True)
+                gd.debuginfo(prj="mt", info=f'Error: {e}')
+    gd.debuginfo(prj="mt", info=f" Entities in ngrams {len(ngrams)}")
 
 
 # Build ngrams for the dataset of the given task
 def process_task(args, task_name, ngrams):
 
-    print(' reading from {} and computing ngrams'.format('import datasets'))
-    print(" Current entities in ngrams {}".format(len(ngrams)), flush=True)
+    gd.debuginfo(prj="mt", info=f' reading from import datasets and computing ngrams')
+    gd.debuginfo(prj="mt", info=f" Current entities in ngrams {len(ngrams)}")
     # using validation/test data from datasets
     from datasets import load_dataset
 
@@ -233,7 +235,7 @@ def process_task(args, task_name, ngrams):
     elif task_name == 'piqa':
         dataset = load_dataset('piqa', split='test')
     else:
-        print("Invalid task name: {}".format(task_name), flush=True)
+        gd.debuginfo(prj="mt", info=f"Invalid task name: {task_name}")
         return
 
     # read the dataset and add to ngrams
@@ -253,22 +255,21 @@ def process_task(args, task_name, ngrams):
                 text = line['goal']
                 compute_ngrams_insert_dict(args, text, ngrams)
         except Exception as e:
-            print('Error:', e)
+            gd.debuginfo(prj="mt", info=f'Error: {e}')
 
-    print(" After task {} entities in ngrams {}, added {}".format(task_name, \
-            len(ngrams), len(ngrams) - entities_in_ngrams), flush=True)
+    gd.debuginfo(prj="mt", info=f"After task {task_name} entities in ngrams {len(ngrams)}, "
+                                f"added {len(ngrams) - entities_in_ngrams}")
 
 def compute_tasks_ngrams(args, ngrams):
     start_time = time.time()
     for _, task_name in enumerate(args.tasks):
-        print('Task: {}'.format(task_name), flush=True)
+        gd.debuginfo(prj="mt", info=f'Task: {task_name}')
         if task_name == 'lambada':
             assert args.lambada_path is not None
             process_task_lambda(args, args.lambada_path, ngrams)
         else:
             process_task(args, task_name, ngrams)
-    print(" Taken time to compute ngrams {:.2f}".format(time.time() - \
-        start_time), flush=True)
+    gd.debuginfo(prj="mt", info=f" Taken time to compute ngrams {time.time()-start_time:.2f}")
 
 def compute_ngram_freq_sorted(args, ngrams):
     ngrams_freq = {}
@@ -278,14 +279,18 @@ def compute_ngram_freq_sorted(args, ngrams):
             ngrams_freq else 1
 
     ngrams_freq_sorted = sorted(ngrams_freq.items(), key=lambda item: item[0])
-    print(" Ngram frequencies: {}".format(ngrams_freq_sorted), flush=True)
-    print(" Entities in ngrams {} min_ngram_size {} max_ngram_size {}".format(\
-            len(ngrams), ngrams_freq_sorted[0][0], ngrams_freq_sorted[len(\
-            ngrams_freq_sorted) -1 ][0]), flush=True)
+    gd.debuginfo(prj="mt", info=f" Ngram frequencies: {ngrams_freq_sorted}")
+    gd.debuginfo(prj="mt", info=f" Entities in ngrams {len(ngrams)} "
+                                f" min_ngram_size {ngrams_freq_sorted[0][0]} "
+                                f" max_ngram_size {ngrams_freq_sorted[len(ngrams_freq_sorted) -1 ][0]}")
     return ngrams_freq_sorted
 
-def get_ngrams_below_threshold(args, ngrams, ngrams_below_threshold, \
-    dedup_file, dedup_key, ngrams_freq_sorted):
+def get_ngrams_below_threshold(args,
+                               ngrams,
+                               ngrams_below_threshold,
+                               dedup_file,
+                               dedup_key,
+                               ngrams_freq_sorted):
 
     start_time = time.time()
     # get the ngrams frequency
@@ -303,15 +308,14 @@ def get_ngrams_below_threshold(args, ngrams, ngrams_below_threshold, \
     for _, _, _, local_ngram in free_ngrams_abt:
         counter += 1
         if counter % 1000 == 0:
-            print(' [compute_stat]> processed {} documents in {:.2f} seconds ...'.
-                    format(counter, time.time() - start_time), flush=True)
+            gd.debuginfo(prj="mt", info=f'[compute_stat]> processed {counter} documents '
+                                        f'in {time.time() - start_time:.2f} seconds ...')
         for local_key in local_ngram:
             if local_key in ngrams:
                 ngrams[local_key] += 1
         local_ngram = {}
 
-    print(' Time taken to compute statistics {:.2f} seconds'.format(time.time() - \
-        start_time), flush=True)
+    gd.debuginfo(prj="mt", info=f' Time taken to compute statistics {time.time() - start_time:.2f} seconds')
     pool.close()
     pool.join()
 
@@ -320,15 +324,17 @@ def get_ngrams_below_threshold(args, ngrams, ngrams_below_threshold, \
     # Get ngram below theadhold
     for local_key, local_val in ngrams.items():
         if ngrams[local_key] < args.key_threshold:
-            print(" [threshold] {} {}".format(local_key, local_val), flush=True)
+            gd.debuginfo(prj="mt", info=f" [threshold] {local_key} {local_val}")
             counter_threshold += 1
             ngrams_below_threshold[local_key] = 1
             
-    print(' Ngrams below threshold {}'.format(counter_threshold), flush=True)
+    gd.debuginfo(prj="mt", info=f' Ngrams below threshold {counter_threshold}')
     fin.close()
 
-def clean_ngrams_below_threshold(args, ngrams_below_threshold, dedup_file, \
-    dedup_key):
+def clean_ngrams_below_threshold(args,
+                                 ngrams_below_threshold,
+                                 dedup_file,
+                                 dedup_key):
 
     start_time = time.time()
     # Now actually filter the dataset
@@ -344,8 +350,11 @@ def clean_ngrams_below_threshold(args, ngrams_below_threshold, dedup_file, \
     num_workers = args.num_threads
     pool = multiprocessing.Pool(num_workers)
     fin = open(dedup_file, 'r', encoding='utf-8')
-    free_ngram_clean_partial=partial(free_ngram, args=args, key=dedup_key, \
-        ngrams=ngrams_below_threshold, ngrams_freq_sorted=ngrams_freq_sorted)
+    free_ngram_clean_partial=partial(free_ngram,
+                                     args=args,
+                                     key=dedup_key,
+                                     ngrams=ngrams_below_threshold,
+                                     ngrams_freq_sorted=ngrams_freq_sorted)
     free_ngrams_clean = pool.imap(free_ngram_clean_partial, fin, 500)
  
     out_f = open(args.output, 'wb')
@@ -384,17 +393,17 @@ def clean_ngrams_below_threshold(args, ngrams_below_threshold, dedup_file, \
                     out_f.write('\n'.encode('utf-8'))
 
             if counter % 1000 == 0:
-                print(' [final]> processed {} documents in {:.2f} seconds ...'.
-                    format(counter, time.time() - start_time), flush=True)
+                gd.debuginfo(prj="mt", info=f' [final]> processed {} documents in {:.2f} seconds ...'.
+                    format(counter, time.time() - start_time))
         except Exception as e:
-            print('Error:', e)
+            gd.debuginfo(prj="mt", info=f'Error:', e)
 
-    print(' [final]> processed {} documents in {:.2f} seconds ...'.
-        format(counter, time.time() - start_time), flush=True)
+    gd.debuginfo(prj="mt", info=f' [final]> processed {} documents in {:.2f} seconds ...'.
+        format(counter, time.time() - start_time))
     
-    print(' Total docs {} splitted {} ignored {} splits > theshold {} trimmed'\
+    gd.debuginfo(prj="mt", info=f' Total docs {} splitted {} ignored {} splits > theshold {} trimmed'\
         ' {}'.format(counter, splitted, ignored, split_mt_thld, trimmed_count)\
-        , flush=True)
+        )
 
     pool.close()
     pool.join()
@@ -407,7 +416,7 @@ if __name__ == '__main__':
     # we use 13-grams, any text less than 200 characters got removed
     # any text splitted more than 10 got removed as well
 
-    print('parsing the arguments ...')
+    gd.debuginfo(prj="mt", info=f'parsing the arguments ...')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--tasks', nargs = '*', required=True, default=None, \
@@ -477,4 +486,4 @@ if __name__ == '__main__':
         clean_ngrams_below_threshold(args, ngrams_below_threshold, \
             dedup_file, dedup_key)
 
-    print('done :-)')
+    gd.debuginfo(prj="mt", info=f'done :-)')

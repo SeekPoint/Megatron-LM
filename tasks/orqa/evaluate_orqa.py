@@ -19,14 +19,14 @@ def main():
     ICT Dataset and then evaluate on NQ task
     """
 
-    print_rank_0("Starting index builder!")
+    gd.debuginfo(prj="mt", info=f"Starting index builder!")
 
     index_builder = IndexBuilder()
     index_builder.build_and_save_index()
-    print_rank_0("Build and save indices: done!")
+    gd.debuginfo(prj="mt", info=f"Build and save indices: done!")
 
 
-    print_rank_0("Starting evaluations!")
+    gd.debuginfo(prj="mt", info=f"Starting evaluations!")
 
     # Set up the model and evaluator
     evaluator = ORQAEvaluator()

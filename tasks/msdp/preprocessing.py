@@ -49,11 +49,11 @@ def process_wow_dataset(raw_file, processed_file, knwl_ref_file, resp_ref_file):
     """
 
     # loading the raw data
-    print("> Loading data from %s" % raw_file)
+    gd.debuginfo(prj="mt", info=f"> Loading data from %s" % raw_file)
     with open(raw_file, "r") as fr:
         dialog_data = json.load(fr)
     
-    print("> Processing data ...")
+    gd.debuginfo(prj="mt", info=f"> Processing data ...")
     fproc = open(processed_file, "w")
     fknwl = open(knwl_ref_file, "w") if knwl_ref_file else None
     fresp = open(resp_ref_file, "w") if resp_ref_file else None
@@ -134,7 +134,7 @@ def process_woi_dataset(raw_file, processed_file, knwl_ref_file, resp_ref_file):
       topic \t dialogue context \t golden knowledge \t golden response
     """
     
-    print("> Processing %s" % raw_file)
+    gd.debuginfo(prj="mt", info=f"> Processing %s" % raw_file)
     fproc = open(processed_file, "w")
     fknwl = open(knwl_ref_file, "w") if knwl_ref_file else None
     fresp = open(resp_ref_file, "w") if resp_ref_file else None
@@ -249,7 +249,7 @@ def get_database(test_datapath, train_datapath, data_type):
                 "Please input a correct data type!!"
 
     # get test data topic dictionary
-    print("> reading test data from %s" % test_datapath)
+    gd.debuginfo(prj="mt", info=f"> reading test data from %s" % test_datapath)
     test_topics = {}
     with open(test_datapath, "r") as f:
         for i, line in enumerate(f):
@@ -258,7 +258,7 @@ def get_database(test_datapath, train_datapath, data_type):
             topic = splits[0]
             test_topics[topic] = True
 
-    print("> reading data from %s" % train_datapath)
+    gd.debuginfo(prj="mt", info=f"> reading data from %s" % train_datapath)
     train_data_by_topic = {}
     dialog_data_by_topic = {}
     dialog_examples = []
@@ -367,18 +367,18 @@ def prompt_selection_for_knowledge_generation(
         test_datapath, train_datapath, model_path, output_prompt_path, data_type):
     """Selecting prompts for the knowledge generation"""
 
-    print("> Selecting prompts for the knowledge generation")
+    gd.debuginfo(prj="mt", info=f"> Selecting prompts for the knowledge generation")
 
     train_data_by_topic, dialog_data_by_topic, dialog_examples = \
                             get_database(test_datapath, train_datapath, data_type)
     
     from transformers import DPRQuestionEncoderTokenizer
-    print("> loading tokenizer and encoder")
+    gd.debuginfo(prj="mt", info=f"> loading tokenizer and encoder")
     tokenizer = DPRQuestionEncoderTokenizer.from_pretrained(
                     'facebook/dpr-question_encoder-single-nq-base')
     encoder = torch.load(model_path).cuda()
 
-    print("> getting dialog embeddings")
+    gd.debuginfo(prj="mt", info=f"> getting dialog embeddings")
     with torch.no_grad():
         for idx, example in tqdm(enumerate(dialog_examples)):
             dialog = example[1]
@@ -391,7 +391,7 @@ def prompt_selection_for_knowledge_generation(
             else:
                 dialog_embeddings = torch.cat((dialog_embeddings, dialog_emb), dim=0)
 
-    print("> reading test data from %s" % test_datapath)
+    gd.debuginfo(prj="mt", info=f"> reading test data from %s" % test_datapath)
     prompt_list_for_each_sample = []
     with open(test_datapath, "r") as f:
         for i, line in tqdm(enumerate(f)):
@@ -454,7 +454,7 @@ def prompt_selection_for_knowledge_generation(
                 key = topic + " " + turns[-1]
                 prompt_list_for_each_sample.append({key: example_list})
 
-    print("writing to %s" % output_prompt_path)
+    gd.debuginfo(prj="mt", info=f"writing to %s" % output_prompt_path)
     with open(output_prompt_path, "w") as f:
         for instance in tqdm(prompt_list_for_each_sample):
             json.dump(instance, f)
@@ -464,12 +464,12 @@ def prompt_selection_for_knowledge_generation(
 def prompt_selection_for_response_generation(input_path, output_path, seed):
     """Selecting prompts for the response generation"""
 
-    print("> Selecting prompts for the response generation")
-    print("> set random seed")
+    gd.debuginfo(prj="mt", info=f"> Selecting prompts for the response generation")
+    gd.debuginfo(prj="mt", info=f"> set random seed")
     np.random.seed(seed)
 
     prompt_example_list = []
-    print("> reading data from %s" % input_path)
+    gd.debuginfo(prj="mt", info=f"> reading data from %s" % input_path)
     with open(input_path, "r") as f:
         for i, line in tqdm(enumerate(f)):
             line = line.strip()
@@ -524,7 +524,7 @@ def prompt_selection_for_response_generation(input_path, output_path, seed):
     # shuffle the prompt examples
     np.random.shuffle(prompt_example_list)
     
-    print("> writing to %s" % output_path)
+    gd.debuginfo(prj="mt", info=f"> writing to %s" % output_path)
     with open(output_path, "w") as f:
         # f.write("Generate the System's response based on the knowledge sentence:\n")
         for i in tqdm(range(20)):
@@ -535,12 +535,12 @@ def prompt_selection_for_response_generation(input_path, output_path, seed):
 def prepare_input_for_response_generation(test_file, knwl_gen_file, processed_file):
     """Preparing inputs for the response generation"""
 
-    print("> Reading knowledge file from %s" % knwl_gen_file)
+    gd.debuginfo(prj="mt", info=f"> Reading knowledge file from %s" % knwl_gen_file)
     # get the knowledge list
     with open(knwl_gen_file, "r") as f:
         knowledge_list = f.readlines()
     
-    print("> Processing ...")
+    gd.debuginfo(prj="mt", info=f"> Processing ...")
     with open(test_file, "r") as fr:
         with open(processed_file, "w") as fw:
             for line_num, line in enumerate(tqdm(fr)):

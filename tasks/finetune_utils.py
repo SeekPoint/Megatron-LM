@@ -108,7 +108,7 @@ def _build_train_valid_dataloaders(train_dataset, valid_dataset,
     """Traing and validation dataloaders."""
     args = get_args()
 
-    print_rank_0('building train and validation dataloaders ...')
+    gd.debuginfo(prj="mt", info=f'building train and validation dataloaders ...')
     # Training dataset.
     train_dataloader = build_data_loader(train_dataset, args.micro_batch_size,
                                          args.num_workers, not args.keep_last,
@@ -168,7 +168,7 @@ def _train(model, optimizer, opt_param_scheduler, forward_step,
     # For each remaining epoch
     timers('interval-time', log_level=0).start(barrier=True)
     for epoch in range(start_epoch, args.epochs):
-        print_rank_0('working on epoch {} ...'.format(epoch + 1))
+        gd.debuginfo(prj="mt", info=f'working on epoch {epoch + 1} ...')
 
         # Set the data loader epoch to shuffle the index iterator.
         train_dataloader.sampler.set_epoch(args.seed + epoch)
@@ -224,7 +224,7 @@ def _train(model, optimizer, opt_param_scheduler, forward_step,
                 if not saved_checkpoint:
                     save_checkpoint(iteration, model, optimizer, opt_param_scheduler)
                 torch.distributed.barrier()
-                print_rank_0('exiting program at iteration {}'.format(iteration))
+                gd.debuginfo(prj="mt", info=f'exiting program at iteration {iteration}')
                 sys.exit()
 
         # Checkpointing at the end of each epoch.
@@ -288,10 +288,10 @@ def finetune(train_valid_datasets_provider, model_provider,
     timers('pretrained checkpoint').stop()
 
     # Print setup timing.
-    print_rank_0('done with setups ...')
+    gd.debuginfo(prj="mt", info=f'done with setups ...')
     timers.log(['train/valid/test dataset/dataloder', 'callback function',
                 'model and optimizer', 'pretrained checkpoint'], barrier=True)
-    print_rank_0('training ...')
+    gd.debuginfo(prj="mt", info=f'training ...')
 
     # Finetune the model.
     if args.epochs > 0:
@@ -300,6 +300,6 @@ def finetune(train_valid_datasets_provider, model_provider,
     # Or just evaluate.
     else:
         if end_of_epoch_callback is not None:
-            print_rank_0('evaluation only mode, setting epoch to -1')
+            gd.debuginfo(prj="mt", info=f'evaluation only mode, setting epoch to -1')
             end_of_epoch_callback(model, epoch=-1, output_predictions=True)
-    print_rank_0('done :-)')
+    gd.debuginfo(prj="mt", info=f'done :-)')

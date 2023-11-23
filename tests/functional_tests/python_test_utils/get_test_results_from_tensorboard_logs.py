@@ -26,8 +26,8 @@ def read_tb_logs_as_list(path, summary_name):
         ea.Reload()
         summary = ea.Scalars(summary_name)
         summary_list = [round(x.value, 5) for x in summary]
-        print(f'\nObtained the following list for {summary_name} ------------------')
-        print(summary_list)
+        gd.debuginfo(prj="mt", info=f'\nObtained the following list for {summary_name} ------------------')
+        gd.debuginfo(prj="mt", info=fsummary_list)
         return summary_list
     raise FileNotFoundError(f"File not found matching: {path}/events*")    
 
@@ -62,8 +62,8 @@ def collect_train_test_metrics(logs_dir, run_name):
         "iteration_timing_avg": iteration_time_avg,
     }
     str_train_metrics = str(train_metrics).replace("'", "\"")
-    print(f"\n ----------- Store the following metrics in {run_name}.json ----------")
-    print(f"\n {str_train_metrics}", flush=True)
+    gd.debuginfo(prj="mt", info=f"\n -------Store the following metrics in {run_name}.json ----------")
+    gd.debuginfo(prj="mt", info=f"\n {str_train_metrics}")
 
 if __name__ == '__main__':
     args = sys.argv[1:]

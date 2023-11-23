@@ -231,13 +231,13 @@ def print_progress(prefix, start_time, urls_counter,
     string += 'short urls (<=8): {} | '.format(short_url_counter)
     string += 'malformed urls: {} | '.format(malformed_url_counter)
     string += 'duplicate urls: {}'.format(duplicate_url_counter)
-    print(string, flush=True)
+    gd.debuginfo(prj="mt", info=fstring)
 
 
 if __name__ == '__main__':
 
 
-    print('remove blacklisted urls ..')
+    gd.debuginfo(prj="mt", info=f'remove blacklisted urls ..')
 
     # Path to the url files.
     path = sys.argv[1]
@@ -246,7 +246,7 @@ if __name__ == '__main__':
 
     # Get the list of url files.
     files = glob.glob(path + '/*.txt')
-    print('> found {} files'.format(len(files)))
+    gd.debuginfo(prj="mt", info=f'> found {len(files)} files')
 
     urls = set()
     urls_counter = 0
@@ -262,19 +262,19 @@ if __name__ == '__main__':
                 url = line.strip()
                 urls_counter += 1
                 if domain_is_in_blacklist(url):
-                    print('[DOMAIN BLACKLIST]: {}'.format(url), flush=True)
+                    gd.debuginfo(prj="mt", info=f'[DOMAIN BLACKLIST]: {url}')
                     domain_blacklist_counter += 1
                 elif extention_is_in_blacklist(url):
-                    print('[EXTENTION BLACKLIST]: {}'.format(url), flush=True)
+                    gd.debuginfo(prj="mt", info=f'[EXTENTION BLACKLIST]: {url}')
                     extention_blacklist_counter += 1
                 elif len(url) <= 8:
-                    print('[SHORT URL]: {}'.format(url), flush=True)
+                    gd.debuginfo(prj="mt", info=f'[SHORT URL]: {url}')
                     short_url_counter += 1
                 elif url_is_malformed(url):
-                    print('[MALFORMED URL]: {}'.format(url), flush=True)
+                    gd.debuginfo(prj="mt", info=f'[MALFORMED URL]: {url}')
                     malformed_url_counter += 1
                 elif url in urls:
-                    print('[DUPLICATE URL]: {}'.format(url), flush=True)
+                    gd.debuginfo(prj="mt", info=f'[DUPLICATE URL]: {url}')
                     duplicate_url_counter += 1
                 else:
                     urls.add(url)
@@ -292,9 +292,9 @@ if __name__ == '__main__':
                    duplicate_url_counter)
 
     # Write the final set of urls.
-    print('> writing cleaned up url list to {}'.format(output))
+    gd.debuginfo(prj="mt", info=f'> writing cleaned up url list to {output}')
     with open(output, 'w') as f:
         for url in urls:
             f.write(url + '\n')
 
-    print('done :-)')
+    gd.debuginfo(prj="mt", info=f'done :-)')

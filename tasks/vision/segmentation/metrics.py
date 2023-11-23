@@ -11,7 +11,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from pydebug import gd, infoTensor
 eps = 1e-6
 
 def _binarize(y_data, threshold):
@@ -545,50 +545,50 @@ if __name__ == "__main__":
                 y_pred = y_pred.cuda()
                 y_true = y_true.cuda()
 
-            print('#'*20, 'Cuda : {} ; size : {}'.format(cuda, y_true.size()))
+            gd.debuginfo(prj="mt", info=f'#*20, Cuda : {cuda} ; size : {y_true.size()}')
             ########### similarity metrics
             metric = MSE()
             acc = metric(y_pred, y_true).item()
-            print("{} ==> {}".format(repr(metric), acc))
+            gd.debuginfo(prj="mt", info=f"{repr(metric)} ==> {acc}")
 
             metric = PSNR()
             acc = metric(y_pred, y_true).item()
-            print("{} ==> {}".format(repr(metric), acc))
+            gd.debuginfo(prj="mt", info=f"{repr(metric)} ==> {acc}")
 
             metric = SSIM()
             acc = metric(y_pred, y_true).item()
-            print("{} ==> {}".format(repr(metric), acc))
+            gd.debuginfo(prj="mt", info=f"{repr(metric)} ==> {acc}")
                   
             metric = LPIPS(cuda)
             acc = metric(y_pred, y_true).item()
-            print("{} ==> {}".format(repr(metric), acc))
+            gd.debuginfo(prj="mt", info=f"{repr(metric)} ==> {acc}")
             
             metric = AE()
             acc = metric(y_pred, y_true).item()
-            print("{} ==> {}".format(repr(metric), acc))
+            gd.debuginfo(prj="mt", info=f"{repr(metric)} ==> {acc}")
             
             ########### accuracy metrics
             metric = OAAcc()
             maccu, accu = metric(y_pred, y_true)
-            print('mAccu:', maccu, 'Accu', accu)
+            gd.debuginfo(prj="mt", info=f'mAccu:, {maccu}, Accu, {accu}')
 
             metric = Precision()
             mprec, prec = metric(y_pred, y_true)
-            print('mPrec:', mprec, 'Prec', prec)
+            gd.debuginfo(prj="mt", info=f'mprec:, {mprec}, prec, {prec}')
 
             metric = Recall()
             mreca, reca = metric(y_pred, y_true)
-            print('mReca:', mreca, 'Reca', reca)
+            gd.debuginfo(prj="mt", info=f'mreca:, {mreca}, reca, {reca}')
 
             metric = F1Score()
             mf1sc, f1sc = metric(y_pred, y_true)
-            print('mF1sc:', mf1sc, 'F1sc', f1sc)
+            gd.debuginfo(prj="mt", info=f'mf1sc:, {mf1sc}, f1sc, {f1sc}')
 
             metric = Kappa()
             mkapp, kapp = metric(y_pred, y_true)
-            print('mKapp:', mkapp, 'Kapp', kapp)
+            gd.debuginfo(prj="mt", info=f'mkapp:, {mkapp}, kapp, {kapp}')
 
             metric = Jaccard()
             mjacc, jacc = metric(y_pred, y_true)
-            print('mJacc:', mjacc, 'Jacc', jacc)
+            gd.debuginfo(prj="mt", info=f'mjacc:, {mjacc}, jacc, {jacc}')
 

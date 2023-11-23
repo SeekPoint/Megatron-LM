@@ -157,6 +157,7 @@ class VocabParallelEmbedding(torch.nn.Module):
                  params_dtype: torch.dtype=torch.float32,
                  use_cpu_initialization: bool=False,
                  perform_initialization: bool=True):
+        gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
         super(VocabParallelEmbedding, self).__init__()
         # Keep the input dimensions.
         self.num_embeddings = num_embeddings
@@ -179,6 +180,7 @@ class VocabParallelEmbedding(torch.nn.Module):
 
         # Allocate weights and initialize.
         if use_cpu_initialization:
+            gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
             self.weight = Parameter(torch.empty(
                 self.num_embeddings_per_partition, self.embedding_dim,
                 dtype=params_dtype))
@@ -188,6 +190,7 @@ class VocabParallelEmbedding(torch.nn.Module):
                     self.num_embeddings_per_partition, 0, init_method,
                     params_dtype=params_dtype)
         else:
+            gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
             self.weight = Parameter(torch.empty(
                 self.num_embeddings_per_partition, self.embedding_dim,
                 device=torch.cuda.current_device(), dtype=params_dtype))
@@ -201,6 +204,7 @@ class VocabParallelEmbedding(torch.nn.Module):
     '''
     def forward(self, input_):
         if self.tensor_model_parallel_size > 1:
+            gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
             # Build the mask.
             input_mask = (input_ < self.vocab_start_index) | \
                          (input_ >= self.vocab_end_index)
@@ -208,8 +212,10 @@ class VocabParallelEmbedding(torch.nn.Module):
             masked_input = input_.clone() - self.vocab_start_index
             masked_input[input_mask] = 0
         else:
+            gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
             masked_input = input_
             # Get the embeddings.
+
         output_parallel = F.embedding(masked_input, self.weight,
                                       self.padding_idx, self.max_norm,
                                       self.norm_type, self.scale_grad_by_freq,

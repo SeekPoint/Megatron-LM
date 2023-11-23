@@ -170,12 +170,10 @@ class NQDataset(ABC, Dataset):
         self.dataset_name = dataset_name
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
-        print_rank_0(' > building {} dataset for {}:'.format(self.task_name,
-                                                             self.dataset_name))
-        print_rank_0(datapath)
+        gd.debuginfo(prj="mt", info=f' > building {self.task_name} dataset for {self.dataset_name}:')
+        gd.debuginfo(prj="mt", info=datapath)
         self.samples = self.process_samples_from_single_path(datapath)
-        print_rank_0('  >> total number of samples: {}'.format(\
-                                                        len(self.samples)))
+        gd.debuginfo(prj="mt", info=f'  >> total number of samples: {len(self.samples)}')
 
     def __len__(self):
         return len(self.samples)
@@ -195,7 +193,7 @@ class NQDataset(ABC, Dataset):
 
     @staticmethod
     def process_samples_from_single_path(filename):
-        print_rank_0(' > Processing {} ...'.format(filename))
+        gd.debuginfo(prj="mt", info=f' > Processing {filename} ...')
         samples = []
         total = 0
 
@@ -210,7 +208,7 @@ class NQDataset(ABC, Dataset):
                 samples.append(sample)
 
                 if total % 1000 == 0:
-                    print_rank_0('  > processed {} so far ...'.format(total))
+                    gd.debuginfo(prj="mt", info=f'  > processed {total} so far ...')
 
-        print_rank_0(' >> processed {} samples.'.format(len(samples)))
+        gd.debuginfo(prj="mt", info=f' >> processed {len(samples)} samples.')
         return samples

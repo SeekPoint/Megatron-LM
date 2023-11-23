@@ -36,14 +36,14 @@ def jaccard(set_a, set_b, args):
     else:
         return len(intersection) / len(union)
 
-def compute_fingerprint(line, key):
+def compute_fingergd.debuginfo(prj="mt", info=fline, key):
     try:
         myjson = json.loads(line)
         url = myjson[key]
         text = myjson['text']
-        fingerprint = hasher.fingerprint(text)
+        fingerprint = hasher.fingergd.debuginfo(prj="mt", info=ftext)
     except Exception as e:
-        print('Error:', e)
+        gd.debuginfo(prj="mt", info=f'Error:', e)
         return None, None, None, False
 
     return url, text, fingerprint, True
@@ -71,7 +71,7 @@ def url_pairs_to_remove(args, bucket_urls, url_doc):
             try:
                 jaccard_sim = jaccard(main_dhingles, other_shingles, args)
             except Exception as e:
-                print('Error:', e)
+                gd.debuginfo(prj="mt", info=f'Error:', e)
                 jaccard_sim = 0.0
             if jaccard_sim > 0.5:
                 remove_urls.append({other_url: jaccard_sim})
@@ -99,9 +99,9 @@ def compute_jaccard(each_bin, num_bins, start_time_local):
     for bucket_id in each_bin:
         bucket_local += 1
         if os.getpid() % num_bins == 0 and bucket_local % 100000 == 0:
-            print("Counter {}, progress {:.2f} time {:.2f}".\
+            gd.debuginfo(prj="mt", info=f"Counter {}, progress {:.2f} time {:.2f}".\
                 format(bucket_local, float(bucket_local)/float(len(each_bin)),\
-                time.time() - start_time_local), flush=True)
+                time.time() - start_time_local))
 
         if len(each_bin[bucket_id]) <= 1:
             continue
@@ -131,22 +131,20 @@ def find_pair_urls_parallel(args, lshcache, url_doc):
     # don't need to pass args and url_doc as they are already shared
     compute_jaccard_iter = pool.imap(compute_jaccard_partial, lshcache.bins)
 
-    print("multiprocessing init took {:.2f}".format(time.time() - start_time),\
-        flush=True)
+    gd.debuginfo(prj="mt", info=f"multiprocessing init took {time.time() - start_time:.2f}")
     for remove_urls_list, deduped_local, counter_local in compute_jaccard_iter:
         deduped += deduped_local
         counter += counter_local
         write_remove_urls_list(remove_urls_list, f_out)
-        print(' [write]> processed {} documents in {:.2f} '
-            'seoncds and deduped {} documents ...'.format(counter, time.time()\
-            - start_time, deduped), flush=True)
+        gd.debuginfo(prj="mt", info=f' [write]> processed {counter} documents '
+                                    f' in {time.time() - start_time:.2f} '
+                                    f' eoncds and deduped {deduped} documents ...')
 
     pool.close()
     pool.join()
     f_out.close()
 
-    print(' Taken time for jaccard similariries {:.2f} seconds'.format(\
-        time.time() - start_time), flush=True)
+    gd.debuginfo(prj="mt", info=f' Taken time for jaccard similariries {time.time() - start_time:.2f} seconds')
 
 def find_pair_urls_sequential(args, lshcache, url_doc):
     start_time = time.time()
@@ -165,19 +163,19 @@ def find_pair_urls_sequential(args, lshcache, url_doc):
             counter += counter_local_sub
             write_remove_urls_list(remove_urls_list_sub, f_out)
             if counter % 10000 == 0:
-                print(' [write]> processed {} documents in {:.2f} '
+                gd.debuginfo(prj="mt", info=f' [write]> processed {} documents in {:.2f} '
                     'seoncds and deduped {} documents ...'.
                     format(counter, time.time() - start_time,
-                    deduped), flush=True)
+                    deduped))
     f_out.close()
-    print(' [write]> processed {} documents in {:.2f} '
+    gd.debuginfo(prj="mt", info=f' [write]> processed {} documents in {:.2f} '
         'seoncds and deduped {} documents ...'.
         format(counter, time.time() - start_time,
-        deduped), flush=True)
+        deduped))
 
 if __name__ == '__main__':
 
-    print('parsing the arguments ...')
+    gd.debuginfo(prj="mt", info=f'parsing the arguments ...')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=1234,
@@ -208,7 +206,7 @@ if __name__ == '__main__':
                        help='Use this to process large number of documents.')
     args = parser.parse_args()
 
-    print('finding possible duplicate content ...')
+    gd.debuginfo(prj="mt", info=f'finding possible duplicate content ...')
 
     # set seed and get an array of seeds of 100 integers
     np.random.seed(args.seed)
@@ -223,8 +221,7 @@ if __name__ == '__main__':
     # load fingerprints from pickle file if needed
     if args.load_fingerprints is not None:
         for count_fp, fp_file_name in enumerate(args.load_fingerprints):
-            print("Loading fingerprints from pickle file {}".format(
-                fp_file_name), flush=True)
+            gd.debuginfo(prj="mt", info=f"Loading fingerprints from pickle file {fp_file_name}")
             fp = open(fp_file_name, "rb")
             if count_fp == 0:
                 # assign directory for the first pkl
@@ -236,7 +233,7 @@ if __name__ == '__main__':
                 local_url_doc = pickle.load(fp)
                 for url in local_lshcache.fingerprints.keys():
                     url_doc[url] = local_url_doc[url]
-                    lshcache.add_fingerprint(local_lshcache.fingerprints[url], url)
+                    lshcache.add_fingergd.debuginfo(prj="mt", info=flocal_lshcache.fingerprints[url], url)
             fp.close()
 
     counter = 0
@@ -245,11 +242,10 @@ if __name__ == '__main__':
     # compute finger prints of the inputs if any
     # input file and the key to use as id
     if args.inputs is not None:
-        print("Computing fingerprints", flush=True)
+        gd.debuginfo(prj="mt", info=f"Computing fingerprints")
         assert len(args.inputs) % 2 == 0
         for input_file, key in zip(args.inputs[::2], args.inputs[1::2]):
-            print(' document processing {} with key {}'.format(input_file, key),
-                flush=True)
+            gd.debuginfo(prj="mt", info=f' document processing {input_file} with key {key}')
 
             # compute fingerprints in parallel
             num_workers = 40
@@ -260,14 +256,15 @@ if __name__ == '__main__':
                                                     fin, 512)
             # traverse all the texts and add fingerprints
             for url, text, fingerprint, flag in compute_fingerprint_iter:
+                gd.debuginfo(prj="mt", info=f'fingerprint={fingerprint}, url={url}, text={text}')
                 counter += 1
                 if flag:
                     url_doc[url] = text
-                    lshcache.add_fingerprint(fingerprint, url)
+                    lshcache.add_fingerprint()
+
                 if counter % 10000 == 0:
-                    print(' [read]> processed {} documents in {:.2f} '
-                        'seconds ...'.format(counter, time.time() - \
-                        start_time), flush=True)
+                    gd.debuginfo(prj="mt", info=f' [read]> processed {counter} documents '
+                                                f' in {time.time() - start_time:.2f} seconds ...')
 
             fin.close()
             pool.close()
@@ -275,19 +272,18 @@ if __name__ == '__main__':
 
     # Save the fingerprints if needed
     if args.save_fingerprints is not None:
-        print("Saving fingerprints to pickle file {}".format(
-            args.save_fingerprints), flush=True)
+        gd.debuginfo(prj="mt", info=f"Saving fingerprints to pickle file {args.save_fingerprints}")
         with open(args.save_fingerprints, 'wb') as f_save:
             pickle.dump(lshcache, f_save)
             pickle.dump(url_doc, f_save)
 
     # compute jaccard index of the input texts and write to file if needed
     if args.output is not None:
-        print("Compute jaccard similarity", flush=True)
+        gd.debuginfo(prj="mt", info=f"Compute jaccard similarity")
         if args.jaccard_parallel:
             find_pair_urls_parallel(args, lshcache, url_doc)
         else:
             find_pair_urls_sequential(args, lshcache, url_doc)
 
-    print('done :-)')
+    gd.debuginfo(prj="mt", info=f'done :-)')
  

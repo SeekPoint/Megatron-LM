@@ -17,7 +17,7 @@ gd.debuginfo(prj="mt")
 def test_parallel_embedding(tensor_model_parallel_size):
 
     if torch.distributed.get_rank() == 0:
-        print('> testing parallel embedding with model parallel size {} ...'.
+        gd.debuginfo(prj="mt", info=f'> testing parallel embedding with model parallel size {} ...'.
               format(tensor_model_parallel_size))
 
     mpu.initialize_model_parallel(tensor_model_parallel_size)
@@ -57,22 +57,22 @@ def test_parallel_embedding(tensor_model_parallel_size):
 
     torch.distributed.barrier()
     error = loss_parallel.sub(loss_original).abs()
-    print('   error in loss (parallel) on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'error in loss (parallel) on global rank'
+                                f' {torch.distributed.get_rank()}: {error}')
     assert error < 1.0e-12, 'error: {}'.format(error)
 
     torch.distributed.barrier()
     error = loss_vocab_parallel.sub(loss_original).abs()
-    print('   error in loss (vocab parallel) on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'error in loss (vocab parallel) on global rank '
+                                f'{torch.distributed.get_rank()}: {error}')
     assert error < 1.0e-12, 'error: {}'.format(error)
 
     weight_grad_orig = torch.split(embedding_original.weight.grad,
                                    hidden_size // tensor_model_parallel_size,
                                    1)[mpu.get_tensor_model_parallel_rank()]
     error = embedding_parallel.weight.grad.sub(weight_grad_orig).abs().max()
-    print('   error in grad (parallel) on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'error in grad (parallel) on global rank '
+                                f'{torch.distributed.get_rank()}: {error}')
     assert error < 1.0e-12, 'error: {}'.format(error)
 
     weight_grad_orig = torch.split(embedding_original.weight.grad,
@@ -80,8 +80,8 @@ def test_parallel_embedding(tensor_model_parallel_size):
                                    0)[mpu.get_tensor_model_parallel_rank()]
     error = embedding_vocab_parallel.weight.grad.sub(
         weight_grad_orig).abs().max()
-    print('   error in grad (vocab parallel) on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'error in grad (vocab parallel) on global rank '
+                                f'{torch.distributed.get_rank()}: {error}')
     assert error < 1.0e-12, 'error: {}'.format(error)
 
     # Reset groups
@@ -89,14 +89,14 @@ def test_parallel_embedding(tensor_model_parallel_size):
 
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print('>> passed the test :-)')
+        gd.debuginfo(prj="mt", info=f'>> passed the test :-)')
 
 
 def test_initialize_affine_weight(tensor_model_parallel_size):
 
     mpu.initialize_model_parallel(tensor_model_parallel_size)
     if torch.distributed.get_rank() == 0:
-        print('> testing initialize_affine_weight with model parallel '
+        gd.debuginfo(prj="mt", info=f'> testing initialize_affine_weight with model parallel '
               'size: {}'.format(tensor_model_parallel_size))
     tensor_model_parallel_size = mpu.get_tensor_model_parallel_world_size()
 
@@ -126,7 +126,7 @@ def test_initialize_affine_weight(tensor_model_parallel_size):
     # Compare.
     error = weight.sub(my_weight).abs().max()
     torch.distributed.barrier()
-    print('   column parallel max error (should be zero) on global rank '
+    gd.debuginfo(prj="mt", info=f'   column parallel max error (should be zero) on global rank '
           '{}: {}'.format(torch.distributed.get_rank(), error))
     assert error < 1.0e-6
 
@@ -149,7 +149,7 @@ def test_initialize_affine_weight(tensor_model_parallel_size):
     # Compare.
     error = weight.sub(my_weight).abs().max()
     torch.distributed.barrier()
-    print('   row parallel max error (should be zero) on global rank '
+    gd.debuginfo(prj="mt", info=f'   row parallel max error (should be zero) on global rank '
           '{}: {}'.format(torch.distributed.get_rank(), error))
     assert error < 1.0e-6
 
@@ -158,7 +158,7 @@ def test_initialize_affine_weight(tensor_model_parallel_size):
 
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print(' >> passed the test :-)')
+        gd.debuginfo(prj="mt", info=f' >> passed the test :-)')
 
 
 class IdentityLayer2D(torch.nn.Module):
@@ -175,7 +175,7 @@ def test_column_parallel_linear(tensor_model_parallel_size):
 
     mpu.initialize_model_parallel(tensor_model_parallel_size)
     if torch.distributed.get_rank() == 0:
-        print('> testing ColumnParallelLinear with model parallel '
+        gd.debuginfo(prj="mt", info=f'> testing ColumnParallelLinear with model parallel '
               'size: {}'.format(tensor_model_parallel_size))
     tensor_model_parallel_size = mpu.get_tensor_model_parallel_world_size()
 
@@ -212,22 +212,19 @@ def test_column_parallel_linear(tensor_model_parallel_size):
                           dim=0)[rank].contiguous().clone()
     error = my_dLdA.sub(linear_layer.weight.grad).abs().max()
     torch.distributed.barrier()
-    print('   error in dLdA on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   error in dLdA on global rank {torch.distributed.get_rank()}: {error}')
     assert error < 1.0e-6
 
     my_dLdb = torch.split(dLdb, output_size_coeff,
                           dim=0)[rank].contiguous().clone()
     error = my_dLdb.sub(linear_layer.bias.grad).abs().max()
     torch.distributed.barrier()
-    print('   error in dLdb on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   error in dLdb on global rank {torch.distributed.get_rank()}: {error}')
     assert error < 1.0e-6
 
     error = dLdX.sub(identity_layer.weight.grad).abs().max()
     torch.distributed.barrier()
-    print('   error in dLdX on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   error in dLdX on global rank {torch.distributed.get_rank()}: {error}')
     assert error < 1.0e-6
 
     # Reset groups
@@ -235,14 +232,14 @@ def test_column_parallel_linear(tensor_model_parallel_size):
 
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print(' >> passed the test :-)')
+        gd.debuginfo(prj="mt", info=f' >> passed the test :-)')
 
 
 def test_row_parallel_linear(tensor_model_parallel_size):
 
     mpu.initialize_model_parallel(tensor_model_parallel_size)
     if torch.distributed.get_rank() == 0:
-        print('> testing RowParallelLinear with model parallel '
+        gd.debuginfo(prj="mt", info=f'> testing RowParallelLinear with model parallel '
               'size: {}'.format(tensor_model_parallel_size))
     tensor_model_parallel_size = mpu.get_tensor_model_parallel_world_size()
 
@@ -279,20 +276,19 @@ def test_row_parallel_linear(tensor_model_parallel_size):
                           dim=1)[rank].contiguous().clone()
     error = my_dLdA.sub(linear_layer.weight.grad).abs().max()
     torch.distributed.barrier()
-    print('   error in dLdA on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   error in dLdA on global rank {torch.distributed.get_rank()}: {error}')
     assert error < 1.0e-6
 
     error = dLdb.sub(linear_layer.bias.grad).abs().max()
     torch.distributed.barrier()
-    print('   error in dLdb on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   error in dLdb on global rank {torch.distributed.get_rank()}: {error}')
+
     assert error < 1.0e-6
 
     error = dLdX.sub(identity_layer.weight.grad).abs().max()
     torch.distributed.barrier()
-    print('   error in dLdX on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   error in dLdX on global rank {torch.distributed.get_rank()}: {error}')
+
     assert error < 1.0e-6
 
     # Reset groups
@@ -300,7 +296,7 @@ def test_row_parallel_linear(tensor_model_parallel_size):
 
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print(' >> passed the test :-)')
+        gd.debuginfo(prj="mt", info=f' >> passed the test :-)')
 
 
 class IdentityLayer3D(torch.nn.Module):
@@ -349,7 +345,7 @@ def parallel_self_attention(tensor_model_parallel_size, num_att_heads_per_partit
 def test_parallel_self_attention(tensor_model_parallel_size):
 
     if torch.distributed.get_rank() == 0:
-        print('> testing ParallelSelfAttention with model parallel '
+        gd.debuginfo(prj="mt", info=f'> testing ParallelSelfAttention with model parallel '
               'size: {}'.format(tensor_model_parallel_size))
 
     num_att_heads_per_partition = 3
@@ -371,8 +367,8 @@ def test_parallel_self_attention(tensor_model_parallel_size):
 
     error = loss_1.sub(loss).abs().max()
     torch.distributed.barrier()
-    print('   loss error on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   loss error on global rank {torch.distributed.get_rank()}: {error}')
+
     assert error < 5.0e-6
 
     my_lin_grad_list = torch.split(
@@ -382,20 +378,18 @@ def test_parallel_self_attention(tensor_model_parallel_size):
     error = my_lin_grad.sub(
         attention_layer.query_key_value.weight.grad).abs().max()
     torch.distributed.barrier()
-    print('   weight gradient error on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   weight gradient error on global rank {torch.distributed.get_rank()}: {error}')
     assert error < 5.0e-6
 
     error = identity_layer_1.weight.grad.sub(
         identity_layer.weight.grad).abs().max()
     torch.distributed.barrier()
-    print('   input gradient error on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   input gradient error on global rank {torch.distributed.get_rank()}: {error}')
     assert error < 5.0e-6
 
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print(' >> passed the test :-)')
+        gd.debuginfo(prj="mt", info=f' >> passed the test :-)')
 
 
 def parallel_transformer(tensor_model_parallel_size, num_att_heads_per_partition,
@@ -437,8 +431,8 @@ def parallel_transformer(tensor_model_parallel_size, num_att_heads_per_partition
 def test_parallel_transformer_layer(tensor_model_parallel_size):
 
     if torch.distributed.get_rank() == 0:
-        print('> testing ParallelTransformerLayer with model parallel '
-              'size: {}'.format(tensor_model_parallel_size))
+        gd.debuginfo(prj="mt", info=f'> testing ParallelTransformerLayer '
+                                    f'with model parallel size: {tensor_model_parallel_size}')
 
     num_att_heads_per_partition = 3
     hidden_size_per_att_head = 7
@@ -457,20 +451,19 @@ def test_parallel_transformer_layer(tensor_model_parallel_size):
 
     error = loss_1.sub(loss).abs().max()
     torch.distributed.barrier()
-    print('   loss error on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   loss error on global rank {torch.distributed.get_rank()}: {error}')
+
     assert error < 5.0e-5, 'error: {}'.format(error)
 
     error = identity_layer_1.weight.grad.sub(
         identity_layer.weight.grad).abs().max()
     torch.distributed.barrier()
-    print('   input gradient error on global rank {}: {}'.format(
-        torch.distributed.get_rank(), error))
+    gd.debuginfo(prj="mt", info=f'   input gradient error on global rank {torch.distributed.get_rank()}: {error}')
     assert error < 5.0e-5, 'error: {}'.format(error)
 
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print(' >> passed the test :-)')
+        gd.debuginfo(prj="mt", info=f' >> passed the test :-)')
 
 
 if __name__ == '__main__':

@@ -83,7 +83,7 @@ if __name__ == '__main__':
     args = get_args()
 
     if args.num_layers_per_virtual_pipeline_stage is not None:
-        print("Interleaved pipeline schedule is not yet supported for downstream tasks.")
+        gd.debuginfo(prj="mt", info=f"Interleaved pipeline schedule is not yet supported for downstream tasks.")
         exit()
 
     if args.task == 'RACE':

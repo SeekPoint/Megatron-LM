@@ -62,8 +62,8 @@ class BlendableDataset(torch.utils.data.Dataset):
             cache_hit = os.path.isfile(index_path) and os.path.isfile(sample_index_path)
             cache_success = True
             if torch.distributed.get_rank() == 0 and not cache_hit:
-                print(' > WARNING: could not find index map files for blendable'
-                      ' dataset, building indices on rank 0 ...', flush=True)
+                gd.debuginfo(prj="mt", info=f' > WARNING: could not find index map files for blendable '
+                                            f'dataset, building indices on rank 0 ...')
                 dataset_index, dataset_sample_index = _build_indices()
                 try:
                     os.makedirs(os.path.dirname(index_path), exist_ok=True)
@@ -73,10 +73,10 @@ class BlendableDataset(torch.utils.data.Dataset):
                         np.save(sample_index_path, dataset_sample_index,
                                 allow_pickle=True)
                 except OSError:
-                    print(f'There was an error trying to create the data cache directory ({data_cache_path})')
-                    print('or a file in it. This is set with the --data-cache-path argument. Please')
-                    print('ensure you have write access to this directory or specify one that you do have')
-                    print('write access to.')
+                    gd.debuginfo(prj="mt", info=f'There was an error trying to create the data cache directory ({data_cache_path})')
+                    gd.debuginfo(prj="mt", info=f'or a file in it. This is set with the --data-cache-path argument. Please')
+                    gd.debuginfo(prj="mt", info=f'ensure you have write access to this directory or specify one that you do have')
+                    gd.debuginfo(prj="mt", info=f'write access to.')
                     cache_success = False
 
 

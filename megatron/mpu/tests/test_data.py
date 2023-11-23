@@ -15,7 +15,7 @@ gd.debuginfo(prj="mt")
 def test_broadcast_data(tensor_model_parallel_size):
 
     if torch.distributed.get_rank() == 0:
-        print('> testing broadcast_data with model parallel size {} ...'.
+        gd.debuginfo(prj="mt", info=f'> testing broadcast_data with model parallel size {} ...'.
               format(tensor_model_parallel_size))
 
     mpu.initialize_model_parallel(tensor_model_parallel_size)
@@ -61,7 +61,7 @@ def test_broadcast_data(tensor_model_parallel_size):
 
     torch.distributed.barrier()
     if torch.distributed.get_rank() == 0:
-        print('>> passed the test :-)')
+        gd.debuginfo(prj="mt", info=f'>> passed the test :-)')
 
 
 if __name__ == '__main__':

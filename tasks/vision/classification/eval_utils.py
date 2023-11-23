@@ -45,7 +45,7 @@ def accuracy_func_provider():
     )
 
     def metrics_func(model, epoch):
-        print_rank_0("calculating metrics ...")
+        gd.debuginfo(prj="mt", info=f"calculating metrics ...")
         correct, total = calculate_correct_answers(model, dataloader, epoch)
         percent = float(correct) * 100.0 / float(total)
         print_rank_last(

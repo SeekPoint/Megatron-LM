@@ -19,7 +19,7 @@ if __name__ == "__main__":
         response = requests.put(url, data=json.dumps(data), headers=headers)
 
         if response.status_code != 200:
-            print(f"Error {response.status_code}: {response.json()['message']}")
+            gd.debuginfo(prj="mt", info=f"Error {response.status_code}: {response.json()['message']}")
         else:
-            print("Megatron Response: ")
-            print(response.json()['text'][0])
+            gd.debuginfo(prj="mt", info=f"Megatron Response: ")
+            gd.debuginfo(prj="mt", info=fresponse.json()['text'][0])

@@ -21,7 +21,7 @@ if __name__ == '__main__':
                 this_urls = myjson[key]
                 for i in range(1, len(this_urls)):
                     urls.add(this_urls[i])
-    print('will be removing {} urls'.format(len(urls)), flush=True)
+    gd.debuginfo(prj="mt", info=f'will be removing {len(urls)} urls')
 
     written_docs = 0
     removed_docs = 0
@@ -34,7 +34,7 @@ if __name__ == '__main__':
                     myjson = json.loads(line)
                     url = myjson['url']
                     if url in urls:
-                        print('removing', myjson)
+                        gd.debuginfo(prj="mt", info=f'removing', myjson)
                         removed_docs += 1
                         removed_chars += len(myjson['text'])
                         continue
@@ -43,15 +43,15 @@ if __name__ == '__main__':
                     fout.write('\n'.encode('utf-8'))
                     written_docs += 1
                     if written_docs % 10000 == 0:
-                        print(' [PROCESSED] time (s): {:.2f} | written: {} '
+                        gd.debuginfo(prj="mt", info=f' [PROCESSED] time (s): {:.2f} | written: {} '
                               '| removed: {} (char: {})'.format(
                                   time.time() - start_time,
                                   written_docs, removed_docs, removed_chars))
                 except Exception as e:
-                    print('[SKIPPING]', line, e)
+                    gd.debuginfo(prj="mt", info=f'[SKIPPING]', line, e)
 
-    print(' [PROCESSED] time (s): {:.2f} | written: {} '
+    gd.debuginfo(prj="mt", info=f' [PROCESSED] time (s): {:.2f} | written: {} '
           '| removed: {} (char: {})'.format(
               time.time() - start_time,
               written_docs, removed_docs, removed_chars))
-    print('done :-)')
+    gd.debuginfo(prj="mt", info=f'done :-)')

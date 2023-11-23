@@ -143,14 +143,14 @@ def _set_tensorboard_writer(args):
        args.tensorboard_dir and args.rank == (args.world_size - 1):
         try:
             from torch.utils.tensorboard import SummaryWriter
-            print('> setting tensorboard ...')
+            gd.debuginfo(prj="mt", info=f'> setting tensorboard ...')
             _GLOBAL_TENSORBOARD_WRITER = SummaryWriter(
                 log_dir=args.tensorboard_dir,
                 max_queue=args.tensorboard_queue_size)
         except ModuleNotFoundError:
-            print('WARNING: TensorBoard writing requested but is not '
+            gd.debuginfo(prj="mt", info=f'WARNING: TensorBoard writing requested but is not '
                   'available (are you using PyTorch 1.1.0 or later?), '
-                  'no TensorBoard logs will be written.', flush=True)
+                  'no TensorBoard logs will be written.')
 
 
 def _set_adlr_autoresume(args):
@@ -160,12 +160,12 @@ def _set_adlr_autoresume(args):
 
     if args.adlr_autoresume:
         if args.rank == 0:
-            print('enabling autoresume ...', flush=True)
+            gd.debuginfo(prj="mt", info=f'enabling autoresume ...')
         sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
         try:
             from userlib.auto_resume import AutoResume
         except BaseException:
-            print('ADLR autoresume is not available, exiting ...')
+            gd.debuginfo(prj="mt", info=f'ADLR autoresume is not available, exiting ...')
             sys.exit()
 
         _GLOBAL_ADLR_AUTORESUME = AutoResume

@@ -17,6 +17,7 @@ from tasks.vision.segmentation.data import build_train_valid_datasets
 from tasks.vision.segmentation.seg_models import SegformerSegmentationModel
 from megatron.model.vision.utils import resize
 
+from pydebug import gd, infoTensor
 
 def calculate_iou(hist_data):
     acc = np.diag(hist_data).sum() / hist_data.sum()
@@ -68,7 +69,7 @@ def segmentation():
         model = SegformerSegmentationModel(num_classes=args.num_classes,
                                            pre_process=pre_process,
                                            post_process=post_process)
-        print_rank_0("model = {}".format(model))
+        gd.debuginfo(prj="mt", info=f"model = {model}")
         return model
 
     def process_batch(batch):
@@ -208,7 +209,7 @@ def segmentation():
         )
 
         def metrics_func(model, epoch):
-            print_rank_0("calculating metrics ...")
+            gd.debuginfo(prj="mt", info=f"calculating metrics ...")
             iou, miou = calculate_correct_answers(model, dataloader, epoch)
             print_rank_last(
                 " >> |epoch: {}| overall: iou = {},"

@@ -30,7 +30,7 @@ if __name__ == '__main__':
             counter += 1
 
             if counter % 1024 == 0:
-                print("Merging at ", counter, flush=True)
+                gd.debuginfo(prj="mt", info=f"Merging at ", counter)
 
             with open(fname, 'r') as infile:
                 for row in infile:
@@ -38,6 +38,6 @@ if __name__ == '__main__':
                     outfile.write(row)
 
 
-    print("Merged file", out_file, flush=True)
+    gd.debuginfo(prj="mt", info=f"Merged file", out_file)
 
 

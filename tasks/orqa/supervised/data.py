@@ -148,13 +148,12 @@ class OpenRetrievalAbstractDataset(ABC, Dataset):
         self.dataset_name = dataset_name
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
-        print_rank_0(' > building {} dataset for {}:'.format(self.task_name,
-                                                             self.dataset_name))
+        gd.debuginfo(prj="mt", info=f' > building {self.task_name} dataset for {self.dataset_name}:')
         # Process the files.
         string = '  > paths:'
         for path in datapaths:
             string += ' ' + path
-        print_rank_0(string)
+        gd.debuginfo(prj="mt", info=string)
         self.samples = []
         for datapath in datapaths:
             self.samples.extend(self.process_samples_from_single_path(datapath))
@@ -164,8 +163,7 @@ class OpenRetrievalAbstractDataset(ABC, Dataset):
             k = int(len(self.samples) * args.sample_rate)
             self.samples = random.sample(self.samples, k)
 
-        print_rank_0('  >> total number of samples: {}'.format(
-            len(self.samples)))
+        gd.debuginfo(prj="mt", info=f'  >> total number of samples: {len(self.samples)}')
 
     def __len__(self):
         return len(self.samples)
@@ -249,7 +247,7 @@ class NQSupervisedDataset(OpenRetrievalAbstractDataset):
     @staticmethod
     def process_samples_from_single_path(filename):
         """"Implement abstract method."""
-        print_rank_0(' > Processing {} ...'.format(filename))
+        gd.debuginfo(prj="mt", info=f' > Processing {filename} ...')
         samples = []
         total = 0
 
@@ -281,8 +279,8 @@ class NQSupervisedDataset(OpenRetrievalAbstractDataset):
                 samples.append(sample)
 
                 if total % 5000 == 0:
-                    print_rank_0('  > processed {} so far ...'.format(total))
+                    gd.debuginfo(prj="mt", info=f'  > processed {total} so far ...')
 
-        print_rank_0(' >> processed {} samples.'.format(len(samples)))
+        gd.debuginfo(prj="mt", info=f' >> processed {len(samples)} samples.')
         return samples
 

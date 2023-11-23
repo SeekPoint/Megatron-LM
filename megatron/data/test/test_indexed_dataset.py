@@ -18,9 +18,9 @@ sys.path.append(os.path.join(script_dir, "../../../"))
 def test_indexed_dataset(args):
     ds = indexed_dataset.make_dataset(args.data, args.dataset_impl)
     tokenizer = build_tokenizer(args)
-    print(len(ds.doc_idx))
-    print(len(ds))
-    print(ds.doc_idx[-1])
+    gd.debuginfo(prj="mt", info=f'len(ds.doc_idx)')
+    gd.debuginfo(prj="mt", info=f'len(ds)')
+    gd.debuginfo(prj="mt", info=f'ds.doc_idx[-1]')
     if ds.supports_prefetch:
         # just prefetch the whole thing in test (so assume it is small)
         ds.prefetch(range(len(ds)))
@@ -31,36 +31,36 @@ def test_indexed_dataset(args):
         start = ds.doc_idx[i]
         end = ds.doc_idx[i + 1]
         ids = ds[start:end]
-        print(f"Document {i}:")
-        print("--------------")
+        gd.debuginfo(prj="mt", info=f"Document {i}:")
+        gd.debuginfo(prj="mt", info=f"--------------")
         for s in ids:
             assert len(s) > 0
             l = s.data.tolist()
             text = tokenizer.detokenize(l)
-            print(text)
-            print("---")
+            gd.debuginfo(prj="mt", info=f'text')
+            gd.debuginfo(prj="mt", info=f"---")
 
 
 def test_indexed_dataset_get(args):
     ds = indexed_dataset.make_dataset(args.data, args.dataset_impl)
     tokenizer = build_tokenizer(args)
     size = ds.sizes[0]
-    print(f"size: {size}")
+    gd.debuginfo(prj="mt", info=f"size: {size}")
     full = ds.get(0)
-    print(full)
-    # print(tokenizer.detokenize(full.data.tolist()))
-    print("---")
+    gd.debuginfo(prj="mt", info=f'full')
+    # gd.debuginfo(prj="mt", info=ftokenizer.detokenize(full.data.tolist()))
+    gd.debuginfo(prj="mt", info=f"---")
     end = ds.get(0, offset=size - 10)
-    print(end)
-    # print(tokenizer.detokenize(end.data.tolist()))
+    gd.debuginfo(prj="mt", info=f'end')
+    # gd.debuginfo(prj="mt", info=ftokenizer.detokenize(end.data.tolist()))
 
     start = ds.get(0, length=10)
-    print(start)
-    # print(tokenizer.detokenize(start.data.tolist()))
+    gd.debuginfo(prj="mt", info=f'start')
+    # gd.debuginfo(prj="mt", info=ftokenizer.detokenize(start.data.tolist()))
 
     part = ds.get(0, offset=2, length=8)
-    print(part)
-    # print(tokenizer.detokenize(part.data.tolist()))
+    gd.debuginfo(prj="mt", info=f'part')
+    # gd.debuginfo(prj="mt", info=ftokenizer.detokenize(part.data.tolist()))
 
 # def test_albert_dataset(args):
 #     # tokenizer = FullBertTokenizer(args.vocab, do_lower_case=True)
@@ -75,7 +75,7 @@ def test_indexed_dataset_get(args):
 #     for i, s in enumerate(ds):
 #         ids = s['text']
 #         tokens = ds.tokenizer.convert_ids_to_tokens(ids)
-#         print(tokens)
+#         gd.debuginfo(prj="mt", info=ftokens)
 #         if i >= args.count-1:
 #             exit()
 

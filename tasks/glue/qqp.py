@@ -21,7 +21,7 @@ class QQPDataset(GLUEAbstractDataset):
 
     def process_samples_from_single_path(self, filename):
         """"Implement abstract method."""
-        print_rank_0(' > Processing {} ...'.format(filename))
+        gd.debuginfo(prj="mt", info=f' > Processing {filename} ...')
 
         samples = []
         total = 0
@@ -34,13 +34,13 @@ class QQPDataset(GLUEAbstractDataset):
                     first = False
                     if len(row) == 3:
                         is_test = True
-                        print_rank_0('   reading {}, {}, and {} columns and '
+                        gd.debuginfo(prj="mt", info=f'   reading {}, {}, and {} columns and '
                                      'setting labels to {}'.format(
                                          row[0].strip(), row[1].strip(),
                                          row[2].strip(), self.test_label))
                     else:
                         assert len(row) == 6
-                        print_rank_0('    reading {}, {}, {}, and {} columns'
+                        gd.debuginfo(prj="mt", info=f'    reading {}, {}, {}, and {} columns'
                                      ' ...'.format(
                                          row[0].strip(), row[3].strip(),
                                          row[4].strip(), row[5].strip()))
@@ -61,15 +61,15 @@ class QQPDataset(GLUEAbstractDataset):
                         text_b = clean_text(row[4].strip())
                         label = int(row[5].strip())
                     else:
-                        print_rank_0('***WARNING*** index error, '
+                        gd.debuginfo(prj="mt", info=f'***WARNING*** index error, '
                                      'skipping: {}'.format(row))
                         continue
                     if len(text_a) == 0:
-                        print_rank_0('***WARNING*** zero length a, '
+                        gd.debuginfo(prj="mt", info=f'***WARNING*** zero length a, '
                                      'skipping: {}'.format(row))
                         continue
                     if len(text_b) == 0:
-                        print_rank_0('***WARNING*** zero length b, '
+                        gd.debuginfo(prj="mt", info=f'***WARNING*** zero length b, '
                                      'skipping: {}'.format(row))
                         continue
                 assert label in LABELS
@@ -83,7 +83,7 @@ class QQPDataset(GLUEAbstractDataset):
                 samples.append(sample)
 
                 if total % 50000 == 0:
-                    print_rank_0('  > processed {} so far ...'.format(total))
+                    gd.debuginfo(prj="mt", info=f'  > processed {total} so far ...')
 
-        print_rank_0(' >> processed {} samples.'.format(len(samples)))
+        gd.debuginfo(prj="mt", info=f' >> processed {len(samples)} samples.')
         return samples

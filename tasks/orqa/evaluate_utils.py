@@ -95,10 +95,10 @@ class ORQAEvaluator(object):
             reference_list.extend(reference)
             query_vectors.extend(query_logits.split(1, dim=0))
             if len(query_vectors) % 100 == 0:
-                print_rank_0('Encoded queries {}'.format(len(query_vectors)))
+                gd.debuginfo(prj="mt", info=f'Encoded queries {len(query_vectors)}')
 
         query_tensor = torch.cat(query_vectors, dim=0)
-        print_rank_0('Total encoded queries tensor {}'.format(query_tensor.size()))
+        gd.debuginfo(prj="mt", info=f'Total encoded queries tensor {query_tensor.size()}')
 
         assert query_tensor.size(0) == len(self.eval_dataset)
         return query_tensor, reference_list
@@ -164,13 +164,12 @@ class ORQAEvaluator(object):
                                         match_type=args.faiss_match)
         top_k_hits = match_stats.top_k_hits
 
-        print_rank_0("{} SET RESULTS".format(split))
-        print_rank_0("topk-{} documents hits {}".format(
-            args.faiss_topk_retrievals, top_k_hits))
+        gd.debuginfo(prj="mt", info=f"{split} SET RESULTS")
+        gd.debuginfo(prj="mt", info=f"topk-{args.faiss_topk_retrievals} documents hits {top_k_hits}")
         top_k_hits = [v / len(top_ids_and_scores) for v in top_k_hits]
-        print_rank_0("top-k documents hits accuracy {}".format(top_k_hits))
+        gd.debuginfo(prj="mt", info=f"top-k documents hits accuracy {top_k_hits}")
 
         for i in args.retriever_report_topk_accuracies:
-            print_rank_0("top-{}: {:.2f}".format(i, top_k_hits[i-1] * 100))
+            gd.debuginfo(prj="mt", info=f"top-{i}: {top_k_hits[i-1] * 100:.2f}")
 
         return

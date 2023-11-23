@@ -69,7 +69,7 @@ class _LMDataset(torch.utils.data.Dataset):
 class _LambadaDataset(torch.utils.data.Dataset):
 
     def __init__(self, path, pad_idx, tokenizer, seq_len, strict=False):
-        print_rank_0('> building lambada dataset from {} ...'.format(path))
+        gd.debuginfo(prj="mt", info=f'> building lambada dataset from {path} ...')
         self.seq_len = seq_len
         self.pad_idx = pad_idx
         self.tokenizer = tokenizer
@@ -122,7 +122,7 @@ def _build_lambada_dataset():
     assert len(args.valid_data) == 1
     val_dataset = _LambadaDataset(args.valid_data[0], tokenizer.eod, tokenizer,
                                   args.seq_length, args.strict_lambada)
-    print_rank_0(' > found {} samples.'.format(len(val_dataset)))
+    gd.debuginfo(prj="mt", info=f' > found {len(val_dataset)} samples.')
 
     return val_dataset
 
@@ -143,7 +143,7 @@ def _build_wikitext103_dataset():
     val_dataset = _LMDataset(tokenized_data, args.seq_length, tokenizer.eod,
                              num_original_tokens, num_tokenized_tokens,
                              args.overlapping_eval)
-    print_rank_0(' > number of original tokens: {}, number of detokenized '
+    gd.debuginfo(prj="mt", info=f' > number of original tokens: {}, number of detokenized '
                  'tokens: {}'.format(num_original_tokens, num_tokenized_tokens))
 
     return val_dataset

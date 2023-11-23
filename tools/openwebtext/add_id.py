@@ -14,7 +14,7 @@ to the ids.
 
 if __name__ == '__main__':
 
-    print('parsing the arguments ...')
+    gd.debuginfo(prj="mt", info=f'parsing the arguments ...')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--input-file', type=str, default=None, help='Input'\
@@ -27,7 +27,7 @@ if __name__ == '__main__':
                        help='Log interval')
     args = parser.parse_args()
 
-    print('Adding ids to dataset ...')
+    gd.debuginfo(prj="mt", info=f'Adding ids to dataset ...')
 
     f_input = open(args.input_file, 'r', encoding='utf-8')
     f_output = open(args.output_file, 'wb')
@@ -44,8 +44,8 @@ if __name__ == '__main__':
         f_output.write('\n'.encode('utf-8'))
 
         if unique_ids % args.log_interval == 0:
-            print('    processed {:9d} documents in {:.2f} seconds ...'.format( \
-                    unique_ids, time.time() - start_time), flush=True)
+            gd.debuginfo(prj="mt", info=f'processed {unique_ids:9d} documents in '
+                                        f'{time.time() - start_time:.2f} seconds ...')
 
         unique_ids += 1
 
@@ -53,4 +53,4 @@ if __name__ == '__main__':
     f_input.close()
     f_output.close()
     
-    print('done :-)', flush=True)
+    gd.debuginfo(prj="mt", info=f'done :-)')

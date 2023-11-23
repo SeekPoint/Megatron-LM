@@ -27,12 +27,12 @@ def print_progress(prefix, start_time, num_docs, num_fixed_text,
     string += 'non-english chars: {} | '.format(chars_non_english_docs)
     string += 'small docs: {} | '.format(num_small_docs)
     string += 'small docs chars: {}'.format(chars_small_docs)
-    print(string, flush=True)
+    gd.debuginfo(prj="mt", info=fstring)
 
 
 def filter_corpus(filename, out_filename, print_interval=10000):
 
-    print(' > filtering {}'.format(filename))
+    gd.debuginfo(prj="mt", info=f' > filtering {filename}')
 
     tokenizer = Tokenizer(cache_dir='./cache')
 
@@ -57,7 +57,7 @@ def filter_corpus(filename, out_filename, print_interval=10000):
                     myjson['text'] = text
                     # Detect language.
                     if detect(text) != 'en':
-                        print('[non-english text]', myjson)
+                        gd.debuginfo(prj="mt", info=f'[non-english text]', myjson)
                         num_non_english_docs += 1
                         chars_non_english_docs += len(text)
                         continue
@@ -66,7 +66,7 @@ def filter_corpus(filename, out_filename, print_interval=10000):
                     if len(text) < (8 * MIN_DOCUMENT_LENGHT):
                         tokens = tokenizer.tokenize_document(text)
                         if len(tokens) < MIN_DOCUMENT_LENGHT:
-                            print('[small document, skipping]:', myjson)
+                            gd.debuginfo(prj="mt", info=f'[small document, skipping]:', myjson)
                             num_small_docs += 1
                             chars_small_docs += len(text)
                             continue
@@ -80,7 +80,7 @@ def filter_corpus(filename, out_filename, print_interval=10000):
                                        chars_non_english_docs,
                                        num_small_docs, chars_small_docs)
                 except Exception as e:
-                    print('    skipping ', line, e)
+                    gd.debuginfo(prj="mt", info=f'    skipping {line}, {e}', )
 
     print_progress('[FINAL]', start_time, num_docs,
                    num_fixed_text, num_non_english_docs,
@@ -90,13 +90,13 @@ def filter_corpus(filename, out_filename, print_interval=10000):
 
 if __name__ == '__main__':
 
-    print('building gpt2 dataset ...')
+    gd.debuginfo(prj="mt", info=f'building gpt2 dataset ...')
 
     input_filename = sys.argv[1]
     output_filename = sys.argv[2]
 
-    print('will be reading {}'.format(input_filename))
-    print('and will write the results to {}'.format(output_filename))
+    gd.debuginfo(prj="mt", info=f'will be reading {input_filename}')
+    gd.debuginfo(prj="mt", info=f'and will write the results to {output_filename}')
 
     filter_corpus(input_filename, output_filename)
 

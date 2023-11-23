@@ -15,8 +15,7 @@ def build_num_microbatches_calculator(args):
             args.global_batch_size, args.micro_batch_size,
             args.data_parallel_size)
         if args.rank == 0:
-            print('setting number of micro-batches to constant {}'.format(
-                num_microbatches_calculator.get()), flush=True)
+            gd.debuginfo(prj="mt", info=f'setting number of micro-batches to constant {num_microbatches_calculator.get()}')
 
     else:
         assert len(args.rampup_batch_size) == 3, 'expected the following ' \
@@ -26,12 +25,12 @@ def build_num_microbatches_calculator(args):
         batch_size_increment = int(args.rampup_batch_size[1])
         ramup_samples = int(args.rampup_batch_size[2])
         if args.rank == 0:
-            print('will use batch size rampup starting from global batch '
+            gd.debuginfo(prj="mt", info=f'will use batch size rampup starting from global batch '
                   'size {} to global batch size {} with batch size increments '
                   '{} over {} samples.'.format(start_batch_size,
                                                args.global_batch_size,
                                                batch_size_increment,
-                                               ramup_samples), flush=True)
+                                               ramup_samples))
         num_microbatches_calculator = RampupBatchsizeNumMicroBatches(
             start_batch_size, batch_size_increment, ramup_samples,
             args.global_batch_size, args.micro_batch_size,

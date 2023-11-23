@@ -57,7 +57,7 @@ def test_forward_backward_func_without_pipeline_parallel(mocker):
     
     loss_reduced_expected = [{'loss_reduced': rank}, {'loss_reduced': rank}, {'loss_reduced': rank}, {'loss_reduced': rank}]
     for i,j in zip(losses_reduced, loss_reduced_expected):
-        print(losses_reduced)
+        gd.debuginfo(prj="mt", info=flosses_reduced)
         assert(i['loss_reduced'] == j['loss_reduced'])
     Utils.destroy_model_parallel() 
 
@@ -99,7 +99,7 @@ def test_forward_backward_func_with_pipeline_parallel(mocker):
     
     loss_reduced_expected = [{'loss_reduced': rank}, {'loss_reduced': rank}, {'loss_reduced': rank}, {'loss_reduced': rank}]
     for i,j in zip(losses_reduced, loss_reduced_expected):
-        print(losses_reduced)
+        gd.debuginfo(prj="mt", info=flosses_reduced)
         assert(i['loss_reduced'] == j['loss_reduced'])
     Utils.destroy_model_parallel()  
 
@@ -184,7 +184,7 @@ def test_forward_backward_func_with_interleaving(mocker):
     
     loss_reduced_expected = [{'loss_reduced': rank}, {'loss_reduced': rank}, {'loss_reduced': rank}, {'loss_reduced': rank}]
     for i,j in zip(losses_reduced, loss_reduced_expected):
-        print(losses_reduced)
+        gd.debuginfo(prj="mt", info=flosses_reduced)
         assert(i['loss_reduced'] == j['loss_reduced'])
 
     Utils.destroy_model_parallel()  

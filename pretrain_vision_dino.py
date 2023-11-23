@@ -86,14 +86,12 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     args = get_args()
 
-    print_rank_0(
-        "> building train, validation, and test datasets " "for VIT ..."
-    )
+    gd.debuginfo(prj="mt", info=f"> building train, validation, and test datasets " "for VIT ...")
     train_ds, valid_ds = build_train_valid_datasets(
         data_path=args.data_path,
         image_size=(args.img_h, args.img_w)
     )
-    print_rank_0("> finished creating VIT datasets ...")
+    gd.debuginfo(prj="mt", info=f"> finished creating VIT datasets ...")
 
     return train_ds, valid_ds, None
 

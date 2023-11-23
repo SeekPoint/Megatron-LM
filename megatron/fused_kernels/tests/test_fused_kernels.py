@@ -17,9 +17,9 @@ def test_load_fused_kernels():
         import scaled_upper_triang_masked_softmax_cuda
         import torch
 
-        print("[Success] load_fused_kernels")
+        gd.debuginfo(prj="mt", info=f"[Success] load_fused_kernels")
     except ImportError as e:
-        print("[Fail] load_fused_kernels")
+        gd.debuginfo(prj="mt", info=f"[Fail] load_fused_kernels")
         raise e
 
 def test_fused_softmax():
@@ -105,14 +105,14 @@ def test_fused_softmax():
     diff = test_result.mean(dim=-1)
 
     if diff <= 1e-3:
-        print(
+        gd.debuginfo(prj="mt", info=f
             f"\n[Success] test_fused_softmax"
             f"\n > mean_difference={diff}"
             f"\n > fused_values={fused_softmax_output[-1][-1][-1][:5].tolist()}"
             f"\n > torch_values={torch_softmax_output[-1][-1][-1][:5].tolist()}"
         )
     else:
-        print(
+        gd.debuginfo(prj="mt", info=f
             f"\n[Fail] test_fused_softmax"
             f"\n > mean_difference={diff}, "
             f"\n > fused_values={fused_softmax_output[-1][-1][-1][:5].tolist()}, "
@@ -205,14 +205,14 @@ def test_fused_upper_triangle_mask_softmax():
     diff = test_result.mean(dim=-1)
 
     if diff <= 1e-3:
-        print(
+        gd.debuginfo(prj="mt", info=f
             f"\n[Success] test_fused_upper_triangle_mask_softmax"
             f"\n > mean_difference={diff}"
             f"\n > fused_values={fused_softmax_output[-1][-1][-1][:5].tolist()}"
             f"\n > torch_values={torch_softmax_output[-1][-1][-1][:5].tolist()}"
         )
     else:
-        print(
+        gd.debuginfo(prj="mt", info=f
             f"\n[Fail] test_fused_upper_triangle_mask_softmax"
             f"\n > mean_difference={diff}, "
             f"\n > fused_values={fused_softmax_output[-1][-1][-1][:5].tolist()}, "
@@ -264,14 +264,14 @@ def test_layer_norm():
     diff = test_result.mean(dim=-1)
 
     if diff <= 1e-3:
-        print(
+        gd.debuginfo(prj="mt", info=f
             f"\n[Success] test_layer_norm"
             f"\n > mean_difference={diff}"
             f"\n > fused_values={fused_output[-1][-1][:5].tolist()}"
             f"\n > torch_values={torch_output[-1][-1][:5].tolist()}"
         )
     else:
-        print(
+        gd.debuginfo(prj="mt", info=f
             f"\n[Fail] test_layer_norm"
             f"\n > mean_difference={diff}, "
             f"\n > fused_values={fused_output[-1][-1][:5].tolist()}, "
@@ -375,7 +375,7 @@ if __name__ == "__main__":
         )
 
     except:
-        print("\n[Fail] Please install `transformers` package to test fused kernels\n")
+        gd.debuginfo(prj="mt", info=f"\n[Fail] Please install `transformers` package to test fused kernels\n")
         exit(-1)
 
     load()

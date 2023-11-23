@@ -30,8 +30,7 @@ def glue_classification(num_classes, Dataset,
         """Build the model."""
         args = get_args()
 
-        print_rank_0('building classification model for {} ...'.format(
-            args.task))
+        gd.debuginfo(prj="mt", info=f'building classification model for {args.task} ...')
         model = Classification(num_classes=num_classes, num_tokentypes=2,
                                pre_process=pre_process, post_process=post_process)
 

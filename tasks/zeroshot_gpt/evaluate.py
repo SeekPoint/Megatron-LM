@@ -40,7 +40,7 @@ def get_model_provider(eval_metric):
             raise NotImplementedError('output type for {} evaluation metric '
                                       'is not supported.'.format(eval_metric))
 
-        print_rank_0('building GPT model ...')
+        gd.debuginfo(prj="mt", info=f'building GPT model ...')
         model = GPTModel(num_tokentypes=0, parallel_output=parallel_output,
                          pre_process=pre_process, post_process=post_process)
 
@@ -125,7 +125,7 @@ def evaluate(data_loader, model, eval_metric):
         # For all the batches in the dataset.
         for iteration, batch in enumerate(data_loader):
             if iteration % args.log_interval == 0:
-                print_rank_0('> working on iteration: {}'.format(iteration))
+                gd.debuginfo(prj="mt", info=f'> working on iteration: {iteration}')
             # Forward evaluation.
             output = forward_step(batch, model, eval_metric)
 
@@ -171,9 +171,9 @@ def evaluate_and_print_results(task, data_loader, model, eval_metric):
                                       'implemented yet.'.format(eval_metric))
 
         length = len(string) + 1
-        print('-' * length)
-        print(string)
-        print('-' * length)
+        gd.debuginfo(prj="mt", info=f'-' * length)
+        gd.debuginfo(prj="mt", info=fstring)
+        gd.debuginfo(prj="mt", info=f'-' * length)
 
 
 def main():
@@ -181,7 +181,7 @@ def main():
     args = get_args()
 
     if args.num_layers_per_virtual_pipeline_stage is not None:
-        print("Interleaved pipeline schedule is not yet supported for text generation.")
+        gd.debuginfo(prj="mt", info=f"Interleaved pipeline schedule is not yet supported for text generation.")
         exit()
 
     if args.task == 'LAMBADA':
@@ -208,4 +208,4 @@ def main():
     # Run evaluation.
     evaluate_and_print_results(args.task, dataloader, model, eval_metric)
 
-    print_rank_0('done :-)')
+    gd.debuginfo(prj="mt", info=f'done :-)')

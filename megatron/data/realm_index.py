@@ -52,10 +52,10 @@ class OpenRetreivalDataStore(object):
         """Populate members from instance saved to file"""
 
         if not mpu.model_parallel_is_initialized() or mpu.get_data_parallel_rank() == 0:
-            print("\n> Unpickling BlockData", flush=True)
+            gd.debuginfo(prj="mt", info=f"\n> Unpickling BlockData")
         state_dict = pickle.load(open(self.embedding_path, 'rb'))
         if not mpu.model_parallel_is_initialized() or mpu.get_data_parallel_rank() == 0:
-            print(">> Finished unpickling BlockData\n", flush=True)
+            gd.debuginfo(prj="mt", info=f">> Finished unpickling BlockData\n")
 
         self.embed_data = state_dict['embed_data']
 
@@ -112,8 +112,7 @@ class OpenRetreivalDataStore(object):
             pickle.dump(self.state(), final_file)
         shutil.rmtree(self.temp_dir_name, ignore_errors=True)
 
-        print("Finished merging {} shards for a total of {} embeds".format(
-            len(shard_names), len(self.embed_data)), flush=True)
+        gd.debuginfo(prj="mt", info=f"Finished merging {len(shard_names)} shards for a total of {len(self.embed_data)} embeds")
 
 
 class FaissMIPSIndex(object):
@@ -139,7 +138,7 @@ class FaissMIPSIndex(object):
             raise Exception("Error: Please install faiss to use FaissMIPSIndex")
 
         if not mpu.model_parallel_is_initialized() or mpu.get_data_parallel_rank() == 0:
-            print("\n> Building index", flush=True)
+            gd.debuginfo(prj="mt", info=f"\n> Building index")
 
         cpu_index = faiss.IndexFlatIP(self.embed_size)
 
@@ -151,12 +150,12 @@ class FaissMIPSIndex(object):
             gpu_index = faiss.index_cpu_to_all_gpus(cpu_index, co=config)
             self.mips_index = faiss.IndexIDMap(gpu_index)
             if not mpu.model_parallel_is_initialized() or mpu.get_data_parallel_rank() == 0:
-                print(">> Initialized index on GPU", flush=True)
+                gd.debuginfo(prj="mt", info=f">> Initialized index on GPU")
         else:
             # CPU index supports IDs so wrap with IDMap
             self.mips_index = faiss.IndexIDMap(cpu_index)
             if not mpu.model_parallel_is_initialized() or mpu.get_data_parallel_rank() == 0:
-                print(">> Initialized index on CPU", flush=True)
+                gd.debuginfo(prj="mt", info=f">> Initialized index on CPU")
 
         # if we were constructed with a BlockData, then automatically load it
         # when the FAISS structure is built
@@ -201,7 +200,7 @@ class FaissMIPSIndex(object):
         self.mips_index.add_with_ids(embeds_arr, indices_arr)
 
         if not mpu.model_parallel_is_initialized() or mpu.get_data_parallel_rank() == 0:
-            print(">>> Finished adding block data to index", flush=True)
+            gd.debuginfo(prj="mt", info=f">>> Finished adding block data to index")
 
     def search_mips_index(self, query_embeds, top_k, reconstruct=True):
         """

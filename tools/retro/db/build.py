@@ -100,7 +100,7 @@ def build_partial_db(
     progress_proc_ids = set(range(n_procs)) \
         if torch.distributed.get_rank() == 0 else set()
     if proc_id in progress_proc_ids:
-        print(" > building partial chunk db, proc %d / %d, docs %d:%d / %d."%(
+        gd.debuginfo(prj="mt", info=f" > building partial chunk db, proc %d / %d, docs %d:%d / %d."%(
             proc_id,
             n_procs,
             doc_start_id,
@@ -361,7 +361,7 @@ def merge_dbs(indexed_dataset_infos, db_type):
     if torch.distributed.get_rank() != 0:
         return
 
-    print(" > build %s chunk db." % db_type)
+    gd.debuginfo(prj="mt", info=f" > build %s chunk db." % db_type)
 
     # Count chunks.
     if db_type == "sampled":
@@ -427,7 +427,7 @@ def merge_dbs(indexed_dataset_infos, db_type):
         doc_start_index = 0
         doc_start_offset = 0
         for ds_idx, ds_info in enumerate(indexed_dataset_infos):
-            print(" > merging dbs; '%s', dataset %d / %d ... '%s'." %
+            gd.debuginfo(prj="mt", info=f" > merging dbs; '%s', dataset %d / %d ... '%s'." %
                   (db_type, ds_idx, len(indexed_dataset_infos), ds_info["name"]))
             individual_chunk_db = get_individual_chunk_db(ds_idx, ds_info)
             individual_doc_offsets = None if n_docs_key is None else \
@@ -445,9 +445,9 @@ def merge_dbs(indexed_dataset_infos, db_type):
                         np.copy(individual_doc_offsets[ds_info["n_docs_train"]:])
                     individual_doc_offsets[:, 2] -= train_doc_offset
 
-                    print("~~~")
-                    print(individual_doc_offsets)
-                    print(train_doc_offset)
+                    gd.debuginfo(prj="mt", info=f"~~~")
+                    gd.debuginfo(prj="mt", info=findividual_doc_offsets)
+                    gd.debuginfo(prj="mt", info=ftrain_doc_offset)
                     raise Exception("test me.")
             else:
                 individual_chunk_db = \

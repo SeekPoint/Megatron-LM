@@ -93,7 +93,7 @@ class MegatronModule(torch.nn.Module):
 
         if not torch.distributed.is_initialized():
             if not getattr(MegatronModule, "embedding_warning_printed", False):
-                print("WARNING! Distributed processes aren't initialized, so "
+                gd.debuginfo(prj="mt", info=f"WARNING! Distributed processes aren't initialized, so "
                       "word embeddings in the last layer are not initialized. "
                       "If you are just manipulating a model this is fine, but "
                       "this needs to be handled manually. If you are training "

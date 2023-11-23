@@ -33,6 +33,7 @@ class PerspectiveApiScorer:
         """
         :param api_key: the API key to use. For details, see https://support.perspectiveapi.com/s/docs-get-started
         """
+        gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
         api_key = ''
         self._service = discovery.build(
             "commentanalyzer",
@@ -49,6 +50,7 @@ class PerspectiveApiScorer:
         :param requested_attributes: the attributes for which to compute scores
         :return: a mapping from attribute names to scores
         """
+        gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
         requested_attributes = requested_attributes if requested_attributes else PerspectiveApiScorer.DEFAULT_ATTRIBUTES
 
         analyze_request = {
@@ -63,8 +65,8 @@ class PerspectiveApiScorer:
             try:
                 response = self._service.comments().analyze(body=analyze_request).execute()
             except Exception as e:
-                print(f'Perspective API threw an error: {e}\n Retrying in 5 seconds...')
-                print(input_text)
+                gd.debuginfo(prj="mt", info=f'Perspective API threw an error: {e}\n Retrying in 5 seconds...')
+                gd.debuginfo(prj="mt", info=finput_text)
                 time.sleep(1)
 
         return {attribute: response['attributeScores'][attribute.upper()]['summaryScore']['value'] for attribute in
@@ -74,7 +76,7 @@ class PerspectiveApiScorer:
 def test():
     scorer = PerspectiveApiScorer()
     for i in range(1):
-        print(scorer.get_scores("toxic behaviors and nasty negro"))
+        gd.debuginfo(prj="mt", info=fscorer.get_scores("toxic behaviors and nasty negro"))
 
 
 def split_lines(lines, split):
@@ -109,7 +111,7 @@ def get_score(line):
                 try:
                     decoded_text = encoded_text[:20476].decode('utf8')
                 except:
-                    print("Error occurred")
+                    gd.debuginfo(prj="mt", info=f"Error occurred")
                     data['score'] = None
                     return json.dumps(data)
     data['score'] = scorer.get_scores(decoded_text)
@@ -140,7 +142,7 @@ def get_scores(lines):
                     try:
                         decoded_text = encoded_text[:20476].decode('utf8')
                     except:
-                        print("Error occurred")
+                        gd.debuginfo(prj="mt", info=f"Error occurred")
                         data['score'] = None
                         all_data.append(json.dumps(data))
                         continue
@@ -151,7 +153,7 @@ def get_scores(lines):
 def get_annotated_datasets(lines, threads=10):
     sub_lines = lines
     splitted_lines = split_lines(sub_lines, threads)
-    print(len(sub_lines))
+    gd.debuginfo(prj="mt", info=flen(sub_lines))
     final = Parallel(n_jobs=threads)(delayed(get_score)(l) for l in splitted_lines)
     import itertools
     finals = list(itertools.chain.from_iterable(final))
@@ -159,11 +161,12 @@ def get_annotated_datasets(lines, threads=10):
 
 
 def main():
+    gd.debuginfo(prj='ds')
     args = parser.parse_args()
 
     path = args.data_path
     out = args.out_path if args.out_path else path + '-annotated.jsonl'
-    print(out)
+    gd.debuginfo(prj="mt", info=fout)
 
     fin = open(path, 'r', encoding='utf-8')
     import multiprocessing

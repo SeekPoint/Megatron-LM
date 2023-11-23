@@ -73,7 +73,7 @@ def main():
     args = get_args()
     startup_start = time.time()
 
-    print("Opening", args.input)
+    gd.debuginfo(prj="mt", info=f"Opening", args.input)
     fin = open(args.input, 'r', encoding='utf-8')
 
     encoder = Encoder(args)
@@ -81,8 +81,8 @@ def main():
     pool = multiprocessing.Pool(args.workers, initializer=encoder.initializer)
     encoded_sentences = pool.imap(encoder.encode, fin, 25)
 
-    print(f"Vocab size: {tokenizer.vocab_size}")
-    print(f"Output prefix: {args.output_prefix}")
+    gd.debuginfo(prj="mt", info=f"Vocab size: {tokenizer.vocab_size}")
+    gd.debuginfo(prj="mt", info=f"Output prefix: {args.output_prefix}")
     output_bin_file = "{}.bin".format(args.output_prefix)
     output_idx_file = "{}.idx".format(args.output_prefix)
     builder = indexed_dataset.make_builder(output_bin_file,
@@ -92,7 +92,7 @@ def main():
     startup_end = time.time()
     proc_start = time.time()
     total_bytes_processed = 0
-    print("Time to startup:", startup_end - startup_start)
+    gd.debuginfo(prj="mt", info=f"Time to startup:", startup_end - startup_start)
 
     for i, (sentence, bytes_processed) in enumerate(encoded_sentences, start=1):
         total_bytes_processed += bytes_processed
@@ -103,7 +103,7 @@ def main():
             current = time.time()
             elapsed = current - proc_start
             mbs = total_bytes_processed/elapsed/1024/1024
-            print(f"Processed {i} sentences",
+            gd.debuginfo(prj="mt", info=f"Processed {i} sentences",
                   f"({i/elapsed} sentences/s, {mbs} MB/s).",
                   file=sys.stderr)
 

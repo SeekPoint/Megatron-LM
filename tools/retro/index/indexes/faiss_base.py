@@ -57,12 +57,12 @@ class FaissBaseIndex(Index):
                                     args.retro_index_str)
 
         # Move to GPU.
-        print("> move faiss index to gpu.")
+        gd.debuginfo(prj="mt", info=f"> move faiss index to gpu.")
         index_ivf = faiss.extract_index_ivf(index)
         clustering_index = \
             faiss.index_cpu_to_all_gpus(faiss.IndexFlatL2(index_ivf.d))
         index_ivf.clustering_index = clustering_index
-        print("> finished moving to gpu.")
+        gd.debuginfo(prj="mt", info=f"> finished moving to gpu.")
         self.c_verbose(index, True)
         self.c_verbose(index_ivf, True)
         self.c_verbose(index_ivf.quantizer, True)

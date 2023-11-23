@@ -44,8 +44,8 @@ def infer_dataset_impl(path):
             else:
                 return None
     else:
-        print(f"Dataset does not exist: {path}")
-        print("Path should be a basename that both .idx and .bin can be appended to get full filenames.")
+        gd.debuginfo(prj="mt", info=f"Dataset does not exist: {path}")
+        gd.debuginfo(prj="mt", info=f"Path should be a basename that both .idx and .bin can be appended to get full filenames.")
         return None
 
 
@@ -58,8 +58,8 @@ def make_builder(out_file, impl, vocab_size=None):
 
 def make_dataset(path, impl, skip_warmup=False):
     if not IndexedDataset.exists(path):
-        print(f"Dataset does not exist: {path}")
-        print("Path should be a basename that both .idx and .bin can be appended to get full filenames.")
+        gd.debuginfo(prj="mt", info=f"Dataset does not exist: {path}")
+        gd.debuginfo(prj="mt", info=f"Path should be a basename that both .idx and .bin can be appended to get full filenames.")
         return None
     if impl == 'infer':
         impl = infer_dataset_impl(path)
@@ -69,7 +69,7 @@ def make_dataset(path, impl, skip_warmup=False):
         return IndexedCachedDataset(path)
     elif impl == 'mmap' and MMapIndexedDataset.exists(path):
         return MMapIndexedDataset(path, skip_warmup)
-    print(f"Unknown dataset implementation: {impl}")
+    gd.debuginfo(prj="mt", info=f"Unknown dataset implementation: {impl}")
     return None
 
 

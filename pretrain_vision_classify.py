@@ -21,12 +21,12 @@ def model_provider(pre_process=True, post_process=True):
     args = get_args()
 
     if args.vision_backbone_type == 'vit':
-        print_rank_0("building VIT model ...")
+        gd.debuginfo(prj="mt", info=f"building VIT model ...")
         model = VitClassificationModel(num_classes=args.num_classes,
                                        pre_process=pre_process,
                                        post_process=post_process)
     elif args.vision_backbone_type == 'mit':
-        print_rank_0("building MIT model ...")
+        gd.debuginfo(prj="mt", info=f"building MIT model ...")
         model = MitClassificationModel(num_classes=args.num_classes,
                                        pre_process=pre_process,
                                        post_process=post_process)
@@ -81,14 +81,12 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     args = get_args()
 
-    print_rank_0(
-        "> building train, validation, and test datasets " "for VIT ..."
-    )
+    gd.debuginfo(prj="mt", info=f"> building train, validation, and test datasets for VIT ...")
     train_ds, valid_ds = build_train_valid_datasets(
         data_path=args.data_path,
         image_size=(args.img_h, args.img_w)
     )
-    print_rank_0("> finished creating VIT datasets ...")
+    gd.debuginfo(prj="mt", info=f"> finished creating VIT datasets ...")
 
     return train_ds, valid_ds, None
 

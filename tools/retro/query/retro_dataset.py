@@ -143,8 +143,8 @@ def get_retro_datasets(verify_sizes=True):
 
         if verify_sizes and n_sample_chunks != n_neighbor_chunks:
             if torch.distributed.get_rank() == 0:
-                print("neighbor_dir : %s" % neighbor_dir)
-                print("neighbor_path_map : %s" % neighbor_path_map)
+                gd.debuginfo(prj="mt", info=f"neighbor_dir : %s" % neighbor_dir)
+                gd.debuginfo(prj="mt", info=f"neighbor_path_map : %s" % neighbor_path_map)
                 raise Exception("num sampled chunks (%d) != num neighbor chunks "
                                 "(%d); did you complete querying the entire "
                                 "pretraining dataset?"

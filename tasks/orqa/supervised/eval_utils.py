@@ -80,7 +80,7 @@ def accuracy_func_provider(single_dataset_provider, rank0sampler=False):
     """Provide function that calculates accuracies."""
     args = get_args()
 
-    print_rank_0("accuracy_func_provider is CALLED")
+    gd.debuginfo(prj="mt", info=f"accuracy_func_provider is CALLED")
 
     # Build dataloaders
     datapath = args.valid_data
@@ -90,8 +90,8 @@ def accuracy_func_provider(single_dataset_provider, rank0sampler=False):
     if mpu.get_data_parallel_world_size() > 1 and not rank0sampler:
         drop_last = True
 
-    print_rank_0(datapath)
-    print_rank_0(rank0sampler)
+    gd.debuginfo(prj="mt", info=fdatapath)
+    gd.debuginfo(prj="mt", info=frank0sampler)
 
     dataloader = build_data_loader(dataset,
                                    args.eval_micro_batch_size,
@@ -101,7 +101,7 @@ def accuracy_func_provider(single_dataset_provider, rank0sampler=False):
     dataloaders = (dataset.dataset_name, dataloader)
 
     def metrics_func(model, epoch, output_predictions=False):
-        print_rank_0('calculating metrics by accuracy func in ORQA...')
+        gd.debuginfo(prj="mt", info=f'calculating metrics by accuracy func in ORQA...')
 
         if output_predictions:
             assert rank0sampler
@@ -114,9 +114,8 @@ def accuracy_func_provider(single_dataset_provider, rank0sampler=False):
             format_string = ""
             for k, v in stats_dict.items():
                 format_string += "|{} = {:.2f}".format(k, v / total)
-            print_rank_0("epoch:{}{}".format(epoch, format_string))
-            print_rank_0("taken time to calcuate metrics {:.3f}".format(\
-                time.time() - start_time))
+            gd.debuginfo(prj="mt", info=f"epoch:{epoch} {format_string}")
+            gd.debuginfo(prj="mt", info=f"taken time to calcuate metrics {time.time() - start_time:.3f}")
         else:
             raise AssertionError("{} Task not supported".format(args.task))
 

@@ -22,7 +22,7 @@ gd.debuginfo(prj="mt")
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
 
-    print_rank_0('building GPT model ...')
+    gd.debuginfo(prj="mt", info=f'building GPT model ...')
     model = GPTModel(num_tokentypes=0, parallel_output=False, pre_process=pre_process, post_process=post_process)
 
     return model
@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     args = get_args()
     if args.num_layers_per_virtual_pipeline_stage is not None:
-        print("Interleaved pipeline schedule is not yet supported for text generation.")
+        gd.debuginfo(prj="mt", info=f"Interleaved pipeline schedule is not yet supported for text generation.")
         exit()
     # Set up model and load checkpoint
     model = get_model(model_provider, wrap_with_ddp=False)

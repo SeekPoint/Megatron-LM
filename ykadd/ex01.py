@@ -31,7 +31,7 @@ num_pipeline_model_parallel_groups = world_size // pipeline_model_parallel_size 
 num_data_parallel_groups = world_size // data_parallel_size # 8
 
 # Build the data-parallel groups.
-print("------ Build the data-parallel groups -----")
+gd.debuginfo(prj="mt", info=f"------ Build the data-parallel groups -----")
 all_data_parallel_group_ranks = []
 for i in range(pipeline_model_parallel_size):
     start_rank = i * num_pipeline_model_parallel_groups
@@ -40,29 +40,29 @@ for i in range(pipeline_model_parallel_size):
         ranks = range(start_rank + j, end_rank,
                       tensor_model_parallel_size)
         all_data_parallel_group_ranks.append(list(ranks))
-print(all_data_parallel_group_ranks)
+gd.debuginfo(prj="mt", info=fall_data_parallel_group_ranks)
 
 # Build the model-parallel groups.
-print("------ Build the model-parallel groups -----")
+gd.debuginfo(prj="mt", info=f"------ Build the model-parallel groups -----")
 for i in range(data_parallel_size):
     ranks = [data_parallel_group_ranks[i]
              for data_parallel_group_ranks in all_data_parallel_group_ranks]
-    print(list(ranks))
+    gd.debuginfo(prj="mt", info=flist(ranks))
 
 # Build the tensor model-parallel groups.
-print("------ Build the tensor model-parallel groups -----")
+gd.debuginfo(prj="mt", info=f"------ Build the tensor model-parallel groups -----")
 for i in range(num_tensor_model_parallel_groups):
     ranks = range(i * tensor_model_parallel_size,
                   (i + 1) * tensor_model_parallel_size)
-    print(list(ranks))
+    gd.debuginfo(prj="mt", info=flist(ranks))
 
 # Build the pipeline model-parallel groups and embedding groups
 # (first and last rank in each pipeline model-parallel group).
-print("------ Build the pipeline model-parallel groups -----")
+gd.debuginfo(prj="mt", info=f"------ Build the pipeline model-parallel groups -----")
 for i in range(num_pipeline_model_parallel_groups):
     ranks = range(i, world_size,
                   num_pipeline_model_parallel_groups)
-    print(list(ranks))
+    gd.debuginfo(prj="mt", info=flist(ranks))
 # 输出如下：
 #
 # ------ Build the data-parallel groups -----

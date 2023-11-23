@@ -78,12 +78,10 @@ def validate_args(args, defaults={}):
                            args.pipeline_model_parallel_size)
     args.data_parallel_size = args.world_size // model_parallel_size
     if args.rank == 0:
-        print('using world size: {}, data-parallel-size: {}, '
-              'tensor-model-parallel size: {}, '
-              'pipeline-model-parallel size: {} '.format(
-                  args.world_size, args.data_parallel_size,
-                  args.tensor_model_parallel_size,
-                  args.pipeline_model_parallel_size), flush=True)
+        gd.debuginfo(prj="mt", info=f'using world size: {args.world_size}, '
+                                    f'data-parallel-size: {args.data_parallel_size},'
+                                    f'tensor-model-parallel size: {args.tensor_model_parallel_size}, '
+                                    f'pipeline-model-parallel size: {args.pipeline_model_parallel_size} ')
     if args.pipeline_model_parallel_size > 1:
         if args.pipeline_model_parallel_split_rank is not None:
             assert args.pipeline_model_parallel_split_rank < \
@@ -104,7 +102,7 @@ def validate_args(args, defaults={}):
 
     if args.checkpoint_activations:
         if args.rank == 0:
-            print('--checkpoint-activations is no longer valid, use --recompute-activations, '
+            gd.debuginfo(prj="mt", info=f'--checkpoint-activations is no longer valid, use --recompute-activations, '
                   'or, for more control, --recompute-granularity and --recompute-method.')
         exit()
     del args.checkpoint_activations
@@ -120,10 +118,8 @@ def validate_args(args, defaults={}):
         # ensuring the arg is set to None.
         if getattr(args, key) is not None:
             if args.rank == 0:
-                print('WARNING: overriding default arguments for {key}:{v} \
-                       with {key}:{v2}'.format(key=key, v=defaults[key],
-                                               v2=getattr(args, key)),
-                                               flush=True)
+                gd.debuginfo(prj="mt", info=f'WARNING: overriding default arguments '
+                                            f'for {key}:{defaults[key]} with {key}:{getattr(args, key)}')
         else:
             setattr(args, key, defaults[key])
 
@@ -133,8 +129,7 @@ def validate_args(args, defaults={}):
     if args.global_batch_size is None:
         args.global_batch_size = args.micro_batch_size * args.data_parallel_size
         if args.rank == 0:
-            print('setting global batch size to {}'.format(
-                args.global_batch_size), flush=True)
+            gd.debuginfo(prj="mt", info=f'setting global batch size to {args.global_batch_size}')
     assert args.global_batch_size > 0
     if args.num_layers_per_virtual_pipeline_stage is not None:
         assert args.pipeline_model_parallel_size > 2, \
@@ -162,12 +157,11 @@ def validate_args(args, defaults={}):
         if not args.accumulate_allreduce_grads_in_fp32:
             args.accumulate_allreduce_grads_in_fp32 = True
             if args.rank == 0:
-                print('accumulate and all-reduce gradients in fp32 for '
-                      'bfloat16 data type.', flush=True)
+                gd.debuginfo(prj="mt", info=f'accumulate and all-reduce gradients '
+                                            f'in fp32 for bfloat16 data type.')
 
     if args.rank == 0:
-        print('using {} for parameters ...'.format(args.params_dtype),
-              flush=True)
+        gd.debuginfo(prj="mt", info=f'using {args.params_dtype} for parameters ...')
 
     # If we do accumulation and all-reduces in fp32, we need to have local DDP
     # and we should make sure use-contiguous-buffers-in-local-ddp is not off.
@@ -298,7 +292,7 @@ def validate_args(args, defaults={}):
     if TORCH_MAJOR < 1 or (TORCH_MAJOR == 1 and TORCH_MINOR < 11):
         args.no_persist_layer_norm = True
         if args.rank == 0:
-            print('Persistent fused layer norm kernel is supported from '
+            gd.debuginfo(prj="mt", info=f'Persistent fused layer norm kernel is supported from '
                   'pytorch v1.11 (nvidia pytorch container paired with v1.11). '
                   'Defaulting to no_persist_layer_norm=True')
 
@@ -380,16 +374,14 @@ def validate_args(args, defaults={}):
 def _print_args(title, args):
     """Print arguments."""
     if args.rank == 0:
-        print(f'------------------------ {title} ------------------------',
-              flush=True)
+        gd.debuginfo(prj="mt", info=f'------------------------ {title} ------------------------')
         str_list = []
         for arg in vars(args):
             dots = '.' * (48 - len(arg))
             str_list.append('  {} {} {}'.format(arg, dots, getattr(args, arg)))
         for arg in sorted(str_list, key=lambda x: x.lower()):
-            print(arg, flush=True)
-        print(f'-------------------- end of {title} ---------------------',
-              flush=True)
+            gd.debuginfo(prj="mt", info="arg={arg}")
+        gd.debuginfo(prj="mt", info=f'-------------------- end of {title} ---------------------')
 
 
 def _check_arg_is_not_none(args, arg):
