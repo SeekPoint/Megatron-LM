@@ -163,7 +163,7 @@ def generate_and_write_samples_conditional(model):
     if args.sample_output_file is None:
         sample_output_file = args.sample_input_file + ".out"
         gd.debuginfo(prj="mt", info=f'`sample-output-file` not specified, setting '
-              'it to {}'.format(sample_output_file))
+                                    f'it to {sample_output_file}')
     else:
         sample_output_file = args.sample_output_file
     with open(sample_output_file, 'w') as f:

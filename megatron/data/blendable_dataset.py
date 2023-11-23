@@ -90,11 +90,11 @@ class BlendableDataset(torch.utils.data.Dataset):
                 exit()
 
             # Load on all ranks.
-            gd.debuginfo(prj="mt", info=ff'> loading blendable dataset index: {index_path}')
+            gd.debuginfo(prj="mt", info=f'> loading blendable dataset index: {index_path}')
             self.dataset_index = np.load(index_path, allow_pickle=True, mmap_mode='r')
             assert self.dataset_index.size == self.size
 
-            gd.debuginfo(prj="mt", info=ff'> loading blendable dataset sample index: {sample_index_path}')
+            gd.debuginfo(prj="mt", info=f'> loading blendable dataset sample index: {sample_index_path}')
             self.dataset_sample_index = np.load(sample_index_path, allow_pickle=True, mmap_mode='r')
             assert self.dataset_sample_index.size == self.size
         else:

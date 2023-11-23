@@ -270,8 +270,8 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler):
     if torch.distributed.is_initialized():
         torch.distributed.barrier()
 
-    gd.debuginfo(prj="mt", info=f'  successfully saved checkpoint at iteration {:7d} to {}' \
-                 .format(iteration, args.save))
+    gd.debuginfo(prj="mt",
+                 info=f'  successfully saved checkpoint at iteration {iteration:7d} to {args.save}')
 
     # And update the latest iteration
     if not torch.distributed.is_initialized() \
@@ -338,7 +338,7 @@ def fix_query_key_value_ordering(model, checkpoint_version):
                 elif checkpoint_version == 1.0:
                     fixed_param = _transpose_first_dim(param.data, 3, False, model)
                 else:
-                    gd.debuginfo(prj="mt", info=ff"Invalid checkpoint version {checkpoint_version}.")
+                    gd.debuginfo(prj="mt", info=f"Invalid checkpoint version {checkpoint_version}.")
                     sys.exit()
                 param.data.copy_(fixed_param)
             if name.endswith(('.key_value.weight', '.key_value.bias')):
@@ -347,7 +347,7 @@ def fix_query_key_value_ordering(model, checkpoint_version):
                 elif checkpoint_version == 1.0:
                     fixed_param = _transpose_first_dim(param.data, 2, False, model)
                 else:
-                    gd.debuginfo(prj="mt", info=ff"Invalid checkpoint version {checkpoint_version}.")
+                    gd.debuginfo(prj="mt", info=f"Invalid checkpoint version {checkpoint_version}.")
                     sys.exit()
                 param.data.copy_(fixed_param)
         gd.debuginfo(prj="mt", info=f" succesfully fixed query-key-values ordering for"
@@ -401,7 +401,7 @@ def _load_base_checkpoint(load_dir, rank0=False):
         sys.modules.pop('megatron.fp16.loss_scaler', None)
     except BaseException as e:
         gd.debuginfo(prj="mt", info=f'could not load the checkpoint')
-        gd.debuginfo(prj="mt", info=fe)
+        gd.debuginfo(prj="mt", info=f'error:{e}')
         sys.exit()
 
     return state_dict, release
@@ -455,10 +455,10 @@ def load_args_from_checkpoint(args, load_arg='load'):
             checkpoint_value = getattr(checkpoint_args, arg_name, None)
 
         if checkpoint_value is not None:
-            gd.debuginfo(prj="mt", info=ff"Setting {arg_name} to {checkpoint_value} from checkpoint")
+            gd.debuginfo(prj="mt", info=f"Setting {arg_name} to {checkpoint_value} from checkpoint")
             setattr(args, arg_name, checkpoint_value)
         else:
-            gd.debuginfo(prj="mt", info=ff"Checkpoint did not provide arguments {arg_name}")
+            gd.debuginfo(prj="mt", info=f"Checkpoint did not provide arguments {arg_name}")
 
     _set_arg('num_layers')
     _set_arg('hidden_size')
@@ -526,8 +526,7 @@ def load_checkpoint(model, optimizer, opt_param_scheduler, load_arg='load', stri
                 iteration = state_dict['total_iters']
             except KeyError:
                 gd.debuginfo(prj="mt", info=f'A metadata file exists but unable to load '
-                             'iteration from checkpoint {}, exiting'.format(
-                                 checkpoint_name))
+                             'iteration from checkpoint {checkpoint_name}, exiting')
                 sys.exit()
 
     # Check arguments.
@@ -554,7 +553,7 @@ def load_checkpoint(model, optimizer, opt_param_scheduler, load_arg='load', stri
 
     # Fix up query/key/value matrix ordering if needed.
     checkpoint_version = get_checkpoint_version()
-    gd.debuginfo(prj="mt", info=ff' checkpoint version {checkpoint_version}')
+    gd.debuginfo(prj="mt", info=f' checkpoint version {checkpoint_version}')
     fix_query_key_value_ordering(model, checkpoint_version)
 
     # Optimizer.
@@ -582,10 +581,10 @@ def load_checkpoint(model, optimizer, opt_param_scheduler, load_arg='load', stri
                 else:
                     opt_param_scheduler.load_state_dict(state_dict['opt_param_scheduler'])
         except KeyError:
-            gd.debuginfo(prj="mt", info=f'Unable to load optimizer from checkpoint {}. '
+            gd.debuginfo(prj="mt", info=f'Unable to load optimizer from checkpoint {checkpoint_name}. '
                          'Specify --no-load-optim or --finetune to prevent '
                          'attempting to load the optimizer state, '
-                         'exiting ...'.format(checkpoint_name))
+                         'exiting ...')
             sys.exit()
     else:
         if (args.fp16 or args.bf16) and optimizer is not None:
@@ -621,17 +620,17 @@ def load_checkpoint(model, optimizer, opt_param_scheduler, load_arg='load', stri
                 tensor_parallel.get_cuda_rng_tracker().set_states(
                     state_dict['rng_tracker_states'])
         except KeyError:
-            gd.debuginfo(prj="mt", info=f'Unable to load rng state from checkpoint {}. '
-                         'Specify --no-load-rng or --finetune to prevent '
-                         'attempting to load the rng state, '
-                         'exiting ...'.format(checkpoint_name))
+            gd.debuginfo(prj="mt", info=f'Unable to load rng state from checkpoint {checkpoint_name}. '
+                         f'Specify --no-load-rng or --finetune to prevent '
+                         f'attempting to load the rng state, '
+                         f'exiting ...')
             sys.exit()
 
     # Some utilities want to load a checkpoint without distributed being initialized
     if torch.distributed.is_initialized():
         torch.distributed.barrier()
 
-    gd.debuginfo(prj="mt", info=ff'  successfully loaded checkpoint from {args.load} '
+    gd.debuginfo(prj="mt", info=f'  successfully loaded checkpoint from {args.load} '
                  f'at iteration {iteration}')
 
     return iteration
