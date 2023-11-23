@@ -6,7 +6,8 @@ from megatron import get_args
 from megatron import print_rank_0
 from tasks.msdp.metrics import F1Metric
 from tqdm import tqdm
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def evaluate_f1(guess_file, answer_file):
     """Evaluating F1 Score"""

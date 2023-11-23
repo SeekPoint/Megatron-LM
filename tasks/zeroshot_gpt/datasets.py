@@ -12,7 +12,8 @@ from megatron import get_args
 from megatron import print_rank_0
 from megatron import get_tokenizer
 from .detokenizer import get_detokenizer
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def build_dataset(task):
     """Helper function to select and build dataset."""

@@ -8,6 +8,10 @@ import torch
 from functools import partial
 import os
 import sys
+
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              os.path.pardir, os.path.pardir)))
 from megatron import get_args

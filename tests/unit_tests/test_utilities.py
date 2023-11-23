@@ -1,7 +1,8 @@
 import os
 import torch
 import megatron.core.parallel_state as ps
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class Utils:
 
     world_size = torch.cuda.device_count()

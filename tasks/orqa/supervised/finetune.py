@@ -19,7 +19,8 @@ from tasks.finetune_utils import finetune
 from tasks.orqa.supervised.eval_utils import accuracy_func_provider
 from tasks.orqa.supervised.eval_utils import process_batch, task_collate_fn
 from tasks.orqa.evaluate_utils import ORQAEvaluator
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # input_ is a 2D tensor
 def check_and_append_tensor_for_gather(group, rank, world_size, input_):
 

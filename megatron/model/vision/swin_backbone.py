@@ -14,7 +14,8 @@ from math import sqrt
 
 from megatron import get_args
 from functools import partial
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None,

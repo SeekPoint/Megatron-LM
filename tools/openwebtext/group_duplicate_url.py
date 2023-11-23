@@ -3,7 +3,8 @@
 import json
 import time
 import sys
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 if __name__ == '__main__':
 

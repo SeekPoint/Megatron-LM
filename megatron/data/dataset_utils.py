@@ -33,7 +33,8 @@ from megatron import (
 from megatron.core import mpu
 from megatron.data.blendable_dataset import BlendableDataset
 from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 DSET_TYPE_BERT = 'standard_bert'
 DSET_TYPE_ICT = 'ict'
 DSET_TYPE_T5  = 't5'

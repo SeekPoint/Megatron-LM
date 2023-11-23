@@ -3,7 +3,8 @@ import megatron.core.parallel_state as ps
 import pytest
 from tests.unit_tests.test_utilities import Utils
 import os 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 rank = Utils.rank
 world_size = Utils.world_size
 

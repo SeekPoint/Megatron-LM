@@ -12,7 +12,8 @@ from megatron.data.dataset_utils import (
     create_masked_lm_predictions,
     get_samples_mapping
 )
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class T5Dataset(torch.utils.data.Dataset):
 
     def __init__(self, name, indexed_dataset, data_prefix,

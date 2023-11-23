@@ -19,7 +19,8 @@ from megatron.data.dataset_utils import build_train_valid_test_datasets
 from megatron.model.biencoder_model import biencoder_model_provider
 from megatron.training import pretrain
 from megatron.utils import average_losses_across_data_parallel_group
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def pretrain_ict_model_provider(pre_process=True, post_process=True):
     args = get_args()

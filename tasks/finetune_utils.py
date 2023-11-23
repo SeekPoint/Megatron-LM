@@ -21,7 +21,8 @@ from megatron.utils import average_losses_across_data_parallel_group
 from megatron.utils import calc_params_l2_norm
 from megatron.utils import check_adlr_autoresume_termination
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def process_batch(batch):
     """Process batch and produce inputs for the model."""
     args = get_args()

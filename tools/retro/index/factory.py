@@ -2,6 +2,8 @@
 
 from .indexes import FaissBaseIndex, FaissParallelAddIndex
 
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class IndexFactory:
     '''Get index.

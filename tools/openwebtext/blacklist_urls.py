@@ -6,7 +6,8 @@ import re
 import time
 import tldextract
 import sys
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 # List of the domains to blacklist.
 domain_blacklist = set([

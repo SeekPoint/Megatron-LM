@@ -2,7 +2,8 @@ from megatron.core.tensor_parallel.cross_entropy import vocab_parallel_cross_ent
 import torch
 from tests.unit_tests.test_utilities import Utils
 import numpy as np
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def test_vocab_parallel_cross_entropy():
     Utils.initialize_model_parallel(4,2)
     vocab_parallel_logits = torch.range(0,7).repeat(16,4).cuda()

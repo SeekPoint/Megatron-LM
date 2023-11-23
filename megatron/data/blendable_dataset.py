@@ -11,7 +11,8 @@ import torch
 
 from megatron import print_rank_0
 from megatron.core import mpu
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class BlendableDataset(torch.utils.data.Dataset):
 
 

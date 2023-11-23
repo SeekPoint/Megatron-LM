@@ -9,7 +9,8 @@ import torch
 from megatron import get_args
 from megatron.core import mpu
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def detach(tensor):
     return tensor.detach().cpu().numpy()
 

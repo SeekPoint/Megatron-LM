@@ -6,7 +6,8 @@ import torch
 from typing import Optional
 
 from .utils import GlobalMemoryBuffer
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # Intra-layer model parallel group that the current rank belongs to.
 _TENSOR_MODEL_PARALLEL_GROUP = None
 # Inter-layer model parallel group that the current rank belongs to.

@@ -24,7 +24,8 @@ import logging
 import os
 import regex as re
 from io import open
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 try:
     from functools import lru_cache
 except ImportError:

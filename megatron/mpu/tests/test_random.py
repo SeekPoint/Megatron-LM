@@ -6,7 +6,8 @@ import mpu
 import torch
 import sys
 sys.path.append("../..")
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def test_set_cuda_rng_state(tensor_model_parallel_size):
 

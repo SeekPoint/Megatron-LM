@@ -9,7 +9,8 @@ from megatron.core.parallel_state import (
 )
 
 from .utils import VocabUtility
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class _VocabParallelCrossEntropy(torch.autograd.Function):
 

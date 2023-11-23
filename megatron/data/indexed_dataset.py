@@ -19,7 +19,8 @@ from itertools import accumulate
 import numpy as np
 import torch
 from megatron import print_rank_0
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def __best_fitting_dtype(vocab_size=None):
     if vocab_size is not None and vocab_size < 65500:

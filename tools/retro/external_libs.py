@@ -1,7 +1,8 @@
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 
 import importlib
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 required_libs = [
     "faiss",
     "h5py",

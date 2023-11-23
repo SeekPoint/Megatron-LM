@@ -8,7 +8,8 @@ import torch
 
 from megatron import get_tokenizer, get_args
 from .communication import broadcast_int_list, broadcast_tensor
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def detokenize_generations(tokens_gpu_tensor,
                            lengths_gpu_tensor,

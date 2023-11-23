@@ -14,7 +14,8 @@ from megatron.core import mpu, tensor_parallel
 from .global_vars import get_args
 from .utils import (unwrap_model,
                     print_rank_0)
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 _CHECKPOINT_VERSION = None
 

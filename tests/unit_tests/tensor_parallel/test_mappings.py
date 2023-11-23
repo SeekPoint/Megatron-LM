@@ -1,7 +1,8 @@
 from megatron.core.tensor_parallel import mappings
 from tests.unit_tests.test_utilities import Utils
 import torch
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def test_CopyToModelParallelRegion():
     Utils.initialize_model_parallel(4,2)
     input_data = torch.ones((1)).cuda()*Utils.rank

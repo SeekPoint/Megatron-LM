@@ -9,7 +9,8 @@ import functools
 import operator
 import sys
 sys.path.append("../..")
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def test_broadcast_data(tensor_model_parallel_size):
 

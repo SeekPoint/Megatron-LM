@@ -5,7 +5,8 @@ from typing import List, Sequence
 
 from megatron.core.utils import divide
 from megatron.core import parallel_state
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def split_tensor_along_last_dim(
     tensor: torch.Tensor,
     num_partitions: int,

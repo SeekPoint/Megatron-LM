@@ -7,7 +7,8 @@ import numpy
 import torch
 
 import mpu
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class IdentityLayer(torch.nn.Module):
     def __init__(self, size, scale=1.0):

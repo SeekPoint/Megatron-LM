@@ -5,7 +5,8 @@
 from abc import ABC
 from abc import abstractmethod
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def build_num_microbatches_calculator(args):
 
     # Constant num micro-batches.

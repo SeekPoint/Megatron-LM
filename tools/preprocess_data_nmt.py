@@ -13,7 +13,8 @@ import time
 import torch
 from megatron.tokenizer import build_tokenizer
 from megatron.data import indexed_dataset
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class Encoder(object):
     def __init__(self, args):

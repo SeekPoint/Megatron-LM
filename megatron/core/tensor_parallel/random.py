@@ -23,7 +23,8 @@ from .utils import (
 )
 
 from megatron.core.utils import safely_set_viewless_tensor_data
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # Default name for the model parallel rng tracker.
 _MODEL_PARALLEL_RNG_TRACKER_NAME = 'model-parallel-rng'
 

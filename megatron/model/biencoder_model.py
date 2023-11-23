@@ -14,7 +14,8 @@ from megatron.model.utils import get_linear_layer
 from megatron.model.utils import init_method_normal
 from megatron.model.utils import scaled_init_method_normal
 from .module import MegatronModule
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def get_model_provider(only_query_model=False, only_context_model=False,
         biencoder_shared_query_context_model=False):
 

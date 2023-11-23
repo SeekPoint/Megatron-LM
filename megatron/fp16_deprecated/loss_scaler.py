@@ -1,7 +1,8 @@
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
 """For backward compatibility, we need the class definitions to deserialize."""
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class LossScaler:
     def __init__(self, scale=1):
         self.cur_scale = scale

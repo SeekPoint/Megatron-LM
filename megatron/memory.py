@@ -3,7 +3,8 @@
 
 import torch
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # A dictionary of all the memory buffers allocated.
 _MEM_BUFFS = dict()
 

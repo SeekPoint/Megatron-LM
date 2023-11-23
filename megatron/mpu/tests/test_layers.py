@@ -11,7 +11,8 @@ import torch
 import random
 import sys
 sys.path.append("../..")
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def test_parallel_embedding(tensor_model_parallel_size):
 

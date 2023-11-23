@@ -12,7 +12,8 @@ from megatron.model.utils import init_method_normal
 from megatron.model.language_model import get_language_model
 from megatron.model.utils import scaled_init_method_normal
 from megatron.model.bert_model import bert_extended_attention_mask, bert_position_ids
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def general_ict_model_provider(only_query_model=False, only_block_model=False):
     """Build the model."""

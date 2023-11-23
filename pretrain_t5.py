@@ -17,7 +17,8 @@ from megatron.data.dataset_utils import build_train_valid_test_datasets
 from megatron.model import T5Model
 from megatron.training import pretrain
 from megatron.utils import average_losses_across_data_parallel_group
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 """
 Pipeline parallelism for T5

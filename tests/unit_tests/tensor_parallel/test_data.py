@@ -1,7 +1,8 @@
 from megatron.core.tensor_parallel.data import broadcast_data
 import torch
 from tests.unit_tests.test_utilities import Utils
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def test_broadcast_data():
     Utils.initialize_model_parallel(2,4)
     input_data = {

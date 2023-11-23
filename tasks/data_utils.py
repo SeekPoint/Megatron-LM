@@ -5,6 +5,8 @@
 import re
 import numpy as np
 
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def clean_text(text):
     """Remove new lines and multiple spaces and adjust end of sentence dot."""

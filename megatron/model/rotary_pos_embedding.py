@@ -8,7 +8,8 @@ import importlib.util
 import torch
 
 from torch import einsum, nn
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 __all__ = ['RotaryEmbedding', 'apply_rotary_pos_emb']
 
 class RotaryEmbedding(nn.Module):

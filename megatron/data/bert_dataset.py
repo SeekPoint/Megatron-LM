@@ -18,7 +18,8 @@ from megatron.data.dataset_utils import (
     create_tokens_and_tokentypes,
     create_masked_lm_predictions
 )
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class BertDataset(torch.utils.data.Dataset):
 
     def __init__(self, name, indexed_dataset, data_prefix,

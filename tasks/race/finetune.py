@@ -10,7 +10,8 @@ from tasks.eval_utils import accuracy_func_provider
 from tasks.finetune_utils import finetune
 from tasks.race.data import RaceDataset
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def train_valid_datasets_provider():
     """Provide train and validation datasets."""
     args = get_args()

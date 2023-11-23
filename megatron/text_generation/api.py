@@ -14,7 +14,8 @@ from .generation import (
 from .tokenization import (
     tokenize_prompts,
     detokenize_generations)
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def generate_and_post_process(model,
                               prompts=None,
                               tokens_to_generate=0,

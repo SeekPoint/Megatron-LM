@@ -12,7 +12,8 @@ from tasks.vision.classification.eval_utils import accuracy_func_provider
 from tasks.vision.finetune_utils import finetune
 from megatron.utils import average_losses_across_data_parallel_group
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def classification():
     def train_valid_datasets_provider():
         """Build train and validation dataset."""

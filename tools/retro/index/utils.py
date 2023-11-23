@@ -13,7 +13,8 @@ from tqdm import tqdm
 from megatron import get_retro_args, print_rank_0
 from tools.retro.db.utils import get_indexed_dataset_infos
 from tools.retro.external_libs import h5py
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def get_index_dir():
     """Create sub-directory for this index."""

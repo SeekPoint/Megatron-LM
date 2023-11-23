@@ -4,7 +4,8 @@ import hashlib
 import os
 
 from megatron import get_retro_args
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def get_query_workdir():
     args = get_retro_args()

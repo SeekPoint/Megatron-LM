@@ -15,7 +15,8 @@ from megatron.schedules import get_forward_backward_func
 from tasks.finetune_utils import build_data_loader
 from tasks.finetune_utils import process_batch
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def accuracy_func_provider(single_dataset_provider):
     """Provide function that calculates accuracies."""
     args = get_args()

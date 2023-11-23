@@ -5,7 +5,9 @@ from pytest_mock import mocker
 import pytest
 
 rank = Utils.rank
- 
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
+
 def test_get_forward_backward_func():
     Utils.initialize_model_parallel(tensor_model_parallel_size=2, pipeline_model_parallel_size=1)
     assert(schedule.get_forward_backward_func() == schedule.forward_backward_no_pipelining)

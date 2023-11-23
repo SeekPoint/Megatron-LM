@@ -16,7 +16,8 @@ from megatron.data.dataset_utils import build_train_valid_test_datasets
 from megatron.model import BertModel
 from megatron.training import pretrain
 from megatron.utils import average_losses_across_data_parallel_group
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""

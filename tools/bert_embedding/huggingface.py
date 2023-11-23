@@ -5,7 +5,8 @@ import torch
 from tqdm import tqdm
 
 from .external_libs import transformers
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class IterableTextDataset(torch.utils.data.IterableDataset):
     '''Iterable over a text dataset.'''

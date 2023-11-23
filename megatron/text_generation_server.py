@@ -13,7 +13,8 @@ from megatron.text_generation import beam_search_and_post_process
 GENERATE_NUM = 0
 BEAM_NUM = 1
 lock = threading.Lock()
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class MegatronGenerate(Resource):
     def __init__(self, model):
         self.model = model

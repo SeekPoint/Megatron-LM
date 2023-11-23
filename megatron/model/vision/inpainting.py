@@ -15,7 +15,8 @@ from megatron.model.module import MegatronModule
 from megatron.model.vision.mit_backbone import mit_b3
 from megatron.model.vision.utils import resize_
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class VitInpaintingModel(MegatronModule):
 
     def __init__(self, pre_process=True, post_process=True):

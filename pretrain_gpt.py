@@ -15,6 +15,8 @@ from megatron.model import GPTModel
 from megatron.training import pretrain
 from megatron.utils import get_ltor_masks_and_position_ids
 from megatron.utils import average_losses_across_data_parallel_group
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 # 2.2.1 获取模型
 # model_provider 函数返回的是已经被 Megatron 改造为并行的版本。

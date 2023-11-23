@@ -9,7 +9,8 @@ import numpy as np
 from torch.utils.data import Dataset
 from megatron import get_args
 from megatron.core import mpu
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def build_pretraining_data_loader(dataset, consumed_samples):
     """Buld dataloader given an input dataset."""

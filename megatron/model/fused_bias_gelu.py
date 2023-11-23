@@ -1,7 +1,8 @@
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
 import torch
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 ###### BIAS GELU FUSION/ NO AUTOGRAD ################
 # 1/sqrt(2*pi)-> 0.3989423

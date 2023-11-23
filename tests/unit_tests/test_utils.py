@@ -2,7 +2,8 @@ import pytest
 import torch
 import megatron.core.utils as util
 import numpy as np
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def test_divide_properly():
     assert util.divide(4,2) == 2
 

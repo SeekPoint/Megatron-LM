@@ -15,7 +15,8 @@ from megatron.model.module import param_is_not_shared
 
 from .optimizer import MixedPrecisionOptimizer, _zero_grad_group_helper
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class Range:
     """
     A range represents a start and end points for indexing a shard

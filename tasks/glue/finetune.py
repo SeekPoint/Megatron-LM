@@ -8,7 +8,8 @@ from megatron import get_tokenizer
 from megatron.model.classification import Classification
 from tasks.eval_utils import accuracy_func_provider
 from tasks.finetune_utils import finetune
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def glue_classification(num_classes, Dataset,
                         name_from_datapath_func):

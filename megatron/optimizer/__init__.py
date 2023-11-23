@@ -9,6 +9,8 @@ from .distrib_optimizer import DistributedOptimizer
 from .grad_scaler import ConstantGradScaler, DynamicGradScaler
 from .optimizer import Float16OptimizerWithFloat16Params, FP32Optimizer
 
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def get_param_groups(modules,
                      no_weight_decay_cond,

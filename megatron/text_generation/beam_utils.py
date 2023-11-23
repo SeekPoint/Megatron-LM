@@ -16,6 +16,10 @@
 
 
 ## from huggingface beam search
+
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
+
 class BeamHypotheses(object):
     def __init__(self, num_beams, length_penalty=1.0, early_stopping=False):
         """

@@ -9,7 +9,8 @@ LOGS_DIR = os.getenv('LOGS_DIR')
 EXPECTED_METRICS_FILE = os.getenv('EXPECTED_METRICS_FILE')
 
 import enum
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class TypeOfTest(enum.Enum):
     APPROX = 1
     DETERMINISTIC = 2

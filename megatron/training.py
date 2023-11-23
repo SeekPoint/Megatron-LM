@@ -10,7 +10,8 @@ import time
 _TRAIN_START_TIME = time.time()
 import torch
 from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 from megatron import get_args
 from megatron import get_signal_handler
 from megatron import get_timers

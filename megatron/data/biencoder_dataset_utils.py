@@ -9,7 +9,8 @@ from megatron.core import mpu, tensor_parallel
 from megatron.data.dataset_utils import create_masked_lm_predictions, \
                                             pad_and_convert_to_numpy
 from megatron.data.data_samplers import MegatronPretrainingSampler
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def make_attention_mask(source_block, target_block):
     """
     Returns a 2-dimensional (2-D) attention mask

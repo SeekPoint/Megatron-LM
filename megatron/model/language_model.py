@@ -16,7 +16,8 @@ from .transformer import ParallelTransformer
 from .utils import get_linear_layer
 from .utils import init_method_normal, scaled_init_method_normal
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def parallel_lm_logits(input_, word_embeddings_weight, parallel_output,
                        bias=None):
     """LM logits using word embedding weights."""

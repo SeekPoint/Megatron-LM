@@ -19,7 +19,8 @@ from megatron.model.module import param_is_not_shared
 from megatron.utils import unwrap_model
 
 from .clip_grads import clip_grad_norm_fp32, count_zeros_fp32
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def _zero_grad_group_helper(group, set_to_none):
     """Zero out the gradient for a group of parameters.

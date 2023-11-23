@@ -11,7 +11,8 @@ from megatron import print_rank_0
 from megatron.core import parallel_state
 
 from .external_libs import h5py
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def save_data(data_map, *args):
     '''Save map of numpy arrays to hdf5 file.'''

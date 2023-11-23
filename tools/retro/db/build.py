@@ -33,7 +33,8 @@ from .utils import (
     get_merged_db_path_map,
     save_indexed_dataset_infos,
 )
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def init_indexed_dataset_infos():
     '''Gather meta-info about each indexed dataset.

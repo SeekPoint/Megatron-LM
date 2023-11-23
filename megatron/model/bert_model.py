@@ -15,7 +15,8 @@ from megatron.model.utils import get_linear_layer
 from megatron.model.utils import init_method_normal
 from megatron.model.utils import scaled_init_method_normal
 from .module import MegatronModule
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def bert_extended_attention_mask(attention_mask):
     # We create a 3D attention mask from a 2D tensor mask.

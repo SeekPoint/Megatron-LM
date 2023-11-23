@@ -5,7 +5,8 @@
 from megatron import get_args, print_rank_0
 from megatron.indexer import IndexBuilder
 from tasks.orqa.evaluate_utils import ORQAEvaluator
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def main():
     """
     Main program

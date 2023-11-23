@@ -18,7 +18,8 @@ from tools.retro.db import build_db
 from tools.retro.index import add_to_index, build_index, train_index
 from tools.retro.query import query_pretraining_neighbors
 from tools.retro.utils import get_args_path
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def add_retro_args(parser):
     """Retro preprocesing arguments.

@@ -10,7 +10,8 @@ from collections import Counter
 from typing import List
 import numpy as np
 import re
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 re_art = re.compile(r'\b(a|an|the)\b')
 re_punc = re.compile(r'[!"#$%&()*+,-./:;<=>?@\[\]\\^`{|}~_\']')
 

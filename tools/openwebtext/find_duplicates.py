@@ -11,7 +11,8 @@ import time
 import pickle
 import sys
 import os
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # This function is adapted from:
 #   https://github.com/mattilyra/LSH/blob/master/examples/Introduction.ipynb
 def shingles(text, char_ngram=5):

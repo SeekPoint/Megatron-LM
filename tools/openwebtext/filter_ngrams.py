@@ -16,7 +16,8 @@ import re
 import string
 import sys
 import time
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def get_words(text):
     # get all the lowercase words from text
     words, positions = [], []

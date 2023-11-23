@@ -19,6 +19,8 @@ import os
 from pathlib import Path
 import re
 import time
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def process_doc(json_line, args):
 

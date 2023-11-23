@@ -11,7 +11,8 @@ import types
 from megatron.global_vars import set_retro_args, get_retro_args
 from tools.retro.utils import get_args_path as get_retro_args_path
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description='Megatron-LM Arguments',

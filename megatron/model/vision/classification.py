@@ -9,7 +9,8 @@ from megatron.model.utils import get_linear_layer
 from megatron.model.vision.vit_backbone import VitBackbone, VitMlpHead
 from megatron.model.vision.mit_backbone import mit_b3_avg
 from megatron.model.module import MegatronModule
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class VitClassificationModel(MegatronModule):
     """Vision Transformer Model."""
 

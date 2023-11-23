@@ -5,7 +5,8 @@ import os
 import sys
 
 import torch
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def add_arguments(parser):
     group = parser.add_argument_group(title='Megatron saver')
 

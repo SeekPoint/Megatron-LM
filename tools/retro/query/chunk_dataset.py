@@ -14,7 +14,8 @@ from tools.retro.db.utils import get_indexed_dataset_infos
 from tools.retro.utils import get_num_chunks_per_sample
 
 from .utils import get_neighbor_dirname, get_query_workdir
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class ChunkDataset(torch.utils.data.Dataset):
     '''Pretraining chunk dataset wraps a standard GPT dataset.

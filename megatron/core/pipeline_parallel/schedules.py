@@ -11,7 +11,8 @@ from megatron.core import parallel_state
 from megatron.core.pipeline_parallel import p2p_communication
 from megatron.core.enums import ModelType
 from megatron.core.utils import get_attr_wrapped_model, get_model_type
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # Types
 Shape = Union[List[int], torch.Size]
 

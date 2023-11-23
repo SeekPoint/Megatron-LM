@@ -5,7 +5,8 @@ import torch
 
 from megatron import get_args, get_tokenizer
 from megatron.data.bert_dataset import build_training_sample
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class BertEmbeddingDataset(torch.utils.data.Dataset):
     '''Dataset to convert a text dataset to Bert tokens.'''

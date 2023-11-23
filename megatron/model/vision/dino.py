@@ -18,7 +18,8 @@ from megatron.model.vision.vit_backbone import VitBackbone
 from megatron.model.module import MegatronModule
 from megatron.model.vision.mit_backbone import mit_b5_avg
 from megatron.model.vision.esvit_swin_backbone import get_swin
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class DINOLoss(torch.nn.Module):
     def __init__(self, out_dim, ncrops, warmup_teacher_temp, teacher_temp,

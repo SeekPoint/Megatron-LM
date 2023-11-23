@@ -13,7 +13,8 @@ from megatron.core.parallel_state import (
     get_pipeline_model_parallel_prev_rank,
     get_pipeline_model_parallel_next_rank,
 )
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # Types
 Shape = Union[List[int], torch.Size]
 

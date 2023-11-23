@@ -21,7 +21,8 @@ from pretrain_gpt import (
     model_provider,
     train_valid_test_datasets_provider as standard_datasets_provider,
 )
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def get_batch(data_iterator):
     """Generate a batch"""

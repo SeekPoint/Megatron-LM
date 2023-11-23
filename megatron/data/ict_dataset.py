@@ -8,7 +8,8 @@ from megatron import get_tokenizer
 from megatron import get_args
 from megatron.data.dataset_utils import get_indexed_dataset_
 from megatron.data.realm_dataset_utils import get_block_samples_mapping
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def make_attention_mask(source_block, target_block):
     """
     Returns a 2-dimensional (2-D) attention mask

@@ -14,6 +14,9 @@ import glob
 import torch
 import numpy as np
 import multiprocessing
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
+
 try:
     import nltk
     nltk_available = True    #屏蔽download

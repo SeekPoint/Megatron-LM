@@ -20,7 +20,8 @@ from megatron import get_args
 from megatron.model import LayerNorm
 import numpy as np
 from math import sqrt
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None,

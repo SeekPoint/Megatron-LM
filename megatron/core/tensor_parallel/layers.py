@@ -7,7 +7,8 @@ import math
 import os
 from typing import Optional
 import warnings
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 import torch
 import torch.nn.functional as F
 import torch.nn.init as init

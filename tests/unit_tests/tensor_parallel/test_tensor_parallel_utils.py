@@ -4,7 +4,8 @@ import megatron.core.parallel_state as ps
 from tests.unit_tests.test_utilities import Utils
 
 rank = Utils.rank
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def test_split_tensor_along_last_dim():
     input_tensor = torch.rand((3,4))
     torch.equal(input_tensor[0:2,0:2], util.split_tensor_along_last_dim(input_tensor,2)[0])

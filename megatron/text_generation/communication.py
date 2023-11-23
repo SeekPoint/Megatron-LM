@@ -7,7 +7,8 @@ import torch
 
 from megatron.core import mpu
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 # TODO: use functions from megatron/p2p
 def recv_from_prev_pipeline_rank_(recv_buffer=None):

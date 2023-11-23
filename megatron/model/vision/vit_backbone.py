@@ -15,7 +15,8 @@ from megatron.model.utils import (
     scaled_init_method_normal,
 )
 from megatron.model.module import MegatronModule
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 CLASS_TOKEN_LENGTH = 8
 
 class VitMlpHead(MegatronModule):

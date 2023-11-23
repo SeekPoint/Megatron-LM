@@ -9,7 +9,8 @@ from megatron.core import mpu, tensor_parallel
 from megatron.data.dataset_utils import create_masked_lm_predictions, pad_and_convert_to_numpy
 from megatron import get_args, get_tokenizer, print_rank_0
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def get_one_epoch_dataloader(dataset, micro_batch_size=None):
     """Specifically one epoch to be used in an indexing job."""
     args = get_args()

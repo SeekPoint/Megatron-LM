@@ -7,7 +7,8 @@ from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 
 import argparse
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='Process some integers.')

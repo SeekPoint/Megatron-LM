@@ -8,7 +8,8 @@ from megatron.model.fused_layer_norm import MixedFusedLayerNorm
 from megatron.model.fused_softmax import FusedScaleMaskSoftmax
 from megatron.model.utils import attention_mask_func
 from megatron.fused_kernels import load
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def test_load_fused_kernels():
     try:
         import fused_layer_norm_cuda

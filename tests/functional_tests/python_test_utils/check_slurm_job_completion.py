@@ -6,7 +6,8 @@
 import sys
 import subprocess
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 cmd = f"sacct -j {sys.argv[1]}"
 result = subprocess.check_output(cmd, shell=True).decode().split()
 assert len(result) > 14, "JOB state not available."

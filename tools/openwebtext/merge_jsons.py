@@ -5,7 +5,8 @@ import glob
 import sys
 import json
 import argparse
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()

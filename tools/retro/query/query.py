@@ -18,7 +18,8 @@ from tools.retro.index.utils import get_index_dir
 from tools.retro.utils import GPTToTextDataset
 
 from .chunk_dataset import get_chunk_dataset_map as get_query_dataset_map
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def get_index(ondisk=False):
     '''Read index from disk.'''

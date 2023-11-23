@@ -5,7 +5,8 @@
 from megatron import print_rank_0
 from tasks.data_utils import clean_text
 from .data import GLUEAbstractDataset
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 LABELS = [0, 1]
 

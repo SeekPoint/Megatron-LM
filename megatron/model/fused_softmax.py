@@ -4,7 +4,8 @@
 import torch
 import torch.nn as nn
 from megatron.model.enums import AttnMaskType
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class ScaledUpperTriangMaskedSoftmax(torch.autograd.Function):
     """

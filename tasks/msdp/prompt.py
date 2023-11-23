@@ -15,7 +15,8 @@ from megatron.training import get_model
 from megatron.checkpointing import load_checkpoint
 from megatron.initialize import initialize_megatron
 from megatron.text_generation import generate_and_post_process
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def call_model_api(inputs, tokens_to_generate):
     """Calling the model api to get the output generations"""

@@ -2,7 +2,8 @@ import sys
 import time
 import torch
 import torch.distributed as dist
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 from megatron import get_args, print_rank_0
 from megatron.core import mpu
 from megatron.checkpointing import load_biencoder_checkpoint

@@ -5,7 +5,8 @@ import shutil
 import glob
 from tensorboard.backend.event_processing import event_accumulator
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def read_tb_logs_as_list(path, summary_name):
     """Reads a TensorBoard Events file from the input path, and returns the
     summary specified as input as a list.

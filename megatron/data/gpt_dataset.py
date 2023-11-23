@@ -15,7 +15,8 @@ from megatron.data.blendable_dataset import BlendableDataset
 from megatron.data.dataset_utils import get_datasets_weights_and_num_samples
 from megatron.data.dataset_utils import get_train_valid_test_split_
 from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                     train_valid_test_num_samples,

@@ -3,7 +3,8 @@ import importlib
 import torch.multiprocessing as mp
 import os
 import sys
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # A loader is a python file with at least two functions
 # - add_arguments - takes in a parser and adds any arguments needed
 # - load_checkpoint - takes in the queue and parsed arguments

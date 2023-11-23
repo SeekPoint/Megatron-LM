@@ -10,7 +10,8 @@ import amp_C
 
 from megatron.model.module import param_is_not_shared
 from megatron.core.tensor_parallel import param_is_not_tensor_parallel_duplicate
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 # 这里是裁剪梯度会用到，就是在本模型的全部rank之中进行梯度裁剪相关操作。
 def clip_grad_norm_fp32(parameters, grads_for_norm,

@@ -3,7 +3,8 @@
 """Detokenization."""
 
 import re
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def ptb_detokenizer(string):
     string = string.replace(" '", "'")

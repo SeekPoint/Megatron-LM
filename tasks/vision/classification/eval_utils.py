@@ -15,7 +15,8 @@ from tasks.vision.finetune_utils import build_data_loader
 from tasks.vision.finetune_utils import process_batch
 from torchvision import datasets, transforms
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def accuracy_func_provider():
     """Provide function that calculates accuracies."""
     args = get_args()

@@ -3,6 +3,8 @@ import sys
 import json
 import requests
 
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 if __name__ == "__main__":
     url = sys.argv[1]

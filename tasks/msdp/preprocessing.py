@@ -8,7 +8,8 @@ from nltk import word_tokenize
 from tqdm import tqdm
 import numpy as np
 import json
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def get_args():
     parser = argparse.ArgumentParser(description="Preprocessing")
 

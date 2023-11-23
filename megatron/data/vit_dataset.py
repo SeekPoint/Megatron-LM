@@ -10,7 +10,8 @@ from megatron.data.image_folder import ImageFolder
 from megatron.data.autoaugment import ImageNetPolicy
 from megatron.data.data_samplers import RandomSeedDataset
 from PIL import Image, ImageFilter, ImageOps
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class GaussianBlur(object):
     """

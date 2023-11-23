@@ -13,6 +13,8 @@ from tools.retro.external_libs import h5py
 
 from .dataset import DBDataset
 
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def get_base_db_workdir():
     '''Sub-directory for DB data.'''

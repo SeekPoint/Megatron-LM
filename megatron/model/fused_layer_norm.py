@@ -11,7 +11,8 @@ from torch.nn import init
 import importlib
 
 from megatron.core.utils import make_viewless_tensor
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 try:
     from apex.contrib.layer_norm.layer_norm import FastLayerNormFN
     HAVE_PERSIST_LAYER_NORM = True

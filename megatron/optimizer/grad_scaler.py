@@ -6,7 +6,8 @@ from abc import ABC
 from abc import abstractmethod
 
 import torch
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class MegatronGradScaler(ABC):
 

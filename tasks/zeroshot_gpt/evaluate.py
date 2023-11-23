@@ -23,7 +23,8 @@ from .datasets import build_dataset
 from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 from megatron.model import DistributedDataParallel as LocalDDP
 from megatron.model import Float16Module
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def get_model_provider(eval_metric):
     """Based on evaluation metric set the parallel-output flag and
     return the model provider."""

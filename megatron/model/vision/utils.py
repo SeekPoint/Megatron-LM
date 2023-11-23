@@ -1,7 +1,8 @@
 import warnings
 import torch
 import torch.nn.functional as F
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def resize(input,
            size=None,

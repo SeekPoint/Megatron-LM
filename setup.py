@@ -5,6 +5,8 @@ from setuptools import setup, find_packages
 import importlib.util
 import os
 import setuptools
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 spec = importlib.util.spec_from_file_location('package_info', 'megatron/core/package_info.py')
 package_info = importlib.util.module_from_spec(spec)

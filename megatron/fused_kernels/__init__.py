@@ -12,7 +12,8 @@ from torch.utils import cpp_extension
 # to avoid recompilation and assign arch flags explicity in
 # extra_cuda_cflags below
 os.environ["TORCH_CUDA_ARCH_LIST"] = ""
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def load(args):
 

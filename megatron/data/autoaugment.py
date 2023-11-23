@@ -42,7 +42,8 @@ import numpy as np
 from PIL import Image
 from PIL import ImageEnhance
 from PIL import ImageOps
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 _MAX_LEVEL = 10  # Maximum integer strength of an augmentation, if applicable.
 
 

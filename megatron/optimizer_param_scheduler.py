@@ -5,7 +5,8 @@
 import math
 
 from megatron import print_rank_0
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class OptimizerParamScheduler(object):
     """Anneals learning rate and weight decay"""
 

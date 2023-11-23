@@ -22,7 +22,8 @@ from tools.retro.external_libs import faiss, h5py
 from tools.retro.index.utils import get_added_codes_dir, get_added_code_paths
 
 from .faiss_base import FaissBaseIndex
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class FaissParallelAddIndex(FaissBaseIndex):
 

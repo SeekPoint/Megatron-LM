@@ -5,6 +5,8 @@ import collections
 import numpy as np
 import torch
 
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def process_files(args):
     all_predictions = collections.OrderedDict()

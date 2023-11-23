@@ -6,7 +6,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              os.path.pardir)))
 
 from megatron.data import indexed_dataset
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def main(args):
 

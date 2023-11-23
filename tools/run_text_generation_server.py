@@ -17,7 +17,8 @@ from megatron.text_generation_server import MegatronServer
 from megatron.text_generation import generate_and_post_process
 from megatron.text_generation import beam_search_and_post_process
 import torch
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
 

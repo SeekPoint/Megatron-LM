@@ -7,7 +7,8 @@ from megatron.core.parallel_state import (
     get_tensor_model_parallel_rank,
     get_tensor_model_parallel_src_rank,
 )
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 _MAX_DATA_DIM = 5
 

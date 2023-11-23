@@ -7,7 +7,8 @@ from megatron.data.image_folder import ImageFolder
 
 _FEATURE_BANK = None
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def build_data_loader(dataset, drop_last=True, shuffle=False):
     """Data loader. Note that batch-size is the local (per GPU) batch-size."""
     # Sampler.

@@ -17,7 +17,8 @@ import logging
 
 import regex
 import spacy
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 logger = logging.getLogger(__name__)
 
 

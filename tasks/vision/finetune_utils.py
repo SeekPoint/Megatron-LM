@@ -21,7 +21,8 @@ from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 from megatron.model import DistributedDataParallel as LocalDDP
 from megatron.model import Float16Module
 from megatron.core.enums import ModelType
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def process_batch(batch):
     """Process batch and produce inputs for the model."""
     images = batch[0].cuda().contiguous()

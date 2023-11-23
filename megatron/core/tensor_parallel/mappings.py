@@ -8,7 +8,8 @@ from megatron.core.parallel_state import (
     get_tensor_model_parallel_group,
 )
 from .utils import split_tensor_along_last_dim
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # 在 megatron/mpu/mappings.py 之中有对 tensor_model_group 的使用：
 #reduce函数利用 _TENSOR_MODEL_PARALLEL_GROUP 进行在组内进行集合通信。
 

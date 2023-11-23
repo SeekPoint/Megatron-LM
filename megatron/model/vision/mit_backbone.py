@@ -14,7 +14,8 @@ from torch.nn.init import trunc_normal_
 from megatron.model.transformer import DropPath
 from megatron.model import LayerNorm
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class Mlp(nn.Module):
     def __init__(self,
                  in_features,

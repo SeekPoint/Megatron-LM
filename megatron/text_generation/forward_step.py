@@ -12,7 +12,8 @@ from .communication import (
     send_to_next_pipeline_rank,
     recv_from_prev_pipeline_rank_)
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class InferenceParams:
     """Inference parameters that are passed to the main model in order

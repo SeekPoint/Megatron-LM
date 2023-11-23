@@ -11,6 +11,8 @@ from megatron.tokenizer.tokenizer import (
     _GPTSentencePieceTokenizer,
 )
 
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def get_args_path(workdir):
     '''Argument copy stored within retro workdir.'''

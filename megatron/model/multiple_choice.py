@@ -13,7 +13,8 @@ from megatron.model.utils import init_method_normal
 from megatron.model.utils import scaled_init_method_normal
 from .module import MegatronModule
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class MultipleChoice(MegatronModule):
 
     def __init__(self,

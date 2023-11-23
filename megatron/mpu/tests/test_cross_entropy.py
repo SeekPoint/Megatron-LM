@@ -12,7 +12,8 @@ import random
 import sys
 sys.path.append("../..")
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def torch_cross_entropy(batch_size, seq_length, vocab_size,
                         logits_scale, seed):
     set_random_seed(seed)

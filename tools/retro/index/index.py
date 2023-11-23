@@ -10,6 +10,8 @@ from tools.retro.external_libs import faiss
 
 from .utils import get_index_dir
 
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class Index(abc.ABC):
 

@@ -2,7 +2,9 @@ import os
 import os.path as osp
 import pathlib
 import subprocess
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
+gd.debuginfo(prj="mt")
 
 def recursively_lint_files():
     """Recursively lint all python files in chosen subdirectories of megatron-lm"""

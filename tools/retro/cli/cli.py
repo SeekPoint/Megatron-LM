@@ -5,6 +5,8 @@ import numpy as np
 import os
 import torch
 import types
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 from megatron.global_vars import set_global_variables, set_retro_args
 from megatron.initialize import (

@@ -21,7 +21,8 @@ from tools.retro.index.utils import (
     get_training_data_merged_path,
     num_samples_to_block_ranges,
 )
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class FaissBaseIndex(Index):
 

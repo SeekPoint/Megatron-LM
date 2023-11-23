@@ -20,7 +20,8 @@ from megatron.checkpointing import load_args_from_checkpoint
 from megatron.global_vars import set_global_variables
 from megatron.model.transformer import bias_dropout_add_fused_train
 from megatron.model.fused_bias_gelu import bias_gelu
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # 4.1 初始化
 # initialize_megatron方法会设置全局变量，初始化分布式环境。
 def initialize_megatron(extra_args_provider=None, args_defaults={},

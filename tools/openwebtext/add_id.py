@@ -4,6 +4,8 @@ import argparse
 import json
 import os
 import time
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 """
 This code adds id to each json object in a json file. User can add prefix

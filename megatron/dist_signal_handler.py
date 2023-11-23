@@ -2,7 +2,8 @@ import signal
 
 import torch
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def get_world_size():
     if torch.distributed.is_available() and torch.distributed.is_initialized():
         world_size = torch.distributed.get_world_size()

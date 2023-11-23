@@ -5,6 +5,8 @@ import os
 import shutil
 import torch
 from tqdm import tqdm
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 from megatron import get_retro_args, print_rank_0
 from tools.bert_embedding import DiskDataParallelBertEmbedder

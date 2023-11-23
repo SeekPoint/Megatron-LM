@@ -4,7 +4,8 @@
 
 import os
 import sys
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 sys.path.append(
     os.path.abspath(
         os.path.join(

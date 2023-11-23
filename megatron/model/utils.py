@@ -7,7 +7,8 @@ import math
 import torch
 
 from megatron import get_args
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def init_method_normal(sigma):
     """Init method based on N(0, sigma)."""
     def init_(tensor):

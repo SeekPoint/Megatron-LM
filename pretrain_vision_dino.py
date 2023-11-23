@@ -16,7 +16,8 @@ from megatron.utils import average_losses_across_data_parallel_group, unwrap_mod
 from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 from megatron.model import DistributedDataParallel as LocalDDP
 from megatron.model import Float16Module
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
     return DINOPretrainModel(pre_process=pre_process, post_process=post_process)

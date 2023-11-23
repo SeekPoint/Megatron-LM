@@ -13,6 +13,8 @@ from megatron.model.vision.inpainting import MitInpaintingModel
 from megatron.training import pretrain
 from megatron.utils import average_losses_across_data_parallel_group
 from tasks.vision.metrics import SSIM, PSNR
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""

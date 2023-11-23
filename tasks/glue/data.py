@@ -10,7 +10,8 @@ from torch.utils.data import Dataset
 from megatron import print_rank_0
 from tasks.data_utils import build_sample
 from tasks.data_utils import build_tokens_types_paddings_from_text
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 class GLUEAbstractDataset(ABC, Dataset):
     """GLUE base dataset class."""

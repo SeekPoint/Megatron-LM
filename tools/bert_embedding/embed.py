@@ -20,7 +20,8 @@ from .dataset import BertEmbeddingDataset
 from .external_libs import h5py
 from .huggingface import HuggingfaceEmbedder
 from .utils import get_missing_blocks_by_rank
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""

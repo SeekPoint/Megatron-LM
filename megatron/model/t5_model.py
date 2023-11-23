@@ -16,7 +16,8 @@ from megatron.model.utils import (
     scaled_init_method_normal
 )
 from .module import MegatronModule
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def t5_extended_attention_mask(attention_mask_list):
 

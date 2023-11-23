@@ -6,7 +6,8 @@ import glob
 from tensorboard.backend.event_processing import event_accumulator
 
 LOGS_DIR = os.getenv('LOGS_DIR')
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def read_tb_logs_as_list(path, summary_name, index):
     files = glob.glob(f"{path}/events*tfevents*")
     files += glob.glob(f"{path}/results/events*tfevents*")

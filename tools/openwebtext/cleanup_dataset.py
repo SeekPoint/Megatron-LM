@@ -10,7 +10,8 @@ import os
 import sys
 
 from tokenizer import Tokenizer
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 MIN_DOCUMENT_LENGHT = 128
 
 

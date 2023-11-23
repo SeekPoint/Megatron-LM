@@ -13,7 +13,8 @@ from tasks.orqa.unsupervised.nq import get_one_epoch_nq_dataloader
 from tasks.orqa.unsupervised.nq import process_nq_batch
 from tasks.orqa.unsupervised.qa_utils import calculate_matches
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 class ORQAEvaluator(object):
     def __init__(self):
         args = get_args()

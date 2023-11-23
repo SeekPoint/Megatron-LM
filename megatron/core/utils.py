@@ -7,7 +7,8 @@ import operator
 import torch
 
 from megatron.core import parallel_state
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 '''
 4.2.1 切分size
 self.output_size_per_partition = divide(output_size, world_size) 这里有一个分割 size 操作，得到每个子模型应该拥有的权重大小。

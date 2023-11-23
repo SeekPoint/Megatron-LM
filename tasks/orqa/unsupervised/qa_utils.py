@@ -23,7 +23,8 @@ from typing import Tuple, List, Dict
 
 import regex as re
 from tasks.orqa.unsupervised.tokenizers import SimpleTokenizer
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 logger = logging.getLogger(__name__)
 
 QAMatchStats = collections.namedtuple('QAMatchStats', ['top_k_hits',\

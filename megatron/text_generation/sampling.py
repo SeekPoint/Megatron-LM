@@ -9,7 +9,8 @@ Part of this code is inspired by:
 
 import torch
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 
 def modify_logits_for_top_k_filtering(logits, top_k):
     """Set the logits for none top-k values to -inf."""

@@ -18,7 +18,8 @@ from megatron.core import mpu
 from megatron.core.tensor_parallel import param_is_not_tensor_parallel_duplicate
 from megatron.model.module import param_is_not_shared
 
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 def unwrap_model(model, module_instances=(torchDDP)):
     return_list = True
     if not isinstance(model, list):

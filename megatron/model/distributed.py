@@ -10,7 +10,8 @@ from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from megatron import get_args
 from megatron.core import mpu
 from .module import MegatronModule
-
+from pydebug import gd, infoTensor
+gd.debuginfo(prj="mt")
 # 5.2.2 内存
 # MemoryBuffer 是内存抽象
 class MemoryBuffer:
