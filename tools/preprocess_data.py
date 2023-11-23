@@ -113,13 +113,12 @@ class Partition(object):
             current = time.time()
             elapsed = current - proc_start
             mbs = total_bytes_processed/elapsed/1024/1024
-            gd.debuginfo(prj="mt", info=f"Processed {count} documents",
-                  f"({count/elapsed} docs/s, {mbs} MB/s).",
-                  file=sys.stderr)
+            gd.debuginfo(prj="mt", info=f"Processed {count} documents "
+                                        f"({count/elapsed} docs/s, {mbs} MB/s).")
 
     def split_sentences(self, file_name):
         input_file_name, output_file_name = file_name
-        gd.debuginfo(prj="mt", info=f"Opening", input_file_name)
+        gd.debuginfo(prj="mt", info=f"Opening {input_file_name}")
         fin = open(input_file_name, 'r', encoding='utf-8')
         fout = open(output_file_name, 'w')
 
@@ -140,7 +139,7 @@ class Partition(object):
 
     def process_json_file(self, file_name):
         input_file_name, output_prefix = file_name
-        gd.debuginfo(prj="mt", info=f"Opening", input_file_name)
+        gd.debuginfo(prj="mt", info=f"Opening {input_file_name}")
         fin = open(input_file_name, 'r', encoding='utf-8')
 
         startup_start = time.time()
@@ -169,7 +168,7 @@ class Partition(object):
         startup_end = time.time()
         proc_start = time.time()
         total_bytes_processed = 0
-        gd.debuginfo(prj="mt", info=f"Time to startup:", startup_end - startup_start)
+        gd.debuginfo(prj="mt", info=f"Time to startup: {startup_end - startup_start}")
         for i, (doc, sentence_lens, bytes_processed) in enumerate(encoded_docs, start=1):
             total_bytes_processed += bytes_processed
             for key in doc.keys():

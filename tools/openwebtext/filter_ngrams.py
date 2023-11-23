@@ -393,17 +393,15 @@ def clean_ngrams_below_threshold(args,
                     out_f.write('\n'.encode('utf-8'))
 
             if counter % 1000 == 0:
-                gd.debuginfo(prj="mt", info=f' [final]> processed {} documents in {:.2f} seconds ...'.
-                    format(counter, time.time() - start_time))
+                gd.debuginfo(prj="mt", 
+                             info=f' [final]> processed {counter} documents in {time.time() - start_time:.2f} seconds ...')
         except Exception as e:
-            gd.debuginfo(prj="mt", info=f'Error:', e)
+            gd.debuginfo(prj="mt", info=f'Error: {e}')
 
-    gd.debuginfo(prj="mt", info=f' [final]> processed {} documents in {:.2f} seconds ...'.
-        format(counter, time.time() - start_time))
+    gd.debuginfo(prj="mt", info=f' [final]> processed {counter} documents in {time.time() - start_time:.2f} seconds ...')
     
-    gd.debuginfo(prj="mt", info=f' Total docs {} splitted {} ignored {} splits > theshold {} trimmed'\
-        ' {}'.format(counter, splitted, ignored, split_mt_thld, trimmed_count)\
-        )
+    gd.debuginfo(prj="mt", info=f' Total docs {counter} splitted {splitted} ignored {ignored} splits > '
+                                f'theshold {split_mt_thld} trimmed {trimmed_count}')
 
     pool.close()
     pool.join()
@@ -483,7 +481,9 @@ if __name__ == '__main__':
 
     # filter the large file
     if args.output is not None:
-        clean_ngrams_below_threshold(args, ngrams_below_threshold, \
-            dedup_file, dedup_key)
+        clean_ngrams_below_threshold(args, 
+                                     ngrams_below_threshold,
+                                     dedup_file, 
+                                     dedup_key)
 
     gd.debuginfo(prj="mt", info=f'done :-)')

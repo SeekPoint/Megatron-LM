@@ -143,7 +143,7 @@ def _build_wikitext103_dataset():
     val_dataset = _LMDataset(tokenized_data, args.seq_length, tokenizer.eod,
                              num_original_tokens, num_tokenized_tokens,
                              args.overlapping_eval)
-    gd.debuginfo(prj="mt", info=f' > number of original tokens: {}, number of detokenized '
-                 'tokens: {}'.format(num_original_tokens, num_tokenized_tokens))
+    gd.debuginfo(prj="mt", info=f' > number of original tokens: {num_original_tokens}, '
+                                f'number of detokenized tokens: {num_tokenized_tokens}')
 
     return val_dataset

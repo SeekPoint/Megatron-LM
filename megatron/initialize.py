@@ -100,8 +100,8 @@ def _compile_dependencies():
         gd.debuginfo(prj="mt", info=f'> compiling dataset index builder ...')
         from megatron.data.dataset_utils import compile_helper
         compile_helper()
-        gd.debuginfo(prj="mt", info=f'>>> done with dataset index builder. Compilation time: {:.3f} '
-              'seconds'.format(time.time() - start_time))
+        gd.debuginfo(prj="mt", info=f'>>> done with dataset index builder. '
+                                    f'Compilation time: {time.time() - start_time:.3f} seconds')
 
     # ==================
     # Load fused kernels
@@ -230,7 +230,7 @@ def _set_random_seed(seed_, data_parallel_random_init=False):
         if torch.cuda.device_count() > 0:
             tensor_parallel.model_parallel_cuda_manual_seed(seed)
     else:
-        raise ValueError('Seed ({}) should be a positive integer.'.format(seed))
+        raise ValueError('Seed ({seed}) should be a positive integer.')
 
 
 def write_args_to_tensorboard():

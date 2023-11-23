@@ -135,11 +135,12 @@ def process_set(args, input_file, output_f_cleaned, output_f_filtered):
     fin.close()
 
     # Print stats.
-    gd.debuginfo(prj="mt", info=f'  >> total docs: {} remove_512 {} remove_256_javascript {} '\
-        'remove_512_non_english {} ftfy_fix_text {} general_cleaning {}'.\
-        format(num_docs, num_remove_512, num_remove_java,\
-        num_remove_512_non_english, num_ftfy_fix_text, \
-        num_general_cleaning))
+    gd.debuginfo(prj="mt",
+                 info=f'  >> total docs: {num_docs} remove_512 {num_remove_512} '
+                      f'remove_256_javascript {num_remove_java} '
+                      f'remove_512_non_english {num_remove_512_non_english} '
+                      f'ftfy_fix_text {num_ftfy_fix_text} '
+                      f'general_cleaning {num_general_cleaning}')
 
 if __name__ == '__main__':
 

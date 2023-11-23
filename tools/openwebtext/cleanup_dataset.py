@@ -27,7 +27,7 @@ def print_progress(prefix, start_time, num_docs, num_fixed_text,
     string += 'non-english chars: {} | '.format(chars_non_english_docs)
     string += 'small docs: {} | '.format(num_small_docs)
     string += 'small docs chars: {}'.format(chars_small_docs)
-    gd.debuginfo(prj="mt", info=fstring)
+    gd.debuginfo(prj="mt", info=f'{string}')
 
 
 def filter_corpus(filename, out_filename, print_interval=10000):
@@ -57,7 +57,7 @@ def filter_corpus(filename, out_filename, print_interval=10000):
                     myjson['text'] = text
                     # Detect language.
                     if detect(text) != 'en':
-                        gd.debuginfo(prj="mt", info=f'[non-english text]', myjson)
+                        gd.debuginfo(prj="mt", info=f'[non-english text]: {myjson}')
                         num_non_english_docs += 1
                         chars_non_english_docs += len(text)
                         continue
@@ -66,7 +66,7 @@ def filter_corpus(filename, out_filename, print_interval=10000):
                     if len(text) < (8 * MIN_DOCUMENT_LENGHT):
                         tokens = tokenizer.tokenize_document(text)
                         if len(tokens) < MIN_DOCUMENT_LENGHT:
-                            gd.debuginfo(prj="mt", info=f'[small document, skipping]:', myjson)
+                            gd.debuginfo(prj="mt", info=f'[small document, skipping]: {myjson}')
                             num_small_docs += 1
                             chars_small_docs += len(text)
                             continue

@@ -73,7 +73,7 @@ def main():
     args = get_args()
     startup_start = time.time()
 
-    gd.debuginfo(prj="mt", info=f"Opening", args.input)
+    gd.debuginfo(prj="mt", info=f"Opening {args.input}")
     fin = open(args.input, 'r', encoding='utf-8')
 
     encoder = Encoder(args)
@@ -92,7 +92,7 @@ def main():
     startup_end = time.time()
     proc_start = time.time()
     total_bytes_processed = 0
-    gd.debuginfo(prj="mt", info=f"Time to startup:", startup_end - startup_start)
+    gd.debuginfo(prj="mt", info=f"Time to startup: {startup_end - startup_start}")
 
     for i, (sentence, bytes_processed) in enumerate(encoded_sentences, start=1):
         total_bytes_processed += bytes_processed
@@ -103,9 +103,8 @@ def main():
             current = time.time()
             elapsed = current - proc_start
             mbs = total_bytes_processed/elapsed/1024/1024
-            gd.debuginfo(prj="mt", info=f"Processed {i} sentences",
-                  f"({i/elapsed} sentences/s, {mbs} MB/s).",
-                  file=sys.stderr)
+            gd.debuginfo(prj="mt", info=f"Processed {i} sentences "
+                                        f"({i/elapsed} sentences/s, {mbs} MB/s).")
 
     builder.finalize(output_idx_file)
 

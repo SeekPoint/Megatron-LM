@@ -105,14 +105,14 @@ def test_fused_softmax():
     diff = test_result.mean(dim=-1)
 
     if diff <= 1e-3:
-        gd.debuginfo(prj="mt", info=f
+        gd.debuginfo(prj="mt", info=
             f"\n[Success] test_fused_softmax"
             f"\n > mean_difference={diff}"
             f"\n > fused_values={fused_softmax_output[-1][-1][-1][:5].tolist()}"
             f"\n > torch_values={torch_softmax_output[-1][-1][-1][:5].tolist()}"
         )
     else:
-        gd.debuginfo(prj="mt", info=f
+        gd.debuginfo(prj="mt", info=
             f"\n[Fail] test_fused_softmax"
             f"\n > mean_difference={diff}, "
             f"\n > fused_values={fused_softmax_output[-1][-1][-1][:5].tolist()}, "
@@ -205,14 +205,14 @@ def test_fused_upper_triangle_mask_softmax():
     diff = test_result.mean(dim=-1)
 
     if diff <= 1e-3:
-        gd.debuginfo(prj="mt", info=f
+        gd.debuginfo(prj="mt", info=
             f"\n[Success] test_fused_upper_triangle_mask_softmax"
             f"\n > mean_difference={diff}"
             f"\n > fused_values={fused_softmax_output[-1][-1][-1][:5].tolist()}"
             f"\n > torch_values={torch_softmax_output[-1][-1][-1][:5].tolist()}"
         )
     else:
-        gd.debuginfo(prj="mt", info=f
+        gd.debuginfo(prj="mt", info=
             f"\n[Fail] test_fused_upper_triangle_mask_softmax"
             f"\n > mean_difference={diff}, "
             f"\n > fused_values={fused_softmax_output[-1][-1][-1][:5].tolist()}, "
@@ -264,14 +264,14 @@ def test_layer_norm():
     diff = test_result.mean(dim=-1)
 
     if diff <= 1e-3:
-        gd.debuginfo(prj="mt", info=f
+        gd.debuginfo(prj="mt", info=
             f"\n[Success] test_layer_norm"
             f"\n > mean_difference={diff}"
             f"\n > fused_values={fused_output[-1][-1][:5].tolist()}"
             f"\n > torch_values={torch_output[-1][-1][:5].tolist()}"
         )
     else:
-        gd.debuginfo(prj="mt", info=f
+        gd.debuginfo(prj="mt", info=
             f"\n[Fail] test_layer_norm"
             f"\n > mean_difference={diff}, "
             f"\n > fused_values={fused_output[-1][-1][:5].tolist()}, "

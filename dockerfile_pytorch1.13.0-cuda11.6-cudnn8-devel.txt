@@ -75,4 +75,6 @@ RUN rm -r /temp && \
 # make check -j 4
 # sudo make install
 
+#root@f0b94dd9cded:/share/yk_repo/yk_coding/pydebug# python3.8 -m pip install -e .
+
 

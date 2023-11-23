@@ -126,8 +126,9 @@ def process_single_datapath(datapath, tokenizer, max_qa_length, max_seq_length):
                     num_samples += 1
 
     elapsed_time = time.time() - start_time
-    gd.debuginfo(prj="mt", info=f'    > processed {} document, {} questions, and {} samples'
-                 ' in {:.2f} seconds'.format(num_docs, num_questions,
-                                             num_samples, elapsed_time))
+    gd.debuginfo(prj="mt", info=f'> processed {num_docs} document, '
+                                f'{num_questions} questions, '
+                                f'and {num_samples} samples '
+                                f'in {elapsed_time:.2f} seconds')
 
     return samples

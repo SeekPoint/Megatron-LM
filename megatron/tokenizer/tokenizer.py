@@ -60,9 +60,9 @@ def _vocab_size_with_padding(orig_vocab_size, args):
     while (after % multiple) != 0:
         after += 1
     if args.rank == 0:
-        gd.debuginfo(prj="mt", info=f' > padded vocab (size: {}) with {} dummy tokens '
-              '(new size: {})'.format(
-                  orig_vocab_size, after - orig_vocab_size, after))
+        gd.debuginfo(prj="mt", info=f' > padded vocab (size: {orig_vocab_size}) '
+                                    f'with {after - orig_vocab_size} '
+                                    f'dummy tokens (new size: {after}')
     return after
 
 

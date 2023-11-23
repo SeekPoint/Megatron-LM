@@ -36,14 +36,14 @@ def jaccard(set_a, set_b, args):
     else:
         return len(intersection) / len(union)
 
-def compute_fingergd.debuginfo(prj="mt", info=fline, key):
+def compute_fingerprint(line, key):
     try:
         myjson = json.loads(line)
         url = myjson[key]
         text = myjson['text']
-        fingerprint = hasher.fingergd.debuginfo(prj="mt", info=ftext)
+        fingerprint = hasher.fingerprint(text)
     except Exception as e:
-        gd.debuginfo(prj="mt", info=f'Error:', e)
+        gd.debuginfo(prj="mt", info=f'Error: {e}')
         return None, None, None, False
 
     return url, text, fingerprint, True
@@ -71,7 +71,7 @@ def url_pairs_to_remove(args, bucket_urls, url_doc):
             try:
                 jaccard_sim = jaccard(main_dhingles, other_shingles, args)
             except Exception as e:
-                gd.debuginfo(prj="mt", info=f'Error:', e)
+                gd.debuginfo(prj="mt", info=f'Error:{e}')
                 jaccard_sim = 0.0
             if jaccard_sim > 0.5:
                 remove_urls.append({other_url: jaccard_sim})
@@ -99,9 +99,9 @@ def compute_jaccard(each_bin, num_bins, start_time_local):
     for bucket_id in each_bin:
         bucket_local += 1
         if os.getpid() % num_bins == 0 and bucket_local % 100000 == 0:
-            gd.debuginfo(prj="mt", info=f"Counter {}, progress {:.2f} time {:.2f}".\
-                format(bucket_local, float(bucket_local)/float(len(each_bin)),\
-                time.time() - start_time_local))
+            gd.debuginfo(prj="mt", info=f"Counter {bucket_local}, "
+                                        f"progress {float(bucket_local)/float(len(each_bin)):.2f} "
+                                        f"time {time.time() - start_time_local:.2f}")
 
         if len(each_bin[bucket_id]) <= 1:
             continue
@@ -163,15 +163,14 @@ def find_pair_urls_sequential(args, lshcache, url_doc):
             counter += counter_local_sub
             write_remove_urls_list(remove_urls_list_sub, f_out)
             if counter % 10000 == 0:
-                gd.debuginfo(prj="mt", info=f' [write]> processed {} documents in {:.2f} '
-                    'seoncds and deduped {} documents ...'.
-                    format(counter, time.time() - start_time,
-                    deduped))
+                gd.debuginfo(prj="mt",
+                             info=f' [write]> processed {counter} documents '
+                                  f' in {time.time() - start_time:.2f} seoncds '
+                                  f'and deduped {deduped} documents ...')
     f_out.close()
-    gd.debuginfo(prj="mt", info=f' [write]> processed {} documents in {:.2f} '
-        'seoncds and deduped {} documents ...'.
-        format(counter, time.time() - start_time,
-        deduped))
+    gd.debuginfo(prj="mt", info=f' [write]> processed {counter} documents '
+                                f'in {time.time() - start_time:.2f} '
+                                f'seoncds and deduped {deduped} documents ...')
 
 if __name__ == '__main__':
 
@@ -233,7 +232,7 @@ if __name__ == '__main__':
                 local_url_doc = pickle.load(fp)
                 for url in local_lshcache.fingerprints.keys():
                     url_doc[url] = local_url_doc[url]
-                    lshcache.add_fingergd.debuginfo(prj="mt", info=flocal_lshcache.fingerprints[url], url)
+                    lshcache.add_fingergd.debuginfo(prj="mt", info=f'{local_lshcache.fingerprints[url]}')
             fp.close()
 
     counter = 0

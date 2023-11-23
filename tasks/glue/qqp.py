@@ -34,16 +34,18 @@ class QQPDataset(GLUEAbstractDataset):
                     first = False
                     if len(row) == 3:
                         is_test = True
-                        gd.debuginfo(prj="mt", info=f'   reading {}, {}, and {} columns and '
-                                     'setting labels to {}'.format(
-                                         row[0].strip(), row[1].strip(),
-                                         row[2].strip(), self.test_label))
+                        gd.debuginfo(prj="mt", 
+                                     info=f'reading {row[0].strip()}, '
+                                          f'{row[1].strip()}, '
+                                          f'and {row[2].strip()} columns '
+                                          f'and setting labels to {self.test_label}')
                     else:
                         assert len(row) == 6
-                        gd.debuginfo(prj="mt", info=f'    reading {}, {}, {}, and {} columns'
-                                     ' ...'.format(
-                                         row[0].strip(), row[3].strip(),
-                                         row[4].strip(), row[5].strip()))
+                        gd.debuginfo(prj="mt", 
+                                     info=f'reading {row[0].strip()}, '
+                                          f'{row[3].strip()}, '
+                                          f'{row[4].strip()}, '
+                                          f'and {row[5].strip()} columns...')
                     continue
 
                 if is_test:
