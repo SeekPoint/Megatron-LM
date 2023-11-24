@@ -205,13 +205,14 @@ def get_ltor_masks_and_position_ids(data,
     return attention_mask, loss_mask, position_ids
 
 
-# def gd.debuginfo(prj="mt", info=fmessage):
-#     """If distributed is initialized, print only on rank 0."""
-#     if torch.distributed.is_initialized():
-#         if torch.distributed.get_rank() == 0:
-#             gd.debuginfo(prj="mt", info=fmessage)
-#     else:
-#         gd.debuginfo(prj="mt", info=fmessage)
+def print_rank_0():  #保留，以免import出错
+    pass
+    # """If distributed is initialized, print only on rank 0."""
+    # if torch.distributed.is_initialized():
+    #     if torch.distributed.get_rank() == 0:
+    #         gd.debuginfo(prj="mt", info=fmessage)
+    # else:
+    #     gd.debuginfo(prj="mt", info=fmessage)
 
 def is_last_rank():
     return torch.distributed.get_rank() == (
