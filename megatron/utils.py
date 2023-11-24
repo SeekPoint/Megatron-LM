@@ -210,9 +210,9 @@ def print_rank_0():  #保留，以免import出错
     # """If distributed is initialized, print only on rank 0."""
     # if torch.distributed.is_initialized():
     #     if torch.distributed.get_rank() == 0:
-    #         gd.debuginfo(prj="mt", info=fmessage)
+    #         gd.debuginfo(prj="mt", info=message)
     # else:
-    #     gd.debuginfo(prj="mt", info=fmessage)
+    #     gd.debuginfo(prj="mt", info=message)
 
 def is_last_rank():
     return torch.distributed.get_rank() == (
@@ -222,6 +222,6 @@ def print_rank_last(message):
     """If distributed is initialized, print only on last rank."""
     if torch.distributed.is_initialized():
         if is_last_rank():
-            gd.debuginfo(prj="mt", info=fmessage)
+            gd.debuginfo(prj="mt", info=message)
     else:
-        gd.debuginfo(prj="mt", info=fmessage)
+        gd.debuginfo(prj="mt", info=message)

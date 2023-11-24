@@ -285,7 +285,7 @@ class Timers:
         if rank is None:
             rank = torch.distributed.get_world_size() - 1
         if rank == torch.distributed.get_rank() and output_string is not None:
-            gd.debuginfo(prj="mt", info=foutput_string)
+            gd.debuginfo(prj="mt", info=output_string)
 
 
     def write(self, names, writer, iteration, normalizer=1.0,
