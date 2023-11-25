@@ -48,10 +48,8 @@ def accuracy_func_provider():
         gd.debuginfo(prj="mt", info=f"calculating metrics ...")
         correct, total = calculate_correct_answers(model, dataloader, epoch)
         percent = float(correct) * 100.0 / float(total)
-        print_rank_last(
-            " >> |epoch: {}| overall: correct / total = {} / {} = "
-            "{:.4f} %".format(epoch, correct, total, percent)
-        )
+        gd.debuginfo(prj="mt", info=f" >> |epoch: {epoch}| overall: "
+                                    f"correct / total = {correct} / {total} = {percent:.4f} %")
 
     return metrics_func
 

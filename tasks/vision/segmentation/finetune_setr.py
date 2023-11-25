@@ -184,10 +184,8 @@ def segmentation():
         def metrics_func(model, epoch):
             gd.debuginfo(prj="mt", info=f"calculating metrics ...")
             iou, miou = calculate_correct_answers(model, dataloader, epoch)
-            print_rank_last(
-                " >> |epoch: {}| overall: iou = {},"
-                "miou = {:.4f} %".format(epoch, iou, miou*100.0)
-            )
+            gd.debuginfo(prj="mt", info=f" >> |epoch: {epoch}| overall: "
+                                        f"iou = {iou}, miou = {miou*100.0:.4f} %")
         return metrics_func
 
     def dump_output_data(data, iteration, writer):

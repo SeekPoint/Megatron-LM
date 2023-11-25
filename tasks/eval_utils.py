@@ -32,7 +32,7 @@ def accuracy_func_provider(single_dataset_provider):
         dataloaders.append((dataset.dataset_name, dataloader))
 
     def metrics_func(model, epoch, output_predictions=False):
-        print_rank_last('calculating metrics ...')
+        gd.debuginfo(prj="mt", info=f'calculating metrics ...')
         correct = 0
         total = 0
         if output_predictions:
@@ -170,10 +170,10 @@ def calculate_correct_answers(name, model, dataloader,
         total_count = unreduced[1].item()
         percent = float(correct_ans) * 100.0 / float(total_count)
         elapsed_time = time.time() - start_time
-        print_rank_last(' > |epoch: {}| metrics for {}: correct / total '
-                        '= {} / {} = {:.4f} %, elapsed time (sec): {:.3f}'.format(
-                            epoch, name, correct_ans, total_count,
-                            percent, elapsed_time))
+        gd.debuginfo(prj="mt",
+                     info=f' > |epoch: {epoch}| metrics for {name}: '
+                          f'correct / total = {correct_ans} / {total_count} = {percent:.4f} %, '
+                          f'elapsed time (sec): {elapsed_time:.3f}')
 
         if output_predictions:
             return correct_ans, total_count, (softmaxes, labels, ids)

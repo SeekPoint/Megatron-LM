@@ -223,9 +223,10 @@ def is_last_rank():
         torch.distributed.get_world_size() - 1)
 
 def print_rank_last(message):
+    pass
     """If distributed is initialized, print only on last rank."""
-    if torch.distributed.is_initialized():
-        if is_last_rank():
-            gd.debuginfo(prj="mt", info=message)
-    else:
-        gd.debuginfo(prj="mt", info=message)
+    # if torch.distributed.is_initialized():
+    #     if is_last_rank():
+    #         gd.debuginfo(prj="mt", info=message)
+    # else:
+    #     gd.debuginfo(prj="mt", info=message)

@@ -22,7 +22,7 @@ def bias_gelu(bias, y):
 # 0.5 * (1. + torch.erf(x * 0.70710678)) + 0.3989423 * x * torch.exp(-0.5 * x * x)
 @torch.jit.script
 def bias_gelu_back(g, bias, y):
-    gd.debuginfo(prj="mt")
+    # gd.debuginfo(prj="mt")  jit 这里不能用
     x = bias + y
     tanh_out = torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x))
     # sqrt(2/pi) * 3 * 0.044715 -> 0.1070322243

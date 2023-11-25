@@ -799,7 +799,7 @@ def training_log(loss_dict, total_loss_dict, learning_rate, iteration,
         total_loss_dict[advanced_iters_key] = 0
         total_loss_dict[skipped_iters_key] = 0
         total_loss_dict[nan_iters_key] = 0
-        print_rank_last(log_string)
+        gd.debuginfo(prj="mt",info=log_string)
         if report_memory_flag and learning_rate > 0.:
             # Report memory after optimizer state has been initialized.
             report_memory('(after {} iterations)'.format(iteration))
@@ -1032,16 +1032,14 @@ def evaluate_and_print_results(prefix, forward_step_func,
         process_non_loss_data_func(collected_non_loss_data, iteration, writer)
 
     length = len(string) + 1
-    print_rank_last('-' * length)
-    print_rank_last(string)
-    print_rank_last('-' * length)
-
+    gd.debuginfo(prj="mt", info=str('-' * length))
+    gd.debuginfo(prj="mt", info=string)
+    gd.debuginfo(prj="mt", info=str('-' * length))
 
 def cyclic_iter(iter):
     while True:
         for x in iter:
             yield x
-
 
 def build_train_valid_test_datasets(build_train_valid_test_datasets_provider):
     """Build pretraining datasets."""

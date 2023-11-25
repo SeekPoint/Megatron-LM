@@ -740,7 +740,7 @@ class ParallelAttention(MegatronModule):
 
 
 def bias_dropout_add(x, bias, residual, prob, training):
-    gd.debuginfo(prj="mt")
+    # gd.debuginfo(prj="mt") 被jit调用，不能用
 
     # type: (Tensor, Optional[Tensor], Tensor, float, bool) -> Tensor
     if bias is not None:
@@ -762,7 +762,7 @@ def bias_dropout_add_fused_train(x: torch.Tensor,
                                  bias: Optional[torch.Tensor],
                                  residual: torch.Tensor,
                                  prob: float) -> torch.Tensor:
-    gd.debuginfo(prj="mt")
+    # gd.debuginfo(prj="mt") jit 不能用
 
     return bias_dropout_add(x, bias, residual, prob, True)
 
@@ -772,7 +772,7 @@ def bias_dropout_add_fused_inference(x: torch.Tensor,
                                      bias: Optional[torch.Tensor],
                                      residual: torch.Tensor,
                                      prob: float) -> torch.Tensor:
-    gd.debuginfo(prj="mt")
+    # gd.debuginfo(prj="mt") jit 不能用
     return bias_dropout_add(x, bias, residual, prob, False)
 
 '''

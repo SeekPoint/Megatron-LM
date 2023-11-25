@@ -108,6 +108,6 @@ class Classification(MegatronModule):
                 self.classification_head.load_state_dict(
                     state_dict[self._classification_head_key], strict=strict)
             else:
-                print_rank_last('***WARNING*** could not find {} in the checkpoint, '
-                                'initializing to random'.format(
-                                    self._classification_head_key))
+                gd.debuginfo(prj="mt",
+                             info=f'***WARNING*** could not find { self._classification_head_key} in the checkpoint, '
+                                  f'initializing to random')
