@@ -22,6 +22,7 @@ def bias_gelu(bias, y):
 # 0.5 * (1. + torch.erf(x * 0.70710678)) + 0.3989423 * x * torch.exp(-0.5 * x * x)
 @torch.jit.script
 def bias_gelu_back(g, bias, y):
+    gd.debuginfo(prj="mt")
     x = bias + y
     tanh_out = torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x))
     # sqrt(2/pi) * 3 * 0.044715 -> 0.1070322243
@@ -32,11 +33,13 @@ class GeLUFunction(torch.autograd.Function):
     @staticmethod
     # bias is an optional argument
     def forward(ctx, input, bias):
+        gd.debuginfo(prj="mt")
         ctx.save_for_backward(input, bias)
         return bias_gelu(bias, input)
 
     @staticmethod
     def backward(ctx, grad_output):
+        gd.debuginfo(prj="mt")
         input, bias = ctx.saved_tensors
         tmp = bias_gelu_back(grad_output, bias, input)
         return tmp, tmp

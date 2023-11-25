@@ -128,13 +128,20 @@ def get_forward_backward_func():
 
     """
     pipeline_model_parallel_size = parallel_state.get_pipeline_model_parallel_world_size()
+
+    gd.debuginfo(prj="mt", info=f'pipeline_model_parallel_size={pipeline_model_parallel_size}')
+
     if pipeline_model_parallel_size > 1:
         if parallel_state.get_virtual_pipeline_model_parallel_world_size() is not None:
+            gd.debuginfo(prj="mt")
             forward_backward_func = forward_backward_pipelining_with_interleaving
         else:
+            gd.debuginfo(prj="mt")
             forward_backward_func = forward_backward_pipelining_without_interleaving
     else:
+        gd.debuginfo(prj="mt")
         forward_backward_func = forward_backward_no_pipelining
+
     return forward_backward_func
 
 def deallocate_output_tensor(out, deallocate_pipeline_outputs=False):
@@ -155,6 +162,7 @@ def deallocate_output_tensor(out, deallocate_pipeline_outputs=False):
         device = out.device,
         dtype = out.dtype,
     )
+    gd.debuginfo(prj="mt", info=f'out.data={infoTensor(out.data)}')
 
 def custom_backward(output, grad_output):
     '''Directly call C++ autograd engine.
@@ -164,6 +172,7 @@ def custom_backward(output, grad_output):
     torch.autograd.backward. Pytorch's 'backward' checks that the output and
     grad have the same shape, while C++'s 'backward' does not.
     '''
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
 
     assert output.numel() == 1, \
         "output should be pseudo-'freed' in schedule, to optimize memory"
@@ -179,6 +188,7 @@ def custom_backward(output, grad_output):
             output,
             memory_format = torch.preserve_format,
         )
+        gd.debuginfo(prj="mt", info=f'grad_output={infoTensor(grad_output)}')
 
     # Call c++ engine [ see torch/csrc/autograd/python_engine.cpp ]
     Variable._execution_engine.run_backward(
@@ -190,10 +200,7 @@ def custom_backward(output, grad_output):
         allow_unreachable=True,
         accumulate_grad=True,
     )
-
-
-
-
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
 def forward_step(forward_step_func,
                  data_iterator,
@@ -211,11 +218,14 @@ def forward_step(forward_step_func,
     passed-in input_tensor is used.
 
     Returns output tensor."""
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+
     if timers is not None:
         timers('forward-compute', log_level=2).start()
 
     unwrap_output_tensor = False
     if not isinstance(input_tensor, list):
+        gd.debuginfo(prj="mt")
         input_tensor = [input_tensor]
         unwrap_output_tensor = True
 
@@ -224,8 +234,11 @@ def forward_step(forward_step_func,
 
     if enable_autocast:
         context_manager = torch.autocast("cuda", dtype=autocast_dtype)
+        gd.debuginfo(prj="mt", info=f'context_manager={context_manager}')
     else:
         context_manager = contextlib.nullcontext()
+        gd.debuginfo(prj="mt", info=f'context_manager={context_manager}')
+
     with context_manager:
         output_tensor, loss_func = forward_step_func(data_iterator, model)
 
@@ -233,10 +246,12 @@ def forward_step(forward_step_func,
         if not collect_non_loss_data:
             output_tensor = loss_func(output_tensor)
             loss, loss_reduced = output_tensor
+            gd.debuginfo(prj="mt", info=f'data={loss}')
             output_tensor = loss / num_microbatches
             forward_data_store.append(loss_reduced)
         else:
             data = loss_func(output_tensor, non_loss_data=True)
+            gd.debuginfo(prj="mt", info=f'data={data}')
             forward_data_store.append(data)
 
     if timers is not None:
@@ -247,11 +262,15 @@ def forward_step(forward_step_func,
     # downstream as well.
     model_type = get_model_type(model)
 
-    if parallel_state.is_pipeline_stage_after_split() and \
-            model_type == ModelType.encoder_and_decoder:
+    if parallel_state.is_pipeline_stage_after_split() and model_type == ModelType.encoder_and_decoder:
         return [output_tensor, input_tensor[-1]]
+
     if unwrap_output_tensor:
+        gd.debuginfo(prj="mt", info=f'output_tensor={output_tensor}')
         return output_tensor
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+
     return [output_tensor]
 
 
@@ -268,27 +287,41 @@ def backward_step(grad_scaler, input_tensor, output_tensor,
     # NOTE: This code currently can handle at most one skip connection. It
     # needs to be modified slightly to support arbitrary numbers of skip
     # connections.
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
 
     if timers is not None:
         timers('backward-compute', log_level=2).start()
 
     # Retain the grad on the input_tensor.
     unwrap_input_tensor_grad = False
+
     if not isinstance(input_tensor, list):
         input_tensor = [input_tensor]
         unwrap_input_tensor_grad = True
+        gd.debuginfo(prj="mt", info=f'input_tensor={input_tensor}')
+    else:
+        gd.debuginfo(prj="mt", info=f'input_tensor={input_tensor}')
+
     for x in input_tensor:
         if x is not None:
             x.retain_grad()
 
     if not isinstance(output_tensor, list):
         output_tensor = [output_tensor]
+        gd.debuginfo(prj="mt", info=f'output_tensor={infoTensor(output_tensor)}')
+    else:
+        gd.debuginfo(prj="mt", info=f'output_tensor={infoTensor(output_tensor)}')
+
     if not isinstance(output_tensor_grad, list):
         output_tensor_grad = [output_tensor_grad]
+        gd.debuginfo(prj="mt", info=f'output_tensor_grad={infoTensor(output_tensor_grad)}')
+    else:
+        gd.debuginfo(prj="mt", info=f'output_tensor_grad={infoTensor(output_tensor_grad)}')
 
     # Backward pass.
     if output_tensor_grad[0] is None and grad_scaler is not None:
         output_tensor[0] = grad_scaler(output_tensor[0])
+        gd.debuginfo(prj="mt", info=f'output_tensor[0]={infoTensor(output_tensor[0])}')
 
     if deallocate_pipeline_outputs:
         custom_backward(output_tensor[0], output_tensor_grad[0])
@@ -310,16 +343,23 @@ def backward_step(grad_scaler, input_tensor, output_tensor,
     if parallel_state.get_pipeline_model_parallel_world_size() > 1 and \
             parallel_state.is_pipeline_stage_after_split() and \
             model_type == ModelType.encoder_and_decoder:
+        gd.debuginfo(prj="mt")
         if output_tensor_grad[1] is not None:
+            gd.debuginfo(prj="mt")
             input_tensor_grad[-1].add_(output_tensor_grad[1])
+
     if unwrap_input_tensor_grad:
         input_tensor_grad = input_tensor_grad[0]
+        gd.debuginfo(prj="mt", info=f'input_tensor_grad={infoTensor(input_tensor_grad)}')
+    else:
+        gd.debuginfo(prj="mt", info=f'input_tensor_grad={infoTensor(input_tensor_grad)}')
 
     if timers is not None:
         timers('backward-compute').stop()
 
-    return input_tensor_grad
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
+    return input_tensor_grad
 
 def forward_backward_no_pipelining(*,
                                    forward_step_func,
@@ -351,30 +391,48 @@ def forward_backward_no_pipelining(*,
     See get_forward_backward_func() for argument details
     """
 
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+
     if isinstance(model, list):
-        assert len(model) == 1, \
-            "non-pipeline-parallel schedule does not support model chunking"
+        assert len(model) == 1, "non-pipeline-parallel schedule does not support model chunking"
+        gd.debuginfo(prj="mt")
         model = model[0]
+
     if isinstance(data_iterator, list):
-        assert len(data_iterator) == 1, \
-            "non-pipeline-parallel schedule does not support model chunking"
+        gd.debuginfo(prj="mt")
+        assert len(data_iterator) == 1, "non-pipeline-parallel schedule does not support model chunking"
         data_iterator = data_iterator[0]
 
     if no_sync_func is None and isinstance(model, torchDDP):
+        gd.debuginfo(prj="mt")
         no_sync_func = model.no_sync
+
     if no_sync_func is None:
+        gd.debuginfo(prj="mt")
         no_sync_func = contextlib.nullcontext
 
     model_type = get_model_type(model)
+    gd.debuginfo(prj="mt", info=f'model_type={model_type}')
 
     forward_data_store = []
     input_tensor, output_tensor_grad = None, None
     with no_sync_func():
         for i in range(num_microbatches - 1):
-            output_tensor = forward_step(forward_step_func, data_iterator,
-                                         model, num_microbatches, input_tensor, forward_data_store,
-                                         timers, collect_non_loss_data, dtype, enable_autocast)
+            output_tensor = forward_step(forward_step_func,
+                                         data_iterator,
+                                         model,
+                                         num_microbatches,
+                                         input_tensor,
+                                         forward_data_store,
+                                         timers,
+                                         collect_non_loss_data,
+                                         dtype,
+                                         enable_autocast)
+
+            gd.debuginfo(prj="mt", info=f'i={i}, output_tensor={output_tensor}')
+
             if not forward_only:
+                gd.debuginfo(prj="mt")
                 backward_step(grad_scaler, input_tensor, output_tensor,
                               output_tensor_grad, model_type, timers, deallocate_pipeline_outputs)
 
@@ -384,9 +442,14 @@ def forward_backward_no_pipelining(*,
                                  model, num_microbatches, input_tensor, forward_data_store,
                                  timers, collect_non_loss_data, dtype, enable_autocast)
 
+    gd.debuginfo(prj="mt", info=f'output_tensor={output_tensor}')
+
     if not forward_only:
+        gd.debuginfo(prj="mt")
         backward_step(grad_scaler, input_tensor, output_tensor,
                       output_tensor_grad, model_type, timers, deallocate_pipeline_outputs)
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
 
     return forward_data_store
 
@@ -416,39 +479,51 @@ def forward_backward_pipelining_with_interleaving(*,
     communication between pipeline stages as needed.
 
     Returns dictionary with losses if the last stage, empty dict otherwise."""
-    assert isinstance(model, list), \
-        "interleaved pipeline parallelism expected model chunking"
-    assert all(isinstance(chunk, torch.nn.Module) for chunk in model), \
-        "invalid model chunking"
-    assert isinstance(data_iterator, list), \
-        "interleaved pipeline parallelism expected each model chunk to have a data iterator"
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+
+    assert isinstance(model, list), "interleaved pipeline parallelism expected model chunking"
+    assert all(isinstance(chunk, torch.nn.Module) for chunk in model), "invalid model chunking"
+    assert isinstance(data_iterator, list), "interleaved pipeline parallelism expected each model chunk to have a data iterator"
 
     if overlap_p2p_comm and batch_p2p_comm:
         raise ValueError("Can not use both overlap_p2p_comm and batch_p2p_comm")
 
     # Disable async grad reductions
     if no_sync_func is None and all(isinstance(chunk, torchDDP) for chunk in model):
+        gd.debuginfo(prj="mt")
         def multi_no_sync():
+            gd.debuginfo(prj="mt")
             stack = contextlib.ExitStack()
+            gd.debuginfo(prj="mt", info=f'stach={stack}')
             for chunk in model:
                 stack.enter_context(chunk.no_sync())
             return stack
         no_sync_func = multi_no_sync
+
     if no_sync_func is None:
+        gd.debuginfo(prj="mt")
         no_sync_func = contextlib.nullcontext
+
     no_sync_context = None
+
     def disable_grad_sync():
         """Disable asynchronous grad reductions"""
         nonlocal no_sync_context
         if no_sync_context is None:
+            gd.debuginfo(prj="mt")
             no_sync_context = no_sync_func()
             no_sync_context.__enter__()
+
     def enable_grad_sync():
         """Enable asynchronous grad reductions"""
+        gd.debuginfo(prj="mt")
         nonlocal no_sync_context
         if no_sync_context is not None:
+            gd.debuginfo(prj="mt")
             no_sync_context.__exit__(None, None, None)
             no_sync_context = None
+
     disable_grad_sync()
 
     # Model chunk IDs with synchronized grads
@@ -457,7 +532,9 @@ def forward_backward_pipelining_with_interleaving(*,
     input_tensors = [[] for _ in range(len(model))]
     output_tensors = [[] for _ in range(len(model))]
     forward_data_store = []
+
     if not forward_only:
+        gd.debuginfo(prj="mt")
         output_tensor_grads = [[] for _ in range(len(model))]
 
     pipeline_parallel_size = parallel_state.get_pipeline_model_parallel_world_size()
@@ -488,7 +565,9 @@ def forward_backward_pipelining_with_interleaving(*,
     num_model_chunks = len(model)
     total_num_microbatches = num_microbatches * num_model_chunks
     all_warmup_microbatches = False
+
     if forward_only:
+        gd.debuginfo(prj="mt")
         num_warmup_microbatches = total_num_microbatches
     else:
         # Run all forward passes and then all backward passes if number of
@@ -498,29 +577,35 @@ def forward_backward_pipelining_with_interleaving(*,
         # stage ID (more forward passes for earlier stages, later stages can
         # immediately start with 1F1B).
         if num_microbatches == pipeline_parallel_size:
+            gd.debuginfo(prj="mt")
             num_warmup_microbatches = total_num_microbatches
             all_warmup_microbatches = True
         else:
-            num_warmup_microbatches = \
-                (pipeline_parallel_size - pipeline_parallel_rank - 1) * 2
-            num_warmup_microbatches += (
-                num_model_chunks - 1) * pipeline_parallel_size
-            num_warmup_microbatches = min(num_warmup_microbatches,
-                                          total_num_microbatches)
-    num_microbatches_remaining = \
-        total_num_microbatches - num_warmup_microbatches
+            gd.debuginfo(prj="mt")
+            num_warmup_microbatches = (pipeline_parallel_size - pipeline_parallel_rank - 1) * 2
+            num_warmup_microbatches += (num_model_chunks - 1) * pipeline_parallel_size
+            num_warmup_microbatches = min(num_warmup_microbatches, total_num_microbatches)
+
+    num_microbatches_remaining = total_num_microbatches - num_warmup_microbatches
 
     # Synchronize params for first two model chunks
     if param_sync_func is not None:
+        gd.debuginfo(prj="mt")
         param_sync_func(model[0].parameters())
         param_sync_func(model[1].parameters())
 
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+
     def get_model_chunk_id(microbatch_id, forward):
         """Helper method to get the model chunk ID given the iteration number."""
+        gd.debuginfo(prj="mt")
         microbatch_id_in_group = microbatch_id % (pipeline_parallel_size * num_model_chunks)
         model_chunk_id = microbatch_id_in_group // pipeline_parallel_size
+
         if not forward:
+            gd.debuginfo(prj="mt")
             model_chunk_id = (num_model_chunks - model_chunk_id - 1)
+
         return model_chunk_id
 
     def is_first_microbatch_for_model_chunk(microbatch_id: int) -> bool:
@@ -529,9 +614,12 @@ def forward_backward_pipelining_with_interleaving(*,
         num_microbatch_groups = total_num_microbatches // microbatch_group_size
         microbatch_group_id = microbatch_id // microbatch_group_size
         microbatch_id_in_group = microbatch_id % microbatch_group_size
+
         if microbatch_group_id == 0:
+            gd.debuginfo(prj="mt")
             return microbatch_id_in_group % pipeline_parallel_size == 0
         else:
+            gd.debuginfo(prj="mt")
             return False
 
     def is_last_microbatch_for_model_chunk(microbatch_id: int) -> bool:
@@ -540,9 +628,12 @@ def forward_backward_pipelining_with_interleaving(*,
         num_microbatch_groups = total_num_microbatches // microbatch_group_size
         microbatch_group_id = microbatch_id // microbatch_group_size
         microbatch_id_in_group = microbatch_id % microbatch_group_size
+
         if microbatch_group_id == num_microbatch_groups - 1:
+            gd.debuginfo(prj="mt")
             return microbatch_id_in_group % pipeline_parallel_size == pipeline_parallel_size - 1
         else:
+            gd.debuginfo(prj="mt")
             return False
 
 
@@ -550,7 +641,12 @@ def forward_backward_pipelining_with_interleaving(*,
         """Helper method to run forward step with model split into chunks
         (run set_virtual_pipeline_model_parallel_rank() before calling
         forward_step())."""
+
+
         model_chunk_id = get_model_chunk_id(microbatch_id, forward=True)
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_START__, model_chunk_id={model_chunk_id}')
+
         parallel_state.set_virtual_pipeline_model_parallel_rank(model_chunk_id)
 
         # launch param synchronization for next model chunk
@@ -560,16 +656,21 @@ def forward_backward_pipelining_with_interleaving(*,
         # pipeline-parallel group.
         if param_sync_func is not None:
             param_sync_microbatch_id = microbatch_id + pipeline_parallel_rank
+            gd.debuginfo(prj="mt", info=f'param_sync_microbatch_id={param_sync_microbatch_id}')
             if param_sync_microbatch_id < num_microbatches and is_first_microbatch_for_model_chunk(param_sync_microbatch_id):
                 param_sync_chunk_id = get_model_chunk_id(param_sync_microbatch_id, forward=True) + 1
+                gd.debuginfo(prj="mt", info=f'param_sync_chunk_id={param_sync_chunk_id}')
                 if 1 < param_sync_chunk_id < num_model_chunks:
+                    gd.debuginfo(prj="mt")
                     param_sync_func(model[param_sync_chunk_id].parameters())
 
         # forward step
         if parallel_state.is_pipeline_first_stage():
-            if len(input_tensors[model_chunk_id]) == \
-                    len(output_tensors[model_chunk_id]):
+            gd.debuginfo(prj="mt")
+            if len(input_tensors[model_chunk_id]) == len(output_tensors[model_chunk_id]):
+                gd.debuginfo(prj="mt")
                 input_tensors[model_chunk_id].append(None)
+
         input_tensor = input_tensors[model_chunk_id][-1]
         output_tensor = forward_step(forward_step_func,
                                      data_iterator[model_chunk_id],
@@ -581,41 +682,61 @@ def forward_backward_pipelining_with_interleaving(*,
                                      collect_non_loss_data,
                                      dtype,
                                      enable_autocast)
+
+        gd.debuginfo(prj="mt",
+                     info=f'input_tensor={input_tensor}, '
+                          f'output_tensor={output_tensor}')
+
         output_tensors[model_chunk_id].append(output_tensor)
 
         # if forward-only, no need to save tensors for a backward pass
         if forward_only:
+            gd.debuginfo(prj="mt")
             input_tensors[model_chunk_id].pop()
             output_tensors[model_chunk_id].pop()
 
+        gd.debuginfo(prj="mt", info=f'__FUNC_END__')
         return output_tensor
 
     def backward_step_helper(microbatch_id):
         """Helper method to run backward step with model split into chunks
         (run set_virtual_pipeline_model_parallel_rank() before calling
         backward_step())."""
+
         model_chunk_id = get_model_chunk_id(microbatch_id, forward=False)
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_START__, model_chunk_id={model_chunk_id}')
+
         parallel_state.set_virtual_pipeline_model_parallel_rank(model_chunk_id)
 
         # launch grad synchronization (default)
         if grad_sync_func is None and is_last_microbatch_for_model_chunk(microbatch_id):
+            gd.debuginfo(prj="mt")
             enable_grad_sync()
             synchronized_model_chunks.add(model_chunk_id)
 
         if parallel_state.is_pipeline_last_stage():
+            gd.debuginfo(prj="mt")
             if len(output_tensor_grads[model_chunk_id]) == 0:
+                gd.debuginfo(prj="mt")
                 output_tensor_grads[model_chunk_id].append(None)
+
         input_tensor = input_tensors[model_chunk_id].pop(0)
         output_tensor = output_tensors[model_chunk_id].pop(0)
         output_tensor_grad = output_tensor_grads[model_chunk_id].pop(0)
-        input_tensor_grad = \
-            backward_step(grad_scaler,
-                          input_tensor,
-                          output_tensor,
-                          output_tensor_grad,
-                          model_type,
-                          timers,
-                          deallocate_pipeline_outputs)
+        input_tensor_grad = backward_step(grad_scaler,
+                                          input_tensor,
+                                          output_tensor,
+                                          output_tensor_grad,
+                                          model_type,
+                                          timers,
+                                          deallocate_pipeline_outputs)
+
+        gd.debuginfo(prj="mt", info=f'input_tensor={input_tensor}')
+        gd.debuginfo(prj="mt", info=f'output_tensor={output_tensor}')
+        gd.debuginfo(prj="mt", info=f'output_tensor_grad={output_tensor_grad}')
+        gd.debuginfo(prj="mt", info=f'input_tensor_grad={input_tensor_grad}')
+
 
         # launch grad synchronization (custom grad sync)
         # Note: Asynchronous communication tends to slow down compute.
@@ -624,56 +745,73 @@ def forward_backward_pipelining_with_interleaving(*,
         # pipeline-parallel group.
         if grad_sync_func is not None:
             grad_sync_microbatch_id = microbatch_id - pipeline_parallel_rank
+            gd.debuginfo(prj="mt", info=f'grad_sync_microbatch_id={grad_sync_microbatch_id}')
             if grad_sync_microbatch_id >= 0 and is_last_microbatch_for_model_chunk(grad_sync_microbatch_id):
                 grad_sync_chunk_id = get_model_chunk_id(grad_sync_microbatch_id, forward=False)
+                gd.debuginfo(prj="mt", info=f'grad_sync_chunk_id={grad_sync_chunk_id}')
+
                 enable_grad_sync()
                 grad_sync_func(model[grad_sync_chunk_id].parameters())
                 synchronized_model_chunks.add(grad_sync_chunk_id)
+
         disable_grad_sync()
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_END__ input_tensor_grad={infoTensor(input_tensor_grad)}')
 
         return input_tensor_grad
 
     # Run warmup forward passes.
     parallel_state.set_virtual_pipeline_model_parallel_rank(0)
-    input_tensors[0].append(
-        p2p_communication.recv_forward(tensor_shape,
-                                       dtype=dtype,
-                                       batch_p2p_comm=batch_p2p_comm,
-                                       timers=timers))
+    input_tensors[0].append(p2p_communication.recv_forward(tensor_shape,
+                                                           dtype=dtype,
+                                                           batch_p2p_comm=batch_p2p_comm,
+                                                           timers=timers))
 
     fwd_wait_handles = None
     bwd_wait_handles = None
 
     for k in range(num_warmup_microbatches):
-
+        gd.debuginfo(prj="mt")
         if fwd_wait_handles is not None:
+            gd.debuginfo(prj="mt")
             for req in fwd_wait_handles:
+                gd.debuginfo(prj="mt")
                 req.wait()
 
         output_tensor = forward_step_helper(k)
+        gd.debuginfo(prj="mt", info=f'output_tensor={infoTensor(output_tensor)}')
 
         # Determine if tensor should be received from previous stage.
         next_forward_model_chunk_id = get_model_chunk_id(k+1, forward=True)
         recv_prev = True
         if parallel_state.is_pipeline_first_stage(ignore_virtual=True):
+            gd.debuginfo(prj="mt")
             if next_forward_model_chunk_id == 0:
+                gd.debuginfo(prj="mt")
                 recv_prev = False
+
         if k == (total_num_microbatches - 1):
+            gd.debuginfo(prj="mt")
             recv_prev = False
 
         # Don't send tensor downstream if on last stage.
         if parallel_state.is_pipeline_last_stage():
+            gd.debuginfo(prj="mt")
             output_tensor = None
 
         # Send and receive tensors as appropriate (send tensors computed
         # in this iteration; receive tensors for next iteration).
         if not overlap_p2p_comm:
-            if k == (num_warmup_microbatches - 1) and not forward_only and \
-                    not all_warmup_microbatches:
+            gd.debuginfo(prj="mt")
+            if k == (num_warmup_microbatches - 1) and not forward_only and not all_warmup_microbatches:
+                gd.debuginfo(prj="mt")
                 input_tensor_grad = None
                 recv_next = True
+
                 if parallel_state.is_pipeline_last_stage(ignore_virtual=True):
+                    gd.debuginfo(prj="mt")
                     recv_next = False
+
                 input_tensor, output_tensor_grad = \
                     p2p_communication.send_forward_backward_recv_forward_backward(
                         output_tensor, input_tensor_grad,
@@ -682,6 +820,11 @@ def forward_backward_pipelining_with_interleaving(*,
                         dtype=dtype,
                         batch_p2p_comm=batch_p2p_comm,
                         timers=timers)
+
+                gd.debuginfo(prj="mt",
+                             info=f'output_tensor_grad={infoTensor(output_tensor_grad)}, '
+                                  f'input_tensor={infoTensor(input_tensor)}')
+
                 output_tensor_grads[num_model_chunks-1].append(output_tensor_grad)
             else:
                 input_tensor = \
@@ -691,6 +834,10 @@ def forward_backward_pipelining_with_interleaving(*,
                         dtype=dtype,
                         batch_p2p_comm=batch_p2p_comm,
                         timers=timers)
+
+                gd.debuginfo(prj="mt",
+                             info=f'input_tensor={infoTensor(input_tensor)}')
+
             input_tensors[next_forward_model_chunk_id].append(input_tensor)
         else:
             input_tensor, fwd_wait_handles = \
@@ -702,11 +849,17 @@ def forward_backward_pipelining_with_interleaving(*,
                     timers=timers,
                     overlap_p2p_comm=True)
 
-            if k == (num_warmup_microbatches - 1) and not forward_only and \
-                    not all_warmup_microbatches:
+            gd.debuginfo(prj="mt",
+                         info=f'fwd_wait_handles={infoTensor(fwd_wait_handles)}, '
+                              f'input_tensor={infoTensor(input_tensor)}')
+
+            if k == (num_warmup_microbatches - 1) and not forward_only and not all_warmup_microbatches:
+                gd.debuginfo(prj="mt")
                 input_tensor_grad = None
                 recv_next = True
+
                 if parallel_state.is_pipeline_last_stage(ignore_virtual=True):
+                    gd.debuginfo(prj="mt")
                     recv_next = False
 
                 output_tensor_grad, bwd_wait_handles = p2p_communication.send_backward_recv_backward(
@@ -717,7 +870,12 @@ def forward_backward_pipelining_with_interleaving(*,
                     timers=timers,
                     overlap_p2p_comm=True)
 
+                gd.debuginfo(prj="mt",
+                             info=f'bwd_wait_handles={infoTensor(bwd_wait_handles)}, '
+                                  f'output_tensor_grad={infoTensor(output_tensor_grad)}')
+
                 output_tensor_grads[num_model_chunks-1].append(output_tensor_grad)
+
             input_tensors[next_forward_model_chunk_id].append(input_tensor)
 
         deallocate_output_tensor(output_tensor, deallocate_pipeline_outputs)
@@ -728,8 +886,11 @@ def forward_backward_pipelining_with_interleaving(*,
         forward_k = k + num_warmup_microbatches
 
         if overlap_p2p_comm:
+            gd.debuginfo(prj="mt")
             if fwd_wait_handles is not None:
+                gd.debuginfo(prj="mt")
                 for req in fwd_wait_handles:
+                    gd.debuginfo(prj="mt")
                     req.wait()
 
             deallocate_output_tensor(output_tensor, deallocate_pipeline_outputs)
@@ -743,25 +904,32 @@ def forward_backward_pipelining_with_interleaving(*,
 
             # Last virtual stage no activation tensor to send
             if parallel_state.is_pipeline_last_stage():
+                gd.debuginfo(prj="mt")
                 output_tensor = None
 
             # Determine if peers are sending, and where in data structure to put
             # received tensors.
             recv_prev = True
             if parallel_state.is_pipeline_first_stage(ignore_virtual=True):
+                gd.debuginfo(prj="mt")
                 # First stage is ahead of last stage by (pipeline_parallel_size - 1).
-                next_forward_model_chunk_id = get_model_chunk_id(
-                    forward_k - (pipeline_parallel_size - 1), forward=True)
+                next_forward_model_chunk_id = get_model_chunk_id(forward_k - (pipeline_parallel_size - 1),
+                                                                 forward=True)
+
                 if next_forward_model_chunk_id == (num_model_chunks - 1):
                     recv_prev = False
+                    gd.debuginfo(prj="mt")
+
                 next_forward_model_chunk_id += 1
             else:
+                gd.debuginfo(prj="mt")
                 next_forward_model_chunk_id = get_model_chunk_id(forward_k + 1,
                                                                 forward=True)
 
             # If last iteration, don't receive; we already received one extra
             # before the start of the for loop.
             if k == (num_microbatches_remaining - 1):
+                gd.debuginfo(prj="mt")
                 recv_prev = False
 
             # Send activation tensor to the next stage and receive activation tensor from the
@@ -774,10 +942,17 @@ def forward_backward_pipelining_with_interleaving(*,
                     batch_p2p_comm=batch_p2p_comm,
                     timers=timers,
                     overlap_p2p_comm=True)
+
+            gd.debuginfo(prj="mt",
+                         info=f'fwd_wait_handles={infoTensor(fwd_wait_handles)}, '
+                              f'input_tensor={infoTensor(input_tensor)}')
+
             # assert fwd_wait_handles is not None
 
             if bwd_wait_handles is not None:
+                gd.debuginfo(prj="mt")
                 for req in bwd_wait_handles:
+                    gd.debuginfo(prj="mt")
                     req.wait()
 
             # Backward pass.
@@ -789,22 +964,25 @@ def forward_backward_pipelining_with_interleaving(*,
 
             # First virtual stage no activation gradient tensor to send
             if parallel_state.is_pipeline_first_stage():
+                gd.debuginfo(prj="mt")
                 input_tensor_grad = None
 
             # Determine if the current virtual stage has an activation gradient tensor to receive
             recv_next = True
             if parallel_state.is_pipeline_last_stage(ignore_virtual=True):
+                gd.debuginfo(prj="mt")
                 # Last stage is ahead of first stage by (pipeline_parallel_size - 1).
-                next_backward_model_chunk_id = get_model_chunk_id(
-                    backward_k - (pipeline_parallel_size - 1), forward=False
-                )
+                next_backward_model_chunk_id = get_model_chunk_id(backward_k - (pipeline_parallel_size - 1),
+                                                                  forward=False)
+
                 if next_backward_model_chunk_id == 0:
+                    gd.debuginfo(prj="mt")
                     recv_next = False
+
                 next_backward_model_chunk_id -= 1
             else:
-                next_backward_model_chunk_id = get_model_chunk_id(
-                    backward_k + 1, forward=False
-                )
+                gd.debuginfo(prj="mt")
+                next_backward_model_chunk_id = get_model_chunk_id(backward_k + 1, forward=False)
 
             output_tensor_grad, bwd_wait_handles = p2p_communication.send_backward_recv_backward(
                 input_tensor_grad, recv_next=recv_next,
@@ -814,7 +992,12 @@ def forward_backward_pipelining_with_interleaving(*,
                 timers=timers,
                 overlap_p2p_comm=True)
 
+            gd.debuginfo(prj="mt",
+                         info=f'bwd_wait_handles={infoTensor(bwd_wait_handles)}, '
+                              f'output_tensor_grad={infoTensor(output_tensor_grad)}')
+
         else: # no p2p overlap
+            gd.debuginfo(prj="mt")
             output_tensor = forward_step_helper(forward_k)
 
             # Backward pass.
@@ -829,42 +1012,57 @@ def forward_backward_pipelining_with_interleaving(*,
             forward_model_chunk_id = get_model_chunk_id(forward_k, forward=True)
             parallel_state.set_virtual_pipeline_model_parallel_rank(forward_model_chunk_id)
             if parallel_state.is_pipeline_last_stage():
+                gd.debuginfo(prj="mt")
                 output_tensor = None
 
             backward_model_chunk_id = get_model_chunk_id(backward_k, forward=False)
+
             parallel_state.set_virtual_pipeline_model_parallel_rank(backward_model_chunk_id)
+
             if parallel_state.is_pipeline_first_stage():
+                gd.debuginfo(prj="mt")
                 input_tensor_grad = None
 
             # Determine if peers are sending, and where in data structure to put
             # received tensors.
             recv_prev = True
             if parallel_state.is_pipeline_first_stage(ignore_virtual=True):
+                gd.debuginfo(prj="mt")
                 # First stage is ahead of last stage by (pipeline_parallel_size - 1).
-                next_forward_model_chunk_id = get_model_chunk_id(
-                    forward_k - (pipeline_parallel_size - 1), forward=True)
+                next_forward_model_chunk_id = get_model_chunk_id(forward_k - (pipeline_parallel_size - 1),
+                                                                 forward=True)
+
                 if next_forward_model_chunk_id == (num_model_chunks - 1):
                     recv_prev = False
+                    gd.debuginfo(prj="mt")
+
                 next_forward_model_chunk_id += 1
             else:
+                gd.debuginfo(prj="mt")
                 next_forward_model_chunk_id = get_model_chunk_id(forward_k + 1,
                                                                  forward=True)
 
             recv_next = True
             if parallel_state.is_pipeline_last_stage(ignore_virtual=True):
                 # Last stage is ahead of first stage by (pipeline_parallel_size - 1).
-                next_backward_model_chunk_id = get_model_chunk_id(
-                    backward_k - (pipeline_parallel_size - 1), forward=False)
+                next_backward_model_chunk_id = get_model_chunk_id(backward_k - (pipeline_parallel_size - 1),
+                                                                  forward=False)
+                gd.debuginfo(prj="mt")
+
                 if next_backward_model_chunk_id == 0:
                     recv_next = False
+                    gd.debuginfo(prj="mt")
+
                 next_backward_model_chunk_id -= 1
             else:
+                gd.debuginfo(prj="mt")
                 next_backward_model_chunk_id = get_model_chunk_id(backward_k + 1,
                                                                   forward=False)
 
             # If last iteration, don't receive; we already received one extra
             # before the start of the for loop.
             if k == (num_microbatches_remaining - 1):
+                gd.debuginfo(prj="mt")
                 recv_prev = False
 
             # Communicate tensors.
@@ -876,39 +1074,60 @@ def forward_backward_pipelining_with_interleaving(*,
                     dtype=dtype,
                     batch_p2p_comm=batch_p2p_comm,
                     timers=timers)
+
+            gd.debuginfo(prj="mt",
+                         info=f'input_tensor={infoTensor(input_tensor)}, '
+                              f'output_tensor_grad={infoTensor(output_tensor_grad)}')
+
             deallocate_output_tensor(output_tensor, deallocate_pipeline_outputs)
 
         # Put input_tensor and output_tensor_grad in data structures in the
         # right location.
         if recv_prev:
+            gd.debuginfo(prj="mt")
             input_tensors[next_forward_model_chunk_id].append(input_tensor)
+
         if recv_next:
-            output_tensor_grads[next_backward_model_chunk_id].append(
-                output_tensor_grad)
+            gd.debuginfo(prj="mt")
+            output_tensor_grads[next_backward_model_chunk_id].append(output_tensor_grad)
 
     deallocate_output_tensor(output_tensor, deallocate_pipeline_outputs)
 
     # Run cooldown backward passes (flush out pipeline).
     if not forward_only:
+        gd.debuginfo(prj="mt")
         if overlap_p2p_comm and bwd_wait_handles is not None:
+            gd.debuginfo(prj="mt")
             for wait_handle in bwd_wait_handles:
+                gd.debuginfo(prj="mt")
                 wait_handle.wait()
 
         if all_warmup_microbatches:
+            gd.debuginfo(prj="mt")
             output_tensor_grads[num_model_chunks-1].append(
                 p2p_communication.recv_backward(tensor_shape,
                                                 dtype=dtype,
                                                 batch_p2p_comm=batch_p2p_comm,
                                                 timers=timers))
+
         for k in range(num_microbatches_remaining, total_num_microbatches):
             input_tensor_grad = backward_step_helper(k)
             next_backward_model_chunk_id = get_model_chunk_id(k+1, forward=False)
             recv_next = True
+            gd.debuginfo(prj="mt",
+                         info=f'input_tensor_grad={infoTensor(input_tensor_grad)}, '
+                              f'next_backward_model_chunk_id={next_backward_model_chunk_id}')
+
             if parallel_state.is_pipeline_last_stage(ignore_virtual=True):
+                gd.debuginfo(prj="mt")
                 if next_backward_model_chunk_id == (num_model_chunks - 1):
+                    gd.debuginfo(prj="mt")
                     recv_next = False
+
             if k == (total_num_microbatches - 1):
+                gd.debuginfo(prj="mt")
                 recv_next = False
+
             output_tensor_grads[next_backward_model_chunk_id].append(
                 p2p_communication.send_backward_recv_backward(
                     input_tensor_grad, recv_next=recv_next,
@@ -922,11 +1141,16 @@ def forward_backward_pipelining_with_interleaving(*,
     if grad_sync_func is not None:
         params = []
         for model_chunk_id in range(num_model_chunks):
+            gd.debuginfo(prj="mt", info=f'model_chunk_id={model_chunk_id}')
             if model_chunk_id not in synchronized_model_chunks:
+                gd.debuginfo(prj="mt")
                 params.extend(model[model_chunk_id].parameters())
                 synchronized_model_chunks.add(model_chunk_id)
         if params:
+            gd.debuginfo(prj="mt")
             grad_sync_func(params)
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__, forward_data_store={forward_data_store}')
 
     return forward_data_store
 
@@ -993,33 +1217,57 @@ def recv_backward(tensor_shapes, dtype, timers):
 
 
 def send_forward(output_tensors, tensor_shapes, timers):
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
     if not isinstance(output_tensors, list):
         output_tensors = [output_tensors]
+        gd.debuginfo(prj="mt", info=f'output_tensors={infoTensor(output_tensors)}')
+    else:
+        gd.debuginfo(prj="mt", info=f'output_tensors={infoTensor(output_tensors)}')
+
     for (output_tensor, tensor_shape) in zip(output_tensors, tensor_shapes):
         if tensor_shape is None:
             continue
         p2p_communication.send_forward(output_tensor, timers=timers)
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
 
 def send_backward(input_tensor_grads, tensor_shapes, timers):
     if not isinstance(input_tensor_grads, list):
         input_tensor_grads = [input_tensor_grads]
-    for (input_tensor_grad, tensor_shape) in zip(input_tensor_grads, tensor_shapes):
+        gd.debuginfo(prj="mt", info=f'input_tensor_grads={input_tensor_grads}')
+    else:
+        gd.debuginfo(prj="mt", info=f'input_tensor_grads={input_tensor_grads}')
+
+    for index, (input_tensor_grad, tensor_shape) in enumerate(zip(input_tensor_grads, tensor_shapes)):
         if tensor_shape is None:
             continue
         p2p_communication.send_backward(input_tensor_grad, timers=timers)
+        gd.debuginfo(prj="mt",
+                     info=f'i={index}, '
+                          f'input_tensor_grad={input_tensor_grad}')
 
 
 def send_forward_recv_backward(output_tensors, tensor_shapes, dtype, timers):
     if not isinstance(output_tensors, list):
         output_tensors = [output_tensors]
+        gd.debuginfo(prj="mt", info=f'output_tensors={output_tensors}')
+    else:
+        gd.debuginfo(prj="mt", info=f'output_tensors={output_tensors}')
+
     output_tensor_grads = []
-    for (output_tensor, tensor_shape) in zip(output_tensors, tensor_shapes):
+    for index, (output_tensor, tensor_shape) in enumerate(zip(output_tensors, tensor_shapes)):
         if tensor_shape is None:
             output_tensor_grads.append(None)
             continue
-        output_tensor_grad = p2p_communication.send_forward_recv_backward(
-                output_tensor, tensor_shape, dtype, timers=timers)
+
+        output_tensor_grad = p2p_communication.send_forward_recv_backward(output_tensor,
+                                                                          tensor_shape,
+                                                                          dtype,
+                                                                          timers=timers)
+        gd.debuginfo(prj="mt",
+                     info=f'i={index}, '
+                          f'output_tensor_grad={output_tensor_grad}')
+
         output_tensor_grads.append(output_tensor_grad)
     return output_tensor_grads
 
@@ -1027,13 +1275,20 @@ def send_forward_recv_backward(output_tensors, tensor_shapes, dtype, timers):
 def send_backward_recv_forward(input_tensor_grads, tensor_shapes, dtype, timers):
     if not isinstance(input_tensor_grads, list):
         input_tensor_grads = [input_tensor_grads]
+        gd.debuginfo(prj="mt", info=f'input_tensor_grads={input_tensor_grads}')
+    else:
+        gd.debuginfo(prj="mt", info=f'input_tensor_grads={input_tensor_grads}')
+
     input_tensors = []
-    for (input_tensor_grad, tensor_shape) in zip(input_tensor_grads, tensor_shapes):
+    for index, (input_tensor_grad, tensor_shape) in enumerate(zip(input_tensor_grads, tensor_shapes)):
         if tensor_shape is None:
             input_tensors.append(None)
             continue
-        input_tensor = p2p_communication.send_backward_recv_forward(
-                input_tensor_grad, tensor_shape, dtype, timers=timers)
+        input_tensor = p2p_communication.send_backward_recv_forward(input_tensor_grad,
+                                                                    tensor_shape,
+                                                                    dtype,
+                                                                    timers=timers)
+        gd.debuginfo(prj="mt", info=f'i={index}, input_tensor={input_tensor}')
         input_tensors.append(input_tensor)
     return input_tensors
 
@@ -1064,14 +1319,19 @@ def forward_backward_pipelining_without_interleaving(*,
 
     Returns dictionary with losses if the last stage, empty dict otherwise."""
 
+    gd.debuginfo(prj="mt")
+
     if isinstance(model, list):
         assert len(model) == 1, \
             "non-interleaved pipeline parallelism does not support model chunking"
         model = model[0]
+
     if isinstance(data_iterator, list):
         assert len(data_iterator) == 1, \
             "non-pipeline-parallel schedule does not support model chunking"
         data_iterator = data_iterator[0]
+
+    gd.debuginfo(prj="mt")
 
     if overlap_p2p_comm:
         raise ValueError("Non-interleaved pipeline parallelism does not support overlapping p2p communication")
@@ -1082,46 +1342,61 @@ def forward_backward_pipelining_without_interleaving(*,
     # Disable async grad reductions
     if no_sync_func is None and isinstance(model, torchDDP):
         no_sync_func = model.no_sync
+
     if no_sync_func is None:
         no_sync_func = contextlib.nullcontext
+
     no_sync_context = None
+
     def disable_grad_sync():
         """Disable asynchronous grad reductions"""
+        gd.debuginfo(prj="mt")
         nonlocal no_sync_context
         if no_sync_context is None:
             no_sync_context = no_sync_func()
             no_sync_context.__enter__()
+
     def enable_grad_sync():
         """Enable asynchronous grad reductions"""
+        gd.debuginfo(prj="mt")
         nonlocal no_sync_context
         if no_sync_context is not None:
             no_sync_context.__exit__(None, None, None)
             no_sync_context = None
+
     disable_grad_sync()
 
     # Compute number of warmup microbatches.
     num_warmup_microbatches = \
         (parallel_state.get_pipeline_model_parallel_world_size() -
          parallel_state.get_pipeline_model_parallel_rank() - 1)
+
     num_warmup_microbatches = min(
         num_warmup_microbatches,
         num_microbatches)
+
     num_microbatches_remaining = \
         num_microbatches - num_warmup_microbatches
 
     model_type = get_model_type(model)
-
     rank = parallel_state.get_pipeline_model_parallel_rank()
+    gd.debuginfo(prj="mt", info=f'model_type={model_type}, rank={rank}')
+
     recv_tensor_shapes = get_tensor_shapes(rank=rank-1,
                                            model_type=model_type,
                                            tensor_shape=tensor_shape,
                                            decoder_seq_length=decoder_seq_length,
                                            sequence_parallel=sequence_parallel)
+
     send_tensor_shapes = get_tensor_shapes(rank=rank,
                                            model_type=model_type,
                                            tensor_shape=tensor_shape,
                                            decoder_seq_length=decoder_seq_length,
                                            sequence_parallel=sequence_parallel)
+
+    gd.debuginfo(prj="mt",
+                 info=f'recv_tensor_shapes={recv_tensor_shapes}, '
+                      f'send_tensor_shapes={send_tensor_shapes}')
 
     # Input, output tensors only need to be saved when doing backward passes
     input_tensors = None
@@ -1129,6 +1404,7 @@ def forward_backward_pipelining_without_interleaving(*,
     if not forward_only:
         input_tensors = []
         output_tensors = []
+
     forward_data_store = []
 
     # Run warmup forward passes.
@@ -1137,6 +1413,12 @@ def forward_backward_pipelining_without_interleaving(*,
         output_tensor = forward_step(forward_step_func, data_iterator, model, num_microbatches,
                                      input_tensor, forward_data_store,
                                      timers, collect_non_loss_data, dtype, enable_autocast)
+
+        gd.debuginfo(prj="mt",
+                     info=f'i={i}, '
+                          f'input_tensor={infoTensor(input_tensor)}, '
+                          f'output_tensor={infoTensor(output_tensor)}')
+
         send_forward(output_tensor, send_tensor_shapes, timers=timers)
 
         if not forward_only:
@@ -1159,16 +1441,22 @@ def forward_backward_pipelining_without_interleaving(*,
                                      timers, collect_non_loss_data, dtype, enable_autocast)
 
         if forward_only:
+            gd.debuginfo(prj="mt")
             send_forward(output_tensor, send_tensor_shapes, timers=timers)
 
             if not last_iteration:
                 input_tensor = recv_forward(recv_tensor_shapes, dtype, timers=timers)
+                gd.debuginfo(prj="mt",
+                             info=f'input_tensor={infoTensor(input_tensor)}')
 
         else:
             output_tensor_grad = \
                 send_forward_recv_backward(output_tensor,
                                            send_tensor_shapes, dtype,
                                            timers=timers)
+
+            gd.debuginfo(prj="mt",
+                         info=f'output_tensor_grad={infoTensor(output_tensor_grad)}')
 
             # Add input_tensor and output_tensor to end of list.
             input_tensors.append(input_tensor)
@@ -1180,17 +1468,29 @@ def forward_backward_pipelining_without_interleaving(*,
             input_tensor = input_tensors.pop(0)
             output_tensor = output_tensors.pop(0)
 
+            gd.debuginfo(prj="mt",
+                         info=f'input_tensor={infoTensor(input_tensor)}, '
+                              f'output_tensor={infoTensor(output_tensor)}')
+
             input_tensor_grad = \
                 backward_step(grad_scaler, input_tensor, output_tensor,
                               output_tensor_grad, model_type, timers, deallocate_pipeline_outputs)
 
+            gd.debuginfo(prj="mt",
+                         info=f'input_tensor_grad={infoTensor(input_tensor_grad)}')
+
             if last_iteration:
                 input_tensor = None
                 send_backward(input_tensor_grad, recv_tensor_shapes, timers=timers)
+                gd.debuginfo(prj="mt",
+                             info=f'input_tensor=None')
             else:
                 input_tensor = \
                     send_backward_recv_forward(
                         input_tensor_grad, recv_tensor_shapes, dtype, timers=timers)
+
+                gd.debuginfo(prj="mt",
+                             info=f'input_tensor={infoTensor(input_tensor)}')
 
     # Run cooldown backward passes.
     if not forward_only:
@@ -1202,24 +1502,34 @@ def forward_backward_pipelining_without_interleaving(*,
             # pipeline stages do grad reduction during pipeline
             # bubble.
             if i == num_warmup_microbatches-1:
+                gd.debuginfo(prj="mt")
                 if grad_sync_func is None or rank == 0:
+                    gd.debuginfo(prj="mt")
                     enable_grad_sync()
 
             input_tensor = input_tensors.pop(0)
             output_tensor = output_tensors.pop(0)
+            gd.debuginfo(prj="mt",
+                         info=f'input_tensor={infoTensor(input_tensor)}, '
+                              f'output_tensor={infoTensor(output_tensor)}')
 
             output_tensor_grad = recv_backward(send_tensor_shapes, dtype, timers=timers)
+            gd.debuginfo(prj="mt", info=f'output_tensor_grad={infoTensor(output_tensor_grad)}')
 
             input_tensor_grad = \
                 backward_step(grad_scaler, input_tensor, output_tensor,
                               output_tensor_grad, model_type, timers, deallocate_pipeline_outputs)
 
+            gd.debuginfo(prj="mt", info=f'input_tensor_grad={infoTensor(input_tensor_grad)}')
+
             send_backward(input_tensor_grad, recv_tensor_shapes, timers=timers)
 
     # Launch any remaining grad reductions
     if no_sync_context is not None:
+        gd.debuginfo(prj="mt")
         enable_grad_sync()
         if grad_sync_func is not None:
+            gd.debuginfo(prj="mt")
             grad_sync_func(model.parameters())
 
     return forward_data_store

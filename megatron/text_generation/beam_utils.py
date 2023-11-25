@@ -25,6 +25,7 @@ class BeamHypotheses(object):
         """
         Initialize n-best list of hypotheses.
         """
+        gd.debuginfo(prj="mt")
         self.length_penalty = length_penalty
         self.early_stopping = early_stopping
         self.num_beams = num_beams
@@ -42,13 +43,18 @@ class BeamHypotheses(object):
         Add a new hypothesis to the list.
         """
         score = sum_logprobs / length ** self.length_penalty
+        gd.debuginfo(prj="mt", info=f'score={score}')
+
         if len(self) < self.num_beams or score > self.worst_score:
+            gd.debuginfo(prj="mt")
             self.beams.append((score, hyp))
             if len(self) > self.num_beams:
+                gd.debuginfo(prj="mt")
                 sorted_scores = sorted([(s, idx) for idx, (s, _) in enumerate(self.beams)])
                 del self.beams[sorted_scores[0][1]]
                 self.worst_score = sorted_scores[1][0]
             else:
+                gd.debuginfo(prj="mt")
                 self.worst_score = min(score, self.worst_score)
 
     def is_done(self, best_sum_logprobs, cur_len):
@@ -56,12 +62,14 @@ class BeamHypotheses(object):
         If there are enough hypotheses and that none of the hypotheses being generated
         can become better than the worst one in the heap, then we are done with this sentence.
         """
-
         if len(self) < self.num_beams:
+            gd.debuginfo(prj="mt")
             return False
         elif self.early_stopping:
+            gd.debuginfo(prj="mt")
             return True
         else:
+            gd.debuginfo(prj="mt")
             cur_score = best_sum_logprobs / cur_len ** self.length_penalty
             ret = self.worst_score >= cur_score
             return ret

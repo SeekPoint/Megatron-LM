@@ -14,6 +14,7 @@ _MAX_DATA_DIM = 5
 
 
 def _check_data_types(keys, data, target_dtype):
+    gd.debuginfo(prj='ds')
     """Check that all the keys have the same target data type."""
     for key in keys:
         assert data[key].dtype == target_dtype, '{} has data type {} which '\
@@ -21,12 +22,14 @@ def _check_data_types(keys, data, target_dtype):
 
 
 def _build_key_size_numel_dictionaries(keys, data):
+    gd.debuginfo(prj='ds')
     """Build the size on rank 0 and broadcast."""
     max_dim = _MAX_DATA_DIM
     sizes = [0 for _ in range(max_dim) for _ in keys]
 
     # Pack the sizes on rank zero.
     if get_tensor_model_parallel_rank() == 0:
+        gd.debuginfo(prj='ds')
         offset = 0
         for key in keys:
             assert data[key].dim() < max_dim, 'you should increase MAX_DATA_DIM'
@@ -46,6 +49,7 @@ def _build_key_size_numel_dictionaries(keys, data):
     key_numel = {}
     total_numel = 0
     offset = 0
+
     for key in keys:
         i = 0
         size = []
@@ -59,6 +63,8 @@ def _build_key_size_numel_dictionaries(keys, data):
         key_numel[key] = numel
         total_numel += numel
         offset += max_dim
+
+    gd.debuginfo(prj='ds')
 
     return key_size, key_numel, total_numel
 
@@ -80,12 +86,14 @@ def broadcast_data(keys, data, datatype):
 
     # Pack on rank zero.
     if get_tensor_model_parallel_rank() == 0:
+        gd.debuginfo(prj='ds')
         # Check that all keys have the same data type.
         _check_data_types(keys, data, datatype)
         # Flatten the data associated with the keys
         flatten_data = torch.cat(
             [data[key].contiguous().view(-1) for key in keys], dim=0).cuda()
     else:
+        gd.debuginfo(prj='ds')
         flatten_data = torch.empty(total_numel,
                                    device=torch.cuda.current_device(),
                                    dtype=datatype)

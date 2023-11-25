@@ -19,8 +19,13 @@ def load(args):
 
     # Check if cuda 11 is installed for compute capability 8.0
     cc_flag = []
-    _, bare_metal_major, bare_metal_minor = _get_cuda_bare_metal_version(
-        cpp_extension.CUDA_HOME)
+    _, bare_metal_major, bare_metal_minor = _get_cuda_bare_metal_version(cpp_extension.CUDA_HOME)
+
+    gd.debuginfo(prj="mt",
+                 info=f'args={args}, '
+                      f'bare_metal_major={bare_metal_major}, '
+                      f'bare_metal_minor={bare_metal_minor}')
+
     if int(bare_metal_major) >= 11:
         cc_flag.append('-gencode')
         cc_flag.append('arch=compute_80,code=sm_80')
@@ -44,8 +49,11 @@ root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06/apex# pip install --globa
     buildpath = srcpath / 'build'
     _create_build_dir(buildpath)
 
+    gd.debuginfo(prj="mt", info=f'srcpath={srcpath}, buildpath={buildpath}')
+
     # Helper function to build the kernels.
     def _cpp_extention_load_helper(name, sources, extra_cuda_flags):
+        gd.debuginfo(prj="mt")
         return cpp_extension.load(
             name=name,
             sources=sources,
@@ -62,6 +70,7 @@ root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06/apex# pip install --globa
     # ==============
 
     if args.masked_softmax_fusion:
+        gd.debuginfo(prj="mt")
         extra_cuda_flags = ['-U__CUDA_NO_HALF_OPERATORS__',
                             '-U__CUDA_NO_HALF_CONVERSIONS__',
                             '--expt-relaxed-constexpr',
@@ -70,24 +79,38 @@ root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06/apex# pip install --globa
         # Upper triangular softmax.
         sources=[srcpath / 'scaled_upper_triang_masked_softmax.cpp',
                  srcpath / 'scaled_upper_triang_masked_softmax_cuda.cu']
+
         scaled_upper_triang_masked_softmax_cuda = _cpp_extention_load_helper(
             "scaled_upper_triang_masked_softmax_cuda",
             sources, extra_cuda_flags)
 
+        gd.debuginfo(prj="mt",
+                     info=f'scaled_upper_triang_masked_softmax_cuda={scaled_upper_triang_masked_softmax_cuda}')
+
         # Masked softmax.
         sources=[srcpath / 'scaled_masked_softmax.cpp',
                  srcpath / 'scaled_masked_softmax_cuda.cu']
+
         scaled_masked_softmax_cuda = _cpp_extention_load_helper(
             "scaled_masked_softmax_cuda", sources, extra_cuda_flags)
+
+        gd.debuginfo(prj="mt",
+                     info=f'scaled_masked_softmax_cuda={scaled_masked_softmax_cuda}')
 
         # Softmax
         sources=[srcpath / 'scaled_softmax.cpp',
                  srcpath / 'scaled_softmax_cuda.cu']
+
+
         scaled_softmax_cuda = _cpp_extention_load_helper(
             "scaled_softmax_cuda", sources, extra_cuda_flags)
 
+        gd.debuginfo(prj="mt",
+                     info=f'scaled_softmax_cuda={scaled_softmax_cuda}')
+
 
 def _get_cuda_bare_metal_version(cuda_dir):
+    gd.debuginfo(prj="mt")
     raw_output = subprocess.check_output([cuda_dir + "/bin/nvcc", "-V"],
                                          universal_newlines=True)
     output = raw_output.split()

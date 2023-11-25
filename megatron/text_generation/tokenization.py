@@ -15,7 +15,7 @@ def detokenize_generations(tokens_gpu_tensor,
                            lengths_gpu_tensor,
                            return_segments):
     """Detokenize the generated tokens."""
-
+    gd.debuginfo(prj="mt")
     tokenizer = get_tokenizer()
     args = get_args()
     prompts_plus_generations = []
@@ -54,6 +54,7 @@ def detokenize_generations(tokens_gpu_tensor,
 def tokenize_prompts(prompts=None, tokens_to_generate=None,
                      add_BOS=None, rank=0):
     """Tokenize prompts and make them avaiable on all ranks."""
+    gd.debuginfo(prj="mt")
 
     # On all ranks set to None so we can pass them to functions
     sizes_list = None
@@ -94,13 +95,15 @@ def _tokenize_prompts_and_batch(prompts, tokens_to_generate, add_BOS):
         - pad all the sequences to this length so we can convert them
           into a 2D tensor.
     """
-
+    gd.debuginfo(prj="mt")
     # Tokenize all the prompts.
     tokenizer = get_tokenizer()
     if add_BOS:
+        gd.debuginfo(prj="mt")
         prompts_tokens = [[tokenizer.eod] + tokenizer.tokenize(prompt)
                           for prompt in prompts]
     else:
+        gd.debuginfo(prj="mt")
         prompts_tokens = [tokenizer.tokenize(prompt) for prompt in prompts]
 
     # Now we have a list of list of tokens which each list has a different

@@ -25,6 +25,8 @@ gd.debuginfo(prj="mt")
 def _zero_grad_group_helper(group, set_to_none):
     """Zero out the gradient for a group of parameters.
     Note: copied from torch.optim.optimizer."""
+    gd.debuginfo(prj="mt")
+
     for param in group:
         if param.grad is not None:
             if set_to_none:
@@ -43,6 +45,7 @@ def _multi_tensor_copy_this_to_that(this, that, overflow_buf=None):
     is not provided, we default back to simple loop copy to be compatible
     with bfloat16."""
     if overflow_buf:
+        gd.debuginfo(prj="mt")
         overflow_buf.fill_(0)
         # Scaling with factor `1.0` is equivalent to copy.
         multi_tensor_applier(amp_C.multi_tensor_scale,
@@ -50,6 +53,7 @@ def _multi_tensor_copy_this_to_that(this, that, overflow_buf=None):
                              [this, that],
                              1.0)
     else:
+        gd.debuginfo(prj="mt")
         for this_, that_ in zip(this, that):
             that_.copy_(this_)
 

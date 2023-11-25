@@ -34,6 +34,8 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
     Returns a function to finalize distributed env initialization 
     (optionally, only when args.lazy_mpu_init == True)
     """
+    gd.debuginfo(prj="mt")
+
     if not allow_no_cuda:
         # Make sure cuda is available.
         assert torch.cuda.is_available(), 'Megatron requires CUDA.'
@@ -249,6 +251,7 @@ def set_jit_fusion_options():
     TORCH_MAJOR = int(torch.__version__.split('.')[0])
     TORCH_MINOR = int(torch.__version__.split('.')[1])
     if (TORCH_MAJOR > 1) or (TORCH_MAJOR == 1 and TORCH_MINOR >= 10):
+        gd.debuginfo(prj="mt")
         # nvfuser
         torch._C._jit_set_profiling_executor(True)
         torch._C._jit_set_profiling_mode(True)
@@ -258,6 +261,7 @@ def set_jit_fusion_options():
         torch._C._jit_set_nvfuser_enabled(True)
         torch._C._debug_set_autodiff_subgraph_inlining(False)
     else:
+        gd.debuginfo(prj="mt")
         # legacy pytorch fuser
         torch._C._jit_set_profiling_mode(False)
         torch._C._jit_set_profiling_executor(False)
@@ -270,6 +274,7 @@ def set_jit_fusion_options():
 def _warmup_jit_function():
     """ Compilie JIT functions before the main training steps """
     args = get_args()
+    gd.debuginfo(prj="mt")
     if args.bf16:
         dtype = torch.bfloat16
     elif args.fp16:

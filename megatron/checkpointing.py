@@ -493,6 +493,7 @@ def load_checkpoint(model, optimizer, opt_param_scheduler, load_arg='load', stri
         :attr:`state_dict` of the checkpoint match the names of
         parameters and buffers in model.
     """
+    gd.debuginfo(prj='ds')
     args = get_args()
     load_dir = getattr(args, load_arg)
 

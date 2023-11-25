@@ -33,7 +33,7 @@ def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
     # as to whether it matches the checkpoint. The casing information probably
     # should have been stored in the bert_config.json file, but it's not, so
     # we have to heuristically detect it to validate.
-
+    gd.debuginfo(prj='ds')
     if not init_checkpoint:
         return
 
@@ -77,6 +77,7 @@ def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
 
 
 def convert_to_unicode(text):
+    gd.debuginfo(prj='ds')
     """Converts `text` to Unicode (if it's not already), assuming utf-8 input."""
     if six.PY3:
         if isinstance(text, str):
@@ -120,6 +121,7 @@ def printable_text(text):
 
 
 def load_vocab(vocab_file):
+    gd.debuginfo(prj='ds')
     """Loads a vocabulary file into a dictionary."""
     vocab = collections.OrderedDict()
     index = 0

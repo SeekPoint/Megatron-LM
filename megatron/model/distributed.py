@@ -17,6 +17,7 @@ gd.debuginfo(prj="mt")
 class MemoryBuffer:
 
     def __init__(self, numel, numel_padded, dtype):
+        gd.debuginfo(prj="mt")
         self.numel = numel
         self.numel_padded = numel_padded
         self.dtype = dtype
@@ -46,6 +47,7 @@ class DistributedDataParallelBase(MegatronModule, ABC):
     """Abstract class for DDP."""
 
     def __init__(self, module):
+        gd.debuginfo(prj="mt")
         super(DistributedDataParallelBase, self).__init__()
         # Keep a pointer to the model.
         self.module = module
@@ -98,6 +100,8 @@ class DistributedDataParallel(DistributedDataParallelBase):
                  accumulate_allreduce_grads_in_fp32,
                  use_contiguous_buffers):
 
+        gd.debuginfo(prj="mt")
+
         super(DistributedDataParallel, self).__init__(module)
 
         self.accumulate_allreduce_grads_in_fp32 \
@@ -115,6 +119,7 @@ class DistributedDataParallel(DistributedDataParallelBase):
         self._grad_buffers = None
         self._grad_buffer_param_index_map = None
         if self.use_contiguous_buffers: # 这里只考虑连续内存
+            gd.debuginfo(prj="mt")
             self._grad_buffers = {}  # 定义buffer
             self._grad_buffer_param_index_map = {}
             data_parallel_world_size = mpu.get_data_parallel_world_size()
@@ -182,9 +187,11 @@ class DistributedDataParallel(DistributedDataParallelBase):
     下面是两个支撑函数，分别是用于拷贝梯度和将buffer清零。
     '''
     def _make_param_hook(self, param):
+        gd.debuginfo(prj="mt")
         """Create the all-reduce hook for backprop."""
         # Hook used for back-prop.
         def param_hook(*unused):
+            gd.debuginfo(prj="mt")
             # Add the gradient to the buffer.
             if param.grad is not None:
                 # The gradient function of linear layers is fused with GEMMs
@@ -195,6 +202,7 @@ class DistributedDataParallel(DistributedDataParallelBase):
 
 
     def zero_grad_buffer(self):
+        gd.debuginfo(prj="mt")
         """Set the grad buffer data to zero. Needs to be called at the
         begining of each iteration."""
         assert self._grad_buffers is not None, 'buffers are not initialized.'
@@ -203,6 +211,7 @@ class DistributedDataParallel(DistributedDataParallelBase):
 
 
     def broadcast_params(self):
+        gd.debuginfo(prj="mt")
         for param in self.module.parameters():
             torch.distributed.broadcast(param.data,
                                         src=mpu.get_data_parallel_src_rank(),
@@ -220,11 +229,13 @@ class DistributedDataParallel(DistributedDataParallelBase):
         """Reduce gradients across data parallel ranks."""
         # If we have buffers, simply reduce the data in the buffer.
         if self._grad_buffers is not None:
+            gd.debuginfo(prj="mt")
             for _, buffer_ in self._grad_buffers.items():
                 buffer_.data /= mpu.get_data_parallel_world_size()
                 torch.distributed.all_reduce(
                     buffer_.data, group=mpu.get_data_parallel_group())
         else:
+            gd.debuginfo(prj="mt")
             # Otherwise, bucketize and all-reduce
             buckets = {}
             # Pack the buckets.

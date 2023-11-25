@@ -48,9 +48,11 @@ class GlobalMemoryBuffer:
     are not used concurrently."""
 
     def __init__(self):
+        gd.debuginfo(prj='ds')
         self.buffer = {}
 
     def get_tensor(self, tensor_shape, dtype, name):
+        gd.debuginfo(prj='ds')
         required_len = reduce(operator.mul, tensor_shape, 1)
         if self.buffer.get((name, dtype), None) is None or \
                 self.buffer[(name, dtype)].numel() < required_len:
@@ -71,6 +73,7 @@ def _kernel_make_viewless_tensor(inp, requires_grad):
     data, without linking the viewed tensor, referenced via the '._base'
     field.
     '''
+    gd.debuginfo(prj='ds')
     out = torch.empty(
         (1,),
         dtype = inp.dtype,
@@ -105,7 +108,7 @@ def make_viewless_tensor(inp, requires_grad, keep_graph):
     switch for determining if an autograd function or a regular method
     should be used to create the tensor.
     '''
-
+    gd.debuginfo(prj='ds')
     # return tensor as-is, if not a 'view'
     if inp._base is None:
         return inp

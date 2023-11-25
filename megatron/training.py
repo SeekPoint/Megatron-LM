@@ -97,21 +97,31 @@ def pretrain(train_valid_test_dataset_provider,
         args_defaults: a dictionary from argument-name to argument-value. It
             to set already parse arguments.
     """
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
 
     # Initalize and get arguments, timers, and Tensorboard writer.
     initialize_megatron(extra_args_provider=extra_args_provider,
                         args_defaults=args_defaults)
+
+    gd.debuginfo(prj="mt", info=f'-----------initialize_megatron end------------')
+
     # Set pytorch JIT layer fusion options and warmup JIT functions.
     set_jit_fusion_options()
+    gd.debuginfo(prj="mt", info=f'-----------set_jit_fusion_options------------')
 
     # Adjust the startup time so it reflects the largest value.
     # This will be closer to what scheduler will see (outside of
     # image ... launches.
     global _TRAIN_START_TIME
     start_time_tensor = torch.cuda.DoubleTensor([_TRAIN_START_TIME])
+    gd.debuginfo(prj="mt", info=f'start_time_tensor={infoTensor(start_time_tensor)}')
+
     torch.distributed.all_reduce(start_time_tensor,
                                  op=torch.distributed.ReduceOp.MIN)
+
     _TRAIN_START_TIME = start_time_tensor.item()
+
+    gd.debuginfo(prj="mt", info=f'_TRAIN_START_TIME={infoTensor(_TRAIN_START_TIME)}')
     
     gd.debuginfo(prj="mt",
                  info=f'time to initialize megatron (seconds): {time.time() - _TRAIN_START_TIME:.3f}')
@@ -119,6 +129,8 @@ def pretrain(train_valid_test_dataset_provider,
     print_datetime('after megatron is initialized')
 
     args = get_args()
+    gd.debuginfo(prj="mt", info=f'args={args}')
+
     timers = get_timers()
 
     # Model, optimizer, and learning rate.
@@ -127,6 +139,12 @@ def pretrain(train_valid_test_dataset_provider,
     # Model, optimizer, and learning rate. 使用model_provider设置模型、优化器和lr计划
     model, optimizer, opt_param_scheduler = setup_model_and_optimizer(
         model_provider, model_type)
+
+    gd.debuginfo(prj="mt", info=f'model={model}')
+    gd.debuginfo(prj="mt", info=f'optimizer={optimizer}')
+    gd.debuginfo(prj="mt", info=f'opt_param_scheduler={opt_param_scheduler}')
+
+
     timers('model-and-optimizer-setup').stop()
     print_datetime('after model, optimizer, and learning rate '
                    'scheduler are built')
@@ -152,6 +170,7 @@ def pretrain(train_valid_test_dataset_provider,
         train_data_iterator, valid_data_iterator, test_data_iterator \
             = build_train_valid_test_data_iterators(
                 train_valid_test_dataset_provider)
+
     timers('train/valid/test-data-iterators-setup').stop()
     print_datetime('after dataloaders are built')
 
@@ -199,8 +218,11 @@ def pretrain(train_valid_test_dataset_provider,
                                    iteration, process_non_loss_data_func,
                                    verbose=True, write_to_tensorboard=not args.skip_train)
 
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+
 
 def update_train_iters(args):
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
 
     # For iteration-based training, we don't need to do anything
     if args.train_iters:
@@ -230,6 +252,8 @@ def update_train_iters(args):
     gd.debuginfo(prj="mt", 
                  info=f'setting training iterations to {args.train_iters}')
 
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+
 '''
 5.3 get_model
 现在我们来整理一下生成模型的流程，回到 get_model 函数。
@@ -251,14 +275,21 @@ def update_train_iters(args):
 
 具体代码如下：
 '''
-def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap_with_ddp=True):
+def get_model(model_provider_func,
+              model_type=ModelType.encoder_or_decoder,
+              wrap_with_ddp=True):
     """Build the model."""
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__ model_type={model_type}')
+
     args = get_args()
     args.model_type = model_type
 
     # Build model.
     if mpu.get_pipeline_model_parallel_world_size() > 1 and \
        args.virtual_pipeline_model_parallel_size is not None: # 有virtual设置，后续会提到
+
+        gd.debuginfo(prj="mt")
+
         assert model_type != ModelType.encoder_and_decoder, \
             "Interleaved schedule not supported for model with both encoder and decoder"
         model = []
@@ -275,12 +306,17 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
             this_model.model_type = model_type
             model.append(this_model)  # 模型列表之中添加一个新的 GPTModel
     else:
+        gd.debuginfo(prj="mt")
+
         pre_process = mpu.is_pipeline_first_stage()
         post_process = mpu.is_pipeline_last_stage()
         add_encoder = True
         add_decoder = True
         if model_type == ModelType.encoder_and_decoder:
+            gd.debuginfo(prj="mt")
             if mpu.get_pipeline_model_parallel_world_size() > 1:
+                gd.debuginfo(prj="mt")
+
                 assert args.pipeline_model_parallel_split_rank is not None, \
                     "Split rank needs to be specified for model with both encoder and decoder"
                 rank = mpu.get_pipeline_model_parallel_rank()
@@ -297,6 +333,7 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
                 add_encoder=add_encoder,
                 add_decoder=add_decoder)
         else:
+            gd.debuginfo(prj="mt")
             model = model_provider_func(
                 pre_process=pre_process,
                 post_process=post_process
@@ -318,24 +355,25 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
     # are set for all params so the optimizer can use them.
     for model_module in model:
         for param in model_module.parameters():
+            gd.debuginfo(prj="mt", info=f'model_module={model_module}, param={infoTensor(param)}')
             tensor_parallel.set_defaults_if_not_set_tensor_model_parallel_attributes(param)
 
     # Print number of parameters.
     if mpu.get_data_parallel_rank() == 0:
-        gd.debuginfo(prj="mt", info=f' > number of parameters on (tensor, pipeline) '
-              'model parallel rank ({}, {}): {}'.format(
-            mpu.get_tensor_model_parallel_rank(),
-            mpu.get_pipeline_model_parallel_rank(),
-            sum([sum([p.nelement() for p in model_module.parameters()])
-                 for model_module in model])))
+        tmp = sum([sum([p.nelement() for p in model_module.parameters()])
+                 for model_module in model])
+        gd.debuginfo(prj="mt", info=f' > number of parameters on (tensor, pipeline) model parallel rank'
+                                    f' ({mpu.get_tensor_model_parallel_rank()}, {mpu.get_pipeline_model_parallel_rank()}): {tmp}')
 
     # GPU allocation.
     for model_module in model:
+        gd.debuginfo(prj="mt", info=f'model_module={model_module}')
         model_module.cuda(torch.cuda.current_device())
 
     # Fp16 conversion.
     if args.fp16 or args.bf16:
         model = [Float16Module(model_module, args) for model_module in model]
+        gd.debuginfo(prj="mt", info=f'model={model}')
 
     '''
     6.2 DDP
@@ -344,55 +382,79 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
     默认采用 local 的模式作为 DDP_impl 的值。
     '''
     if wrap_with_ddp:
+        gd.debuginfo(prj="mt")
         if args.DDP_impl == 'torch':
+
             i = torch.cuda.current_device()
             model = [torchDDP(model_module, device_ids=[i], output_device=i,
                               process_group=mpu.get_data_parallel_group())
                      for model_module in model]
+
+            gd.debuginfo(prj="mt", info=f'i={i}, model={model}')
 
         elif args.DDP_impl == 'local':
             model = [LocalDDP(model_module,
                               args.accumulate_allreduce_grads_in_fp32,
                               args.use_contiguous_buffers_in_local_ddp)
                      for model_module in model]
+
+            gd.debuginfo(prj="mt", info=f'model={model}')
+
             # broad cast params from data parallel src rank to other data parallel ranks
             if args.data_parallel_random_init:
                 for model_module in model:
+                    gd.debuginfo(prj="mt", info=f'model_module={model_module}')
                     model_module.broadcast_params()
         else:
             raise NotImplementedError('Unknown DDP implementation specified: '
                                       '{}. Exiting.'.format(args.DDP_impl))
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
     return model
 
 
 def get_optimizer_param_scheduler(optimizer):
     """Build the learning rate scheduler."""
+    gd.debuginfo(prj="mt")
+
     args = get_args()
 
     # Iteration-based training.
     if args.train_iters:
+        gd.debuginfo(prj="mt")
         if args.lr_decay_iters is None:
+            gd.debuginfo(prj="mt")
             args.lr_decay_iters = args.train_iters
+
         lr_decay_steps = args.lr_decay_iters * args.global_batch_size
         wd_incr_steps = args.train_iters * args.global_batch_size
+
         if args.lr_warmup_fraction is not None:
+            gd.debuginfo(prj="mt")
             lr_warmup_steps = args.lr_warmup_fraction * lr_decay_steps
         else:
+            gd.debuginfo(prj="mt")
             lr_warmup_steps = args.lr_warmup_iters * args.global_batch_size
     # Sample-based training.
     elif args.train_samples:
+        gd.debuginfo(prj="mt")
         # We need to set training iters for later use. Technically
         # we need to adjust the training samples too (due to last
         # batch being incomplete) but we leave it as is for now.
         update_train_iters(args)
         if args.lr_decay_samples is None:
+            gd.debuginfo(prj="mt")
             args.lr_decay_samples = args.train_samples
+
         lr_decay_steps = args.lr_decay_samples
         wd_incr_steps = args.train_samples
+
         if args.lr_warmup_fraction is not None:
+            gd.debuginfo(prj="mt")
             lr_warmup_steps = args.lr_warmup_fraction * lr_decay_steps
         else:
+            gd.debuginfo(prj="mt")
             lr_warmup_steps = args.lr_warmup_samples
     else:
         raise Exception(
@@ -421,24 +483,35 @@ def setup_model_and_optimizer(model_provider_func,
                               no_wd_decay_cond=None,
                               scale_lr_cond=None,
                               lr_mult=1.0):
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+
     """Setup model and optimizer."""
     args = get_args()
 
     model = get_model(model_provider_func, model_type)
+    gd.debuginfo(prj="mt", info=f'model={model}')
+
     unwrapped_model = unwrap_model(model,
                                    (torchDDP, LocalDDP, Float16Module))
+    gd.debuginfo(prj="mt", info=f'unwrapped_model={unwrapped_model}')
 
     optimizer = get_megatron_optimizer(model, no_wd_decay_cond,
                                        scale_lr_cond, lr_mult)
+
+    gd.debuginfo(prj="mt", info=f'optimizer={optimizer}')
+
     opt_param_scheduler = get_optimizer_param_scheduler(optimizer)
+    gd.debuginfo(prj="mt", info=f'opt_param_scheduler={opt_param_scheduler}')
 
     if args.load is not None:
         timers = get_timers()
         timers('load-checkpoint', log_level=0).start(barrier=True)
         args.iteration = load_checkpoint(model, optimizer, opt_param_scheduler)
+        gd.debuginfo(prj="mt", info=f'args.iteration={args.iteration}')
         timers('load-checkpoint').stop(barrier=True)
         timers.log(['load-checkpoint'])
     else:
+        gd.debuginfo(prj="mt", info=f'args.iteration is 0')
         args.iteration = 0
 
     # We only support local DDP with multiple micro-batches.
@@ -451,7 +524,10 @@ def setup_model_and_optimizer(model_provider_func,
         gd.debuginfo(prj="mt", info=f"Initializing ICT from pretrained BERT model")
         unwrapped_model[0].init_state_dict_from_bert()
         if args.fp16:
+            gd.debuginfo(prj="mt")
             optimizer.reload_model_params()
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
     return model, optimizer, opt_param_scheduler
 
@@ -461,20 +537,25 @@ def setup_model_and_optimizer(model_provider_func,
 def train_step(forward_step_func, data_iterator,
                model, optimizer, opt_param_scheduler):
     """Single training step."""
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
     args = get_args()
     timers = get_timers()
 
     # Set grad to zero.
     if args.DDP_impl == 'local' and args.use_contiguous_buffers_in_local_ddp:
         for partition in model:
+            gd.debuginfo(prj="mt", info=f'partition={partition}')
             partition.zero_grad_buffer()
+
     optimizer.zero_grad()
 
     # Forward pass.
-    timers('forward-backward', log_level=1).start(
-        barrier=args.barrier_with_L1_time)
+    timers('forward-backward', log_level=1).start(barrier=args.barrier_with_L1_time)
+
     forward_backward_func = get_forward_backward_func()
+
     fwd_bwd_timers = timers if args.timing_log_level > 1 else None
+
     losses_reduced = forward_backward_func(
         forward_step_func=forward_step_func,
         data_iterator=data_iterator,
@@ -488,10 +569,12 @@ def train_step(forward_step_func, data_iterator,
         batch_p2p_comm=not args.overlap_p2p_comm,
         forward_only=False,
         timers=fwd_bwd_timers)
+
     timers('forward-backward').stop()
 
     # Empty unused memory.
     if args.empty_unused_memory_level >= 1:
+        gd.debuginfo(prj="mt")
         torch.cuda.empty_cache()
 
     # Reduce gradients.
@@ -499,8 +582,8 @@ def train_step(forward_step_func, data_iterator,
 
     # Vision gradients.
     if args.vision_pretraining and args.vision_pretraining_type == "dino":
-        unwrapped_model = unwrap_model(model[0],
-                                       (torchDDP, LocalDDP, Float16Module))
+        gd.debuginfo(prj="mt")
+        unwrapped_model = unwrap_model(model[0], (torchDDP, LocalDDP, Float16Module))
         unwrapped_model.cancel_gradients_last_layer(args.curr_iteration)
 
     # Update parameters.
@@ -510,12 +593,13 @@ def train_step(forward_step_func, data_iterator,
 
     # Gather params.
     if update_successful:
+        gd.debuginfo(prj="mt")
         optimizer.gather_model_params(args, timers)
 
     # Vision momentum.
     if args.vision_pretraining and args.vision_pretraining_type == "dino":
-        unwrapped_model = unwrap_model(model[0],
-                                       (torchDDP, LocalDDP, Float16Module))
+        gd.debuginfo(prj="mt")
+        unwrapped_model = unwrap_model(model[0], (torchDDP, LocalDDP, Float16Module))
         unwrapped_model.update_momentum(args.curr_iteration)
 
     # Update learning rate.
@@ -523,22 +607,29 @@ def train_step(forward_step_func, data_iterator,
         increment = get_num_microbatches() * \
                     args.micro_batch_size * \
                     args.data_parallel_size
+        gd.debuginfo(prj="mt", info=f'increment={increment}')
         opt_param_scheduler.step(increment=increment)
         skipped_iter = 0
     else:
+        gd.debuginfo(prj="mt")
         skipped_iter = 1
 
     # Empty unused memory.
     if args.empty_unused_memory_level >= 2:
+        gd.debuginfo(prj="mt")
         torch.cuda.empty_cache()
 
     if mpu.is_pipeline_last_stage(ignore_virtual=True):
         # Average loss across microbatches.
         loss_reduced = {}
         for key in losses_reduced[0]:
+            gd.debuginfo(prj="mt", info=f'key={key}')
             losses_reduced_for_key = [x[key] for x in losses_reduced]
             loss_reduced[key] = sum(losses_reduced_for_key) / len(losses_reduced_for_key)
         return loss_reduced, skipped_iter, grad_norm, num_zeros_in_grad
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+
     return {}, skipped_iter, grad_norm, num_zeros_in_grad
 
 
@@ -733,6 +824,8 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
           train_data_iterator, valid_data_iterator,
           process_non_loss_data_func):
     """Train the model function."""
+    gd.debuginfo(prj="mt")
+
     args = get_args()
     timers = get_timers()
 
@@ -741,6 +834,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
 
     # Turn on training mode which enables dropout.
     for model_module in model:
+        gd.debuginfo(prj="mt", info=f'model_module={model_module}')
         model_module.train()
 
     # Tracking loss.
@@ -753,6 +847,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
     print_datetime('before the start of training step')
     report_memory_flag = True
     while iteration < args.train_iters:
+        gd.debuginfo(prj="mt", info=f'iteration={iteration}')
         update_num_microbatches(args.consumed_train_samples)
         args.curr_iteration = iteration
         loss_dict, skipped_iter, grad_norm, num_zeros_in_grad = \
@@ -831,7 +926,6 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
             torch.distributed.barrier()
             print_datetime('exiting program at iteration {}'.format(iteration))
             sys.exit()
-
 
     return iteration
 
@@ -977,7 +1071,7 @@ def build_train_valid_test_datasets(build_train_valid_test_datasets_provider):
 def build_train_valid_test_data_loaders(
         build_train_valid_test_datasets_provider):
     """Build pretraining data loaders."""
-
+    gd.debuginfo(prj="mt")
     args = get_args()
 
     (train_dataloader, valid_dataloader, test_dataloader) = (None, None, None)
@@ -1042,7 +1136,7 @@ dataloader_type 有 2 种模式：
 def build_train_valid_test_data_iterators(
         build_train_valid_test_datasets_provider):
     """Build pretraining data iterators."""
-
+    gd.debuginfo(prj="mt")
     args = get_args()
 
     # Build loaders.

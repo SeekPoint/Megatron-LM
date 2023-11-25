@@ -32,6 +32,7 @@ class MixedFusedLayerNorm(torch.nn.Module):
                no_persist_layer_norm=True,
                sequence_parallel=False,
                apply_layernorm_1p=False):
+        gd.debuginfo(prj="mt")
         super(MixedFusedLayerNorm, self).__init__()
 
         self.apply_layernorm_1p = apply_layernorm_1p
@@ -45,12 +46,15 @@ class MixedFusedLayerNorm(torch.nn.Module):
         persist_ln_hidden_sizes = [1024, 1536, 2048, 2304, 3072, 3840, 4096,
             5120, 6144, 8192, 10240, 12288, 12800, 15360, 16384, 18432, 20480,
             24576, 25600, 30720, 32768, 40960, 49152, 65536]
-        if normalized_shape not in persist_ln_hidden_sizes or \
-                not HAVE_PERSIST_LAYER_NORM:
+
+        if normalized_shape not in persist_ln_hidden_sizes or not HAVE_PERSIST_LAYER_NORM:
+            gd.debuginfo(prj="mt")
             no_persist_layer_norm = True
 
         if isinstance(normalized_shape, numbers.Integral):
+            gd.debuginfo(prj="mt")
             normalized_shape = (normalized_shape,)
+
         self.normalized_shape = torch.Size(normalized_shape)
         self.eps = eps
         self.weight = Parameter(torch.Tensor(*normalized_shape))
@@ -67,9 +71,11 @@ class MixedFusedLayerNorm(torch.nn.Module):
   def reset_parameters(self):
 
     if self.apply_layernorm_1p:
+        gd.debuginfo(prj="mt")
         init.zeros_(self.weight)
         init.zeros_(self.bias)
     else:
+        gd.debuginfo(prj="mt")
         init.ones_(self.weight)
         init.zeros_(self.bias)
 
@@ -78,8 +84,10 @@ class MixedFusedLayerNorm(torch.nn.Module):
     weight = self.weight + 1 if self.apply_layernorm_1p else self.weight
 
     if self.no_persist_layer_norm:
+        gd.debuginfo(prj="mt")
         return FusedLayerNormAffineFunction.apply(input, weight, self.bias, self.normalized_shape, self.eps)
     else:
+        gd.debuginfo(prj="mt")
         output = FastLayerNormFN.apply(input, weight, self.bias, self.eps)
 
         # Apex's fast layer norm function outputs a 'view' tensor (i.e., has

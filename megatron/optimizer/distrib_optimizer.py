@@ -90,6 +90,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         - The param's range within the DP rank's local view of the grad buffer.
         - The param's range within itself (i.e., its shard).
         """
+        gd.debuginfo(prj="mt")
 
         # Param range map.
         param_world_index_map = model._grad_buffer_param_index_map[dtype]
@@ -132,6 +133,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         all other DP ranks, for the purpose of creating args for
         reduce-scatter and all-gather.
         """
+        gd.debuginfo(prj="mt")
 
         data_parallel_rank = mpu.get_data_parallel_rank()
         data_parallel_world_size = mpu.get_data_parallel_world_size()
@@ -176,6 +178,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         Create param-to-grad-buffer mappings, for grad buffer data types
         within a specific virtual model.
         """
+        gd.debuginfo(prj="mt")
+
         return {
             dtype : cls.build_model_gbuf_range(model, dtype)
             for dtype in model._grad_buffers
@@ -188,6 +192,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         Create a reverse of the model_gbuf_ranges, for referencing in
         opposite direction.
         """
+        gd.debuginfo(prj="mt")
+
         param_gbuf_map = {}
         for model_index, model_gbuf_range_map in enumerate(model_gbuf_ranges):
             for dtype, gbuf_range_map in model_gbuf_range_map.items():
@@ -206,6 +212,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         used (in the method below) to create the current DP's optimizer
         groups.
         """
+        gd.debuginfo(prj="mt")
 
         num_groups = len(param_groups)
 
@@ -261,6 +268,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         the optimizer operates on shards of the model parameters, rather than
         the full parameters.
         """
+        gd.debuginfo(prj="mt")
 
         # Parameter groups:
         #   model_float16_groups: original float16 parameters
@@ -364,6 +372,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         indexes. This method also updates the optimizer parameter groups
         with the newly created shards.
         """
+        gd.debuginfo(prj="mt")
 
         super().__init__(
             optimizer, clip_grad, log_num_zeros_in_grad,
@@ -380,6 +389,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         self.model_gbuf_ranges = []
         for model_index, model in enumerate(self.models):
             self.model_gbuf_ranges.append(self.build_model_gbuf_range_map(model))
+
         self.model_param_gbuf_map = \
             self.build_model_param_gbuf_map(self.model_gbuf_ranges)
 
@@ -436,6 +446,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         Given a model param, get the index sub-range of the param that this
         data-parallel rank owns.
         """
+        gd.debuginfo(prj="mt")
+
         model_index, dtype = self.model_param_gbuf_map[param]
         gbuf_range_map = self.model_gbuf_ranges[model_index][dtype]
         param_range_map = gbuf_range_map["param_map"][param]
@@ -458,6 +470,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         optimizer state (e.g., exp_avg, exp_avg_sq) are stored in a separate
         checkpoint file by calling 'save_parameter_state()'.
         """
+        gd.debuginfo(prj="mt")
 
         state_dict = {}
 
@@ -512,6 +525,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         #   contains an integer odering of parameters within each group, and
         #   the ordering of parameters within its flattened parameter state
         #   list.
+        gd.debuginfo(prj="mt")
+
         inner_state_dict = self.optimizer.state_dict()
         state_dict_param_groups = [{
             **group,
@@ -580,6 +595,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
           buffers.
         - Save world buffers to disk (i.e., distrib_opt.pt).
         """
+
+        gd.debuginfo(prj="mt")
 
         # Data parallelism variables.
         data_parallel_world_size = mpu.get_data_parallel_world_size()
@@ -674,6 +691,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
           exp_avg_sq).
         """
 
+        gd.debuginfo(prj="mt")
+
         # Data parallelism variables.
         data_parallel_world_size = mpu.get_data_parallel_world_size()
         data_parallel_rank = mpu.get_data_parallel_rank()
@@ -754,6 +773,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         fragmentation; in the case of set_to_none==True, the space
         used by this field can be safely deallocated at this point.
         """
+        gd.debuginfo(prj="mt")
         for groups in (
                 self.model_float16_groups,
                 self.model_fp32_groups,
@@ -783,6 +803,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
         data_parallel_world_size = mpu.get_data_parallel_world_size()
 
+        gd.debuginfo(prj="mt", info=f'data_parallel_world_size={data_parallel_world_size}')
+
         # Buffer views.
         view_items = []
         for model_index, buffers in enumerate(model_buffers):
@@ -798,6 +820,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
 
     def get_model_grad_buffer_dp_views(self):
+        gd.debuginfo(prj="mt")
         return self.get_model_buffer_dp_views([
             {dtype : mem_buffer.data}
             for model in self.models
@@ -805,6 +828,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
 
     def get_model_param_buffer_dp_views(self):
+        gd.debuginfo(prj="mt")
         return self.get_model_buffer_dp_views(self.param_buffers)
 
 
@@ -819,6 +843,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         distributed optimizer, which reduces: 1) layernorm grads, 2) all
         grads, 3) embedding grads.
         """
+        gd.debuginfo(prj="mt")
+
 
         # All-reduce layer-norm grads (for sequence parallelism).
         timers('layernorm-grads-all-reduce', log_level=1).start(
@@ -867,6 +893,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         can be copied from the param buffer to the param.
         """
 
+        gd.debuginfo(prj="mt")
+
         timers('params-all-gather', log_level=1).start(
             barrier=args.barrier_with_L1_time)
 
@@ -905,6 +933,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         Note: this should be equivalent to the float-16 optimizer's method,
         but writtent differently, so the two should be combined.
         """
+        gd.debuginfo(prj="mt")
+
         return [
             param.grad.data
             for group in self.optimizer.param_groups
@@ -916,6 +946,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         """
         Get aligned list of model and main params.
         """
+        gd.debuginfo(prj="mt")
+
         model_data = []
         main_data = []
         for model_group, main_group in zip(self.shard_float16_groups,
@@ -934,9 +966,11 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         buffer, this method is responsible for copying the updated grads
         from the grad buffer to the main shard's grad field.
         """
+        gd.debuginfo(prj="mt")
 
         # Utility method for copying group grads.
         def copy_group_grads(model_groups, shard_main_groups):
+            gd.debuginfo(prj="mt")
             for model_group, shard_main_group in zip(model_groups,
                                                      shard_main_groups):
                 for model_param, shard_main_param in zip(model_group,
@@ -966,9 +1000,12 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         buffer, this method is responsible for copying the updated params
         from the main shards into the correct position in the grad buffer.
         """
+        gd.debuginfo(prj="mt")
 
         # Utility method for copying group params.
         def copy_group_params(shard_main_groups, model_groups):
+            gd.debuginfo(prj="mt")
+
             for shard_main_group, model_group in zip(shard_main_groups,
                                                      model_groups):
                 for shard_main_param, model_param in zip(shard_main_group,
@@ -1002,6 +1039,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         the model params. This copy does not make use of the grad buffer as
         an intermediary.
         """
+        gd.debuginfo(prj="mt")
 
         # Utility method for copying group params.
         def copy_group_params(model_groups, shard_main_groups):

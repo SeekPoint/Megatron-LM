@@ -27,11 +27,13 @@ class MegatronModule(torch.nn.Module):
     for pipelining."""
 
     def __init__(self, share_word_embeddings=True):
+        gd.debuginfo(prj="mt")
         super(MegatronModule, self).__init__()
         self.share_word_embeddings = share_word_embeddings
 
 
     def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
+        gd.debuginfo(prj="mt")
         """Use this function to override the state dict for
         saving checkpoints."""
         return self.state_dict(prefix=prefix, keep_vars=keep_vars)
@@ -39,8 +41,10 @@ class MegatronModule(torch.nn.Module):
 
     def word_embeddings_weight(self):
         if self.pre_process:
+            gd.debuginfo(prj="mt")
             return self.language_model.embedding.word_embeddings.weight
         else:
+            gd.debuginfo(prj="mt")
             if not self.share_word_embeddings:
                 raise Exception('word_embeddings_weight() called for last '
                                 'stage, but share_word_embeddings is false')
@@ -48,6 +52,7 @@ class MegatronModule(torch.nn.Module):
 
 
     def initialize_word_embeddings(self, init_method_normal):
+        gd.debuginfo(prj="mt")
         args = get_args()
         if not self.share_word_embeddings:
             raise Exception('initialize_word_embeddings() was called but '
@@ -57,6 +62,7 @@ class MegatronModule(torch.nn.Module):
         # when we are using pipeline parallelism. Nothing to do if we aren't
         # using pipeline parallelism.
         if args.pipeline_model_parallel_size == 1:
+            gd.debuginfo(prj="mt")
             return
 
         # Parameters are shared between the word embeddings layers, and the
@@ -72,6 +78,7 @@ class MegatronModule(torch.nn.Module):
         #    the two word_embeddings layers to ensure that every applied weight
         #    update is the same on both stages.
         if mpu.is_pipeline_last_stage() and not self.pre_process:
+            gd.debuginfo(prj="mt")
             assert not mpu.is_pipeline_first_stage()
             self._word_embeddings_for_head_key = 'word_embeddings_for_head'
             # set word_embeddings weights to 0 here, then copy first
@@ -87,11 +94,12 @@ class MegatronModule(torch.nn.Module):
 
         # Zero out initial weights for decoder embedding.
         # NOTE: We don't currently support T5 with the interleaved schedule.
-        if not mpu.is_pipeline_first_stage(ignore_virtual=True) and \
-                self.pre_process:
+        if not mpu.is_pipeline_first_stage(ignore_virtual=True) and self.pre_process:
+            gd.debuginfo(prj="mt")
             self.language_model.embedding.zero_parameters()
 
         if not torch.distributed.is_initialized():
+            gd.debuginfo(prj="mt")
             if not getattr(MegatronModule, "embedding_warning_printed", False):
                 gd.debuginfo(prj="mt", info=f"WARNING! Distributed processes aren't initialized, so "
                       "word embeddings in the last layer are not initialized. "
@@ -104,14 +112,14 @@ class MegatronModule(torch.nn.Module):
         # Ensure that first and last stages have the same initial parameter
         # values.
         if mpu.is_rank_in_embedding_group():
+            gd.debuginfo(prj="mt")
             torch.distributed.all_reduce(self.word_embeddings_weight().data,
                                          group=mpu.get_embedding_group())
 
         # Ensure that encoder(first stage) and decoder(split stage) position
         # embeddings have the same initial parameter values
         # NOTE: We don't currently support T5 with the interleaved schedule.
-        if mpu.is_rank_in_position_embedding_group() and \
-                args.pipeline_model_parallel_split_rank is not None:
+        if mpu.is_rank_in_position_embedding_group() and args.pipeline_model_parallel_split_rank is not None:
             # TODO: Support tokentype embedding.
             self.language_model.embedding.cuda()
             position_embeddings = self.language_model.embedding.position_embeddings
@@ -120,35 +128,46 @@ class MegatronModule(torch.nn.Module):
 
 
 def conversion_helper(val, conversion):
+
+    gd.debuginfo(prj="mt")
     """Apply conversion to val. Recursively apply conversion if `val`
     #is a nested tuple/list structure."""
     if not isinstance(val, (tuple, list)):
+        gd.debuginfo(prj="mt")
         return conversion(val)
+
     rtn = [conversion_helper(v, conversion) for v in val]
     if isinstance(val, tuple):
+        gd.debuginfo(prj="mt")
         rtn = tuple(rtn)
     return rtn
 
 
 def fp32_to_float16(val, float16_convertor):
+    gd.debuginfo(prj="mt")
     """Convert fp32 `val` to fp16/bf16"""
     def half_conversion(val):
         val_typecheck = val
         if isinstance(val_typecheck, (Parameter, Variable)):
+            gd.debuginfo(prj="mt")
             val_typecheck = val.data
         if isinstance(val_typecheck, _FLOAT_TYPES):
+            gd.debuginfo(prj="mt")
             val = float16_convertor(val)
         return val
     return conversion_helper(val, half_conversion)
 
 
 def float16_to_fp32(val):
+    gd.debuginfo(prj="mt")
     """Convert fp16/bf16 `val` to fp32"""
     def float_conversion(val):
         val_typecheck = val
         if isinstance(val_typecheck, (Parameter, Variable)):
+            gd.debuginfo(prj="mt")
             val_typecheck = val.data
         if isinstance(val_typecheck, (_BF16_TYPES, _HALF_TYPES)):
+            gd.debuginfo(prj="mt")
             val = val.float()
         return val
     return conversion_helper(val, float_conversion)
@@ -158,13 +177,16 @@ def float16_to_fp32(val):
 class Float16Module(MegatronModule):
 
     def __init__(self, module, args):
+        gd.debuginfo(prj="mt")
         super(Float16Module, self).__init__()
 
         if args.fp16:
+            gd.debuginfo(prj="mt")
             self.add_module('module', module.half())
             def float16_convertor(val):
                 return val.half()
         elif args.bf16:
+            gd.debuginfo(prj="mt")
             self.add_module('module', module.bfloat16())
             def float16_convertor(val):
                 return val.bfloat16()
@@ -180,9 +202,13 @@ class Float16Module(MegatronModule):
 
     def forward(self, *inputs, **kwargs):
         if mpu.is_pipeline_first_stage():
+            gd.debuginfo(prj="mt")
             inputs = fp32_to_float16(inputs, self.float16_convertor)
+
         outputs = self.module(*inputs, **kwargs)
+
         if mpu.is_pipeline_last_stage():
+            gd.debuginfo(prj="mt")
             outputs = float16_to_fp32(outputs)
         return outputs
 

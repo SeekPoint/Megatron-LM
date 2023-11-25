@@ -90,21 +90,25 @@ class BiEncoderModel(MegatronModule):
         self.biencoder_projection_dim = args.biencoder_projection_dim
 
         if self.biencoder_shared_query_context_model:
+            gd.debuginfo(prj="mt")
             self.model = PretrainedBertModel(**bert_kwargs)
             self._model_key = 'shared_model'
             self.query_model, self.context_model = self.model, self.model
         else:
             if self.use_query_model:
+                gd.debuginfo(prj="mt")
                 # this model embeds (pseudo-)queries - Embed_input in the paper
                 self.query_model = PretrainedBertModel(**bert_kwargs)
                 self._query_key = 'query_model'
 
             if self.use_context_model:
+                gd.debuginfo(prj="mt")
                 # this model embeds evidence blocks - Embed_doc in the paper
                 self.context_model = PretrainedBertModel(**bert_kwargs)
                 self._context_key = 'context_model'
 
     def set_input_tensor(self, input_tensor):
+        gd.debuginfo(prj="mt")
         """See megatron.model.transformer.set_input_tensor()"""
         # this is just a placeholder and will be needed when model
         # parallelism will be used
@@ -117,6 +121,7 @@ class BiEncoderModel(MegatronModule):
         return the respective embeddings."""
 
         if self.use_query_model:
+            gd.debuginfo(prj="mt")
             query_logits = self.embed_text(self.query_model,
                                            query_tokens,
                                            query_attention_mask,
@@ -124,6 +129,7 @@ class BiEncoderModel(MegatronModule):
         else:
             raise ValueError("Cannot embed query without the query model.")
         if self.use_context_model:
+            gd.debuginfo(prj="mt")
             context_logits = self.embed_text(self.context_model,
                                              context_tokens,
                                              context_attention_mask,
@@ -134,6 +140,7 @@ class BiEncoderModel(MegatronModule):
 
     @staticmethod
     def embed_text(model, tokens, attention_mask, token_types):
+        gd.debuginfo(prj="mt")
         """Embed a batch of tokens using the model"""
         logits = model(tokens,
                               attention_mask,
@@ -144,16 +151,19 @@ class BiEncoderModel(MegatronModule):
         """Save dict with state dicts of each of the models."""
         state_dict_ = {}
         if self.biencoder_shared_query_context_model:
+            gd.debuginfo(prj="mt")
             state_dict_[self._model_key] = \
                 self.model.state_dict_for_save_checkpoint(
                     prefix=prefix, keep_vars=keep_vars)
         else:
             if self.use_query_model:
+                gd.debuginfo(prj="mt")
                 state_dict_[self._query_key] = \
                     self.query_model.state_dict_for_save_checkpoint(
                         prefix=prefix, keep_vars=keep_vars)
 
             if self.use_context_model:
+                gd.debuginfo(prj="mt")
                 state_dict_[self._context_key] = \
                     self.context_model.state_dict_for_save_checkpoint(
                         prefix=prefix, keep_vars=keep_vars)
@@ -178,6 +188,7 @@ class BiEncoderModel(MegatronModule):
                     state_dict[self._context_key], strict=strict)
 
     def init_state_dict_from_bert(self):
+        gd.debuginfo(prj="mt")
         """Initialize the state from a pretrained BERT model
         on iteration zero of ICT pretraining"""
         args = get_args()

@@ -20,7 +20,7 @@ from pydebug import gd, infoTensor
 gd.debuginfo(prj="mt")
 
 def t5_extended_attention_mask(attention_mask_list):
-
+    gd.debuginfo(prj="mt")
     def attn_mask_postprocess(attn_mask):
         # [b, 1, s, s]
         extended_attention_mask = attn_mask.unsqueeze(1)
@@ -30,6 +30,7 @@ def t5_extended_attention_mask(attention_mask_list):
 
 
 def t5_position_ids(token_ids):
+    gd.debuginfo(prj="mt")
     # Create position ids
     seq_length = token_ids.size(1)
     position_ids = torch.arange(seq_length, dtype=torch.long,
@@ -51,6 +52,7 @@ class T5LMHead(MegatronModule):
     """
 
     def __init__(self, mpu_vocab_size, parallel_output):
+        gd.debuginfo(prj="mt")
         super(T5LMHead, self).__init__()
 
         args = get_args()
@@ -62,12 +64,12 @@ class T5LMHead(MegatronModule):
         self.parallel_output = parallel_output
 
     def forward(self, hidden_states, word_embeddings_weight):
+        gd.debuginfo(prj="mt")
         output = parallel_lm_logits(hidden_states,
                                     word_embeddings_weight,
                                     self.parallel_output,
                                     bias=self.bias)
         return output
-
 
 class T5Model(MegatronModule):
     """T5 Language model."""
@@ -79,6 +81,8 @@ class T5Model(MegatronModule):
                  post_process=True,
                  add_encoder=True,
                  add_decoder=True):
+        gd.debuginfo(prj="mt")
+
         super(T5Model, self).__init__()
         args = get_args()
 
@@ -106,18 +110,22 @@ class T5Model(MegatronModule):
         self.initialize_word_embeddings(init_method_normal)
 
         if self.post_process and self.add_decoder:
+            gd.debuginfo(prj="mt")
             self.lm_head = T5LMHead(
                 self.word_embeddings_weight().size(0),
                 parallel_output)
             self._lm_head_key = 'lm_head'
 
     def set_input_tensor(self, input_tensor):
+        gd.debuginfo(prj="mt")
         """See megatron.model.transformer.set_input_tensor()"""
         self.language_model.set_input_tensor(input_tensor)
 
     def forward(self, encoder_input_ids, decoder_input_ids, encoder_attn_mask,
                 decoder_attn_mask, encoder_decoder_attn_mask,
                 tokentype_ids=None, lm_labels=None, enc_hidden_states=None):
+
+        gd.debuginfo(prj="mt")
 
         # Converting the attention masks to proper parameter settings
         encoder_attn_mask, decoder_attn_mask, encoder_decoder_attn_mask = t5_extended_attention_mask(
@@ -143,24 +151,29 @@ class T5Model(MegatronModule):
                                      self.word_embeddings_weight())
 
             if lm_labels is None:
+                gd.debuginfo(prj="mt")
                 # [s b h] => [b s h]
                 return lm_logits.transpose(0,1).contiguous()
             else:
                 # [b s] => [s b]
                 lm_labels = lm_labels.transpose(0,1).contiguous()
                 if self.fp16_lm_cross_entropy:
+                    gd.debuginfo(prj="mt")
                     assert lm_logits.dtype == torch.half
                     lm_loss = tensor_parallel.vocab_parallel_cross_entropy(lm_logits, lm_labels)
                 else:
+                    gd.debuginfo(prj="mt")
                     lm_loss = tensor_parallel.vocab_parallel_cross_entropy(lm_logits.float(),
                                                                                 lm_labels)
                 # [s b] => [b s]
                 lm_loss = lm_loss.transpose(0,1).contiguous()
             return lm_loss
         elif self.add_decoder and not self.add_encoder:
+            gd.debuginfo(prj="mt")
             decoder_output, encoder_output = lm_output
             return decoder_output
         else:
+            gd.debuginfo(prj="mt")
             encoder_output = lm_output
             return encoder_output
 
@@ -173,11 +186,13 @@ class T5Model(MegatronModule):
             = self.language_model.state_dict_for_save_checkpoint(prefix=prefix,
                                                                  keep_vars=keep_vars)
         if self.post_process and self.add_decoder:
+            gd.debuginfo(prj="mt")
             state_dict_[self._lm_head_key] \
                 = self.lm_head.state_dict_for_save_checkpoint(prefix=prefix,
                                                               keep_vars=keep_vars)
          # Save word_embeddings.
         if self.post_process and not self.pre_process and self.add_decoder:
+            gd.debuginfo(prj="mt")
             state_dict_[self._word_embeddings_for_head_key] \
                 = self.word_embeddings.state_dict(prefix=prefix,
                                                   keep_vars=keep_vars)
@@ -189,9 +204,11 @@ class T5Model(MegatronModule):
         self.language_model.load_state_dict(
             state_dict[self._language_model_key], strict=strict)
         if self.post_process and self.add_decoder:
+            gd.debuginfo(prj="mt")
             self.lm_head.load_state_dict(state_dict[self._lm_head_key],
                                          strict=strict)
         # Load word embeddings.
         if self.post_process and not self.pre_process and self.add_decoder:
+            gd.debuginfo(prj="mt")
             self.word_embeddings.load_state_dict(
                 state_dict[self._word_embeddings_for_head_key], strict=strict)

@@ -24,16 +24,20 @@ gd.debuginfo(prj="mt")
 def unwrap_model(model, module_instances=(torchDDP)):
     gd.debuginfo(prj="mt")
     return_list = True
+
     if not isinstance(model, list):
         gd.debuginfo(prj="mt")
         model = [model]
         return_list = False
+
     unwrapped_model = []
+
     for model_module in model:
         gd.debuginfo(prj="mt", info=f'model_module=f{model_module}')
         while isinstance(model_module, module_instances):
             model_module = model_module.module
         unwrapped_model.append(model_module)
+
     if not return_list:
         gd.debuginfo(prj="mt")
         return unwrapped_model[0]

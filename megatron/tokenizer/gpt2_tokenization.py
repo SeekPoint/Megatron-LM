@@ -63,6 +63,7 @@ def bytes_to_unicode():
     To avoid that, we want lookup tables between utf-8 bytes and unicode strings.
     And avoids mapping to whitespace/control characters the bpe code barfs on.
     """
+    gd.debuginfo(prj='ds')
     _chr = unichr if sys.version_info[0] == 2 else chr
     bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + \
         list(range(ord("®"), ord("ÿ") + 1))
@@ -82,6 +83,7 @@ def get_pairs(word):
 
     Word is represented as tuple of symbols (symbols being variable-length strings).
     """
+    gd.debuginfo(prj='ds')
     pairs = set()
     prev_char = word[0]
     for char in word[1:]:
@@ -101,6 +103,7 @@ class GPT2Tokenizer(object):
         Instantiate a PreTrainedBertModel from a pre-trained model file.
         Download and cache the pre-trained model file if needed.
         """
+        gd.debuginfo(prj='ds')
         if pretrained_model_name_or_path in PRETRAINED_VOCAB_ARCHIVE_MAP:
             vocab_file = PRETRAINED_VOCAB_ARCHIVE_MAP[pretrained_model_name_or_path]
             merges_file = PRETRAINED_MERGES_ARCHIVE_MAP[pretrained_model_name_or_path]
@@ -156,6 +159,7 @@ class GPT2Tokenizer(object):
 
     def __init__(self, vocab_file, merges_file, errors='replace',
                  special_tokens=None, max_len=None):
+        gd.debuginfo(prj='ds')
         self.max_len = max_len if max_len is not None else int(1e12)
         self.encoder = json.load(open(vocab_file))
         self.decoder = {v: k for k, v in self.encoder.items()}
@@ -184,6 +188,8 @@ class GPT2Tokenizer(object):
             The additional tokens are indexed starting from the last index of the
             current vocabulary in the order of the `special_tokens` list.
         """
+        gd.debuginfo(prj='ds')
+
         if not special_tokens:
             self.special_tokens = {}
             self.special_tokens_decoder = {}
@@ -194,6 +200,8 @@ class GPT2Tokenizer(object):
         logger.info("Special tokens {}".format(self.special_tokens))
 
     def bpe(self, token):
+        gd.debuginfo(prj='ds')
+
         if token in self.cache:
             return self.cache[token]
         word = tuple(token)
@@ -246,6 +254,7 @@ class GPT2Tokenizer(object):
         return bpe_tokens
 
     def convert_tokens_to_ids(self, tokens):
+        gd.debuginfo(prj='ds')
         """ Converts a sequence of tokens into ids using the vocab. """
         ids = []
         if isinstance(tokens, str) or (sys.version_info[0] == 2 and isinstance(tokens, unicode)):
@@ -287,6 +296,7 @@ class GPT2Tokenizer(object):
         return text
 
     def save_vocabulary(self, vocab_path):
+        gd.debuginfo(prj='ds')
         """Save the tokenizer vocabulary and merge files to a directory."""
         if not os.path.isdir(vocab_path):
             logger.error("Vocabulary path ({}) should be a directory".format(vocab_path))

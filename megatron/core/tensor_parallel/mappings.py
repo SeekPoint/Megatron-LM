@@ -15,6 +15,7 @@ gd.debuginfo(prj="mt")
 
 # 对应的后向传播就使用了 all-reduce，反向传播时候，输入是多个GPU上的梯度整体，通过 all-reduce 合并。
 def _reduce(input_):
+    gd.debuginfo(prj='ds')
     """All-reduce the input tensor across model parallel group."""
 
     # Bypass the function if we are using only 1 GPU.
@@ -31,6 +32,7 @@ def _reduce(input_):
 def _split_along_last_dim(input_):
     """Split the tensor along its last dimension and keep the
     corresponding slice."""
+    gd.debuginfo(prj='ds')
 
     world_size = get_tensor_model_parallel_world_size()
     # Bypass the function if we are using only 1 GPU.
@@ -50,7 +52,7 @@ def _split_along_last_dim(input_):
 def _split_along_first_dim(input_):
     """Split the tensor along its first dimension and keep the
     corresponding slice."""
-
+    gd.debuginfo(prj='ds')
     world_size = get_tensor_model_parallel_world_size()
     # Bypass the function if we are using only 1 GPU.
     if world_size == 1:
@@ -75,7 +77,7 @@ _gather_along_last_dim 是沿着最后一个维度进行拼接。
 '''
 def _gather_along_last_dim(input_):
     """Gather tensors and concatinate along the last dimension."""
-
+    gd.debuginfo(prj='ds')
     world_size = get_tensor_model_parallel_world_size()
     # Bypass the function if we are using only 1 GPU.
     if world_size == 1:
@@ -97,7 +99,7 @@ def _gather_along_last_dim(input_):
 
 def _gather_along_first_dim(input_):
     """Gather tensors and concatinate along the first dimension."""
-
+    gd.debuginfo(prj='ds')
     world_size = get_tensor_model_parallel_world_size()
     # Bypass the function if we are using only 1 GPU.
     if world_size == 1:
@@ -115,6 +117,7 @@ def _gather_along_first_dim(input_):
 
 def _reduce_scatter_along_first_dim(input_):
     """Reduce-scatter the input tensor across model parallel group."""
+    gd.debuginfo(prj='ds')
     world_size = get_tensor_model_parallel_world_size()
     # Bypass the function if we are using only 1 GPU.
     if world_size == 1:
@@ -135,93 +138,110 @@ def _reduce_scatter_along_first_dim(input_):
 #从 return 的 _CopyToModelParallelRegion函数可以看到，其 forward 就是简单的把输入转移到输出。
 class _CopyToModelParallelRegion(torch.autograd.Function):
     """Pass the input to the model parallel region."""
-
+    gd.debuginfo(prj='ds')
     @staticmethod
     def symbolic(graph, input_):
+        gd.debuginfo(prj='ds')
         return input_
     
     @staticmethod
     def forward(ctx, input_):
+        gd.debuginfo(prj='ds')
         return input_  # 简单的把输入转移到输出，就是对应了前向复制identity
 
     @staticmethod
     def backward(ctx, grad_output):
+        gd.debuginfo(prj='ds')
         return _reduce(grad_output) # 反向传播时候，输入是多个GPU上的梯度整体，通过all-reduce合并
 
 
 class _ReduceFromModelParallelRegion(torch.autograd.Function):
     """All-reduce the input from the model parallel region."""
-
+    gd.debuginfo(prj='ds')
     @staticmethod
     def symbolic(graph, input_):
+        gd.debuginfo(prj='ds')
         return _reduce(input_)
     
     @staticmethod
     def forward(ctx, input_):
+        gd.debuginfo(prj='ds')
         return _reduce(input_)
 
     @staticmethod
     def backward(ctx, grad_output):
+        gd.debuginfo(prj='ds')
         return grad_output
 
 # 具体 _ScatterToModelParallelRegion 完成了实际业务，具体 _split,_gather 操作在前面都介绍过。
 class _ScatterToModelParallelRegion(torch.autograd.Function):
     """Split the input and keep only the corresponding chuck to the rank."""
-
+    gd.debuginfo(prj='ds')
     @staticmethod
     def symbolic(graph, input_):
+        gd.debuginfo(prj='ds')
         return _split_along_last_dim(input_)
 
     @staticmethod
     def forward(ctx, input_):
+        gd.debuginfo(prj='ds')
         return _split_along_last_dim(input_)
 
     @staticmethod
     def backward(ctx, grad_output):
+        gd.debuginfo(prj='ds')
         return _gather_along_last_dim(grad_output)
 
 
 class _GatherFromModelParallelRegion(torch.autograd.Function):
     """Gather the input from model parallel region and concatinate."""
-
+    gd.debuginfo(prj='ds')
     @staticmethod
     def symbolic(graph, input_):
+        gd.debuginfo(prj='ds')
         return _gather_along_last_dim(input_)
     
     @staticmethod
     def forward(ctx, input_):
+        gd.debuginfo(prj='ds')
         return _gather_along_last_dim(input_)
 
     @staticmethod
     def backward(ctx, grad_output):
+        gd.debuginfo(prj='ds')
         return _split_along_last_dim(grad_output)
 
 
 class _ScatterToSequenceParallelRegion(torch.autograd.Function):
     """Split the input and keep only the corresponding chuck to the rank."""
-
+    gd.debuginfo(prj='ds')
     @staticmethod
     def symbolic(graph, input_):
+        gd.debuginfo(prj='ds')
         return _split_along_first_dim(input_)
 
     @staticmethod
     def forward(ctx, input_):
+        gd.debuginfo(prj='ds')
         return _split_along_first_dim(input_)
 
     @staticmethod
     def backward(ctx, grad_output):
+        gd.debuginfo(prj='ds')
         return _gather_along_first_dim(grad_output)
 
 
 class _GatherFromSequenceParallelRegion(torch.autograd.Function):
-    """Gather the input from sequence parallel region and concatinate.""" 
-
+    """Gather the input from sequence parallel region and concatinate."""
+    gd.debuginfo(prj='ds')
     @staticmethod
     def symbolic(graph, input_, tensor_parallel_output_grad=True):
+        gd.debuginfo(prj='ds')
         return _gather_along_first_dim(input_)
     
     @staticmethod
     def forward(ctx, input_, tensor_parallel_output_grad=True):
+        gd.debuginfo(prj='ds')
         ctx.tensor_parallel_output_grad = tensor_parallel_output_grad
         return _gather_along_first_dim(input_)
 
@@ -234,8 +254,10 @@ class _GatherFromSequenceParallelRegion(torch.autograd.Function):
         # scattered and whereas if the computation is duplicated, 
         # output gradients need to be scattered.
         if tensor_parallel_output_grad:
+            gd.debuginfo(prj='ds')
             return _reduce_scatter_along_first_dim(grad_output), None
         else:
+            gd.debuginfo(prj='ds')
             return _split_along_first_dim(grad_output), None
 
 
@@ -244,14 +266,17 @@ class _ReduceScatterToSequenceParallelRegion(torch.autograd.Function):
 
     @staticmethod
     def symbolic(graph, input_):
+        gd.debuginfo(prj='ds')
         return _reduce_scatter_along_first_dim(input_)
     
     @staticmethod
     def forward(ctx, input_):
+        gd.debuginfo(prj='ds')
         return _reduce_scatter_along_first_dim(input_)
 
     @staticmethod
     def backward(ctx, grad_output):
+        gd.debuginfo(prj='ds')
         return _gather_along_first_dim(grad_output)
 
 
@@ -263,6 +288,7 @@ class _ReduceScatterToSequenceParallelRegion(torch.autograd.Function):
 这里主要分析copy_to_tensor_model_parallel_region，其做了前向copy操作，同时构建了后向 all-reduce。
 '''
 def copy_to_tensor_model_parallel_region(input_):
+    gd.debuginfo(prj='ds')
     return _CopyToModelParallelRegion.apply(input_)
 
 '''
@@ -276,6 +302,7 @@ reduce_from_tensor_model_parallel_region 对应了 g 操作，作用是:
 代码为：
 '''
 def reduce_from_tensor_model_parallel_region(input_):
+    gd.debuginfo(prj='ds')
     return _ReduceFromModelParallelRegion.apply(input_)
 
 '''
@@ -289,21 +316,26 @@ scatter_to_tensor_model_parallel_region 对应了f操作，其作用是：
 代码为：
 '''
 def scatter_to_tensor_model_parallel_region(input_):
+    gd.debuginfo(prj='ds')
     return _ScatterToModelParallelRegion.apply(input_)
 
 #4.4.3 g 操作
 def gather_from_tensor_model_parallel_region(input_):
+    gd.debuginfo(prj='ds')
     return _GatherFromModelParallelRegion.apply(input_)
 
 
 def scatter_to_sequence_parallel_region(input_):
+    gd.debuginfo(prj='ds')
     return _ScatterToSequenceParallelRegion.apply(input_)
 
 
 def gather_from_sequence_parallel_region(input_, tensor_parallel_output_grad=True):
+    gd.debuginfo(prj='ds')
     return _GatherFromSequenceParallelRegion.apply(input_, tensor_parallel_output_grad)
 
 
 def reduce_scatter_to_sequence_parallel_region(input_):
+    gd.debuginfo(prj='ds')
     return _ReduceScatterToSequenceParallelRegion.apply(input_)
 

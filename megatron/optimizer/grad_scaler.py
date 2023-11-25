@@ -13,6 +13,7 @@ class MegatronGradScaler(ABC):
 
     def __init__(self, initial_scale):
         """Initialize scale value with the input initial scale."""
+        gd.debuginfo(prj="mt")
         assert initial_scale > 0.0
         self._scale = torch.cuda.FloatTensor([initial_scale])
 

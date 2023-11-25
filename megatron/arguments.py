@@ -15,6 +15,7 @@ from pydebug import gd, infoTensor
 gd.debuginfo(prj="mt")
 def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     """Parse all arguments."""
+    gd.debuginfo(prj='ds')
     parser = argparse.ArgumentParser(description='Megatron-LM Arguments',
                                      allow_abbrev=False)
 
@@ -54,6 +55,7 @@ def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     return args
 
 def validate_args(args, defaults={}):
+    gd.debuginfo(prj='ds')
     # Tensor model parallel size.
     args.tensor_model_parallel_size = min(
         args.tensor_model_parallel_size, args.world_size)
@@ -380,7 +382,7 @@ def _print_args(title, args):
             dots = '.' * (48 - len(arg))
             str_list.append('  {} {} {}'.format(arg, dots, getattr(args, arg)))
         for arg in sorted(str_list, key=lambda x: x.lower()):
-            gd.debuginfo(prj="mt", info="arg={arg}")
+            gd.debuginfo(prj="mt", info=f"arg={arg}")
         gd.debuginfo(prj="mt", info=f'-------------------- end of {title} ---------------------')
 
 

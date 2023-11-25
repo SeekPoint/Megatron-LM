@@ -53,11 +53,13 @@ def split_tensor_into_1d_equal_chunks(tensor, new_buffer=False):
     start_index = partition_size * parallel_state.get_tensor_model_parallel_rank()
     end_index = start_index + partition_size
     if new_buffer:
+        gd.debuginfo(prj='ds')
         data = torch.empty(partition_size, dtype=tensor.dtype,
                            device=torch.cuda.current_device(),
                            requires_grad=False)
         data.copy_(tensor.view(-1)[start_index:end_index])
     else:
+        gd.debuginfo(prj='ds')
         data = tensor.view(-1)[start_index:end_index]
     return data
 

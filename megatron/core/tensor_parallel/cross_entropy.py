@@ -79,6 +79,7 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
             = (1 - (alpha * K) / (K - 1)) * y_gt + ( (alpha * K) / (K - 1) ) * \sum_{i} y_i / K
             From: https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/common/losses/smoothed_cross_entropy.py
             """
+            gd.debuginfo(prj='ds')
             assert 1.0 > label_smoothing > 0.0
             smoothing = label_smoothing * vocab_size / (vocab_size - 1)
 
@@ -141,4 +142,5 @@ def vocab_parallel_cross_entropy(vocab_parallel_logits, target, label_smoothing=
         lobal_smoothing: smoothing factor, must be in range [0.0, 1.0)
                          default is no smoothing (=0.0)
     """
+    gd.debuginfo(prj='ds')
     return _VocabParallelCrossEntropy.apply(vocab_parallel_logits, target, label_smoothing)

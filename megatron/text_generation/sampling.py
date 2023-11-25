@@ -13,6 +13,7 @@ from pydebug import gd, infoTensor
 gd.debuginfo(prj="mt")
 
 def modify_logits_for_top_k_filtering(logits, top_k):
+    gd.debuginfo(prj="mt")
     """Set the logits for none top-k values to -inf."""
 
     filter_ = logits < torch.topk(logits, top_k)[0][..., -1, None]
@@ -21,6 +22,7 @@ def modify_logits_for_top_k_filtering(logits, top_k):
 
 
 def modify_logits_for_top_p_filtering(logits, top_p):
+    gd.debuginfo(prj="mt")
     """Set the logits for none top-p values to -inf."""
 
     # First sort and calculate cumulative sum of probabilities.
@@ -60,11 +62,13 @@ def sample(logits, top_k=0, top_p=0.0, temperature=1.0, vocab_size=None):
 
     # Greedy is just simple argmax.
     if top_k == 1:
+        gd.debuginfo(prj="mt")
         assert top_p == 0.0, 'cannot set both greedy and top-p samplings.'
         samples = torch.argmax(logits, dim=-1)
 
     # Top-k or top-p sampling.
     else:
+        gd.debuginfo(prj="mt")
         # Clone so we do not modify the inputs,
         logits = logits.clone()
         # Apply temperature in place.
@@ -89,6 +93,7 @@ def sample(logits, top_k=0, top_p=0.0, temperature=1.0, vocab_size=None):
     # If vocab size is provided, make sure the samples are in
     # in the range [0, vocab-size).
     if vocab_size:
+        gd.debuginfo(prj="mt")
         samples = torch.clamp(samples, min=0, max=(vocab_size - 1))
 
     return samples

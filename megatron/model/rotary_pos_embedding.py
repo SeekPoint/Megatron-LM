@@ -14,6 +14,7 @@ __all__ = ['RotaryEmbedding', 'apply_rotary_pos_emb']
 
 class RotaryEmbedding(nn.Module):
     def __init__(self, dim):
+        gd.debuginfo(prj="mt")
         super().__init__()
         inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2).float() / dim))
         self.register_buffer('inv_freq', inv_freq)
@@ -21,6 +22,7 @@ class RotaryEmbedding(nn.Module):
             raise RuntimeError("einops is required for Rotary Embedding")
 
     def forward(self, max_seq_len, offset=0):
+        gd.debuginfo(prj="mt")
         seq = torch.arange(max_seq_len, device=self.inv_freq.device) + offset
         freqs = einsum('i , j -> i j', seq.type_as(self.inv_freq), self.inv_freq)
         # first part even vector components, second part odd vector components,
@@ -35,6 +37,7 @@ def _rotate_half(x):
     """
     change sign so the last dimension becomes [-odd, +even]
     """
+    gd.debuginfo(prj="mt")
     from einops import rearrange
     x = rearrange(x, '... (j d) -> ... j d', j=2)
     x1, x2 = x.unbind(dim=-2)
@@ -47,6 +50,7 @@ def apply_rotary_pos_emb(t, freqs):
     rotary positional embeding tensor freqs is of shape [seq_length, ..., dim]
     check https://kexue.fm/archives/8265 for detailed formulas
     """
+    gd.debuginfo(prj="mt")
     rot_dim = freqs.shape[-1]
     # ideally t_pass is empty so rotary pos embedding is applied to all tensor t
     t, t_pass = t[..., :rot_dim], t[..., rot_dim:]

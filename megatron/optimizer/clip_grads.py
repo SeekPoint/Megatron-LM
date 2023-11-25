@@ -40,9 +40,13 @@ def clip_grad_norm_fp32(parameters, grads_for_norm,
     """
 
     if isinstance(parameters, torch.Tensor):
+        gd.debuginfo(prj="mt")
         parameters = [parameters]
     if isinstance(grads_for_norm, torch.Tensor):
+        gd.debuginfo(prj="mt")
         grads_for_norm = [grads_for_norm]
+
+    gd.debuginfo(prj="mt")
 
     # Grads.
     grads = []
@@ -109,6 +113,7 @@ def clip_grad_norm_fp32(parameters, grads_for_norm,
 
 
 def count_zeros_fp32(parameters, model_parallel_group):
+    gd.debuginfo(prj="mt")
 
     if isinstance(parameters, torch.Tensor):
         parameters = [parameters]

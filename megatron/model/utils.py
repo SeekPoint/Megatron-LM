@@ -19,6 +19,8 @@ def init_method_normal(sigma):
 
 def scaled_init_method_normal(sigma, num_layers):
     """Init method based on N(0, sigma/sqrt(2*num_layers)."""
+    gd.debuginfo(prj="mt")
+
     std = sigma / math.sqrt(2.0 * num_layers)
 
     def init_(tensor):
@@ -28,12 +30,15 @@ def scaled_init_method_normal(sigma, num_layers):
 
 
 def attention_mask_func(attention_scores, attention_mask):
+    gd.debuginfo(prj="mt")
     attention_scores.masked_fill_(attention_mask, -10000.0)
     return attention_scores
 
 
 def get_linear_layer(rows, columns, init_method):
     """Simple linear layer with weight initialization."""
+    gd.debuginfo(prj="mt")
+
     layer = torch.nn.Linear(rows, columns)
     if get_args().perform_initialization:
         init_method(layer.weight)

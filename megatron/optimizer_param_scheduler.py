@@ -15,7 +15,7 @@ class OptimizerParamScheduler(object):
                  start_wd, end_wd, wd_incr_steps, wd_incr_style,
                  use_checkpoint_opt_param_scheduler=True,
                  override_opt_param_scheduler=False):
-
+        gd.debuginfo(prj="mt", info=f'__FUNC_START__')
         # Class values.
         self.optimizer = optimizer
 
@@ -48,6 +48,7 @@ class OptimizerParamScheduler(object):
         # Set the learning rate
         self.step(0)
         gd.debuginfo(prj="mt", info=f'> learning rate decay style: {self.lr_decay_style}')
+        gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
 
     def get_wd(self):

@@ -107,9 +107,11 @@ class MultipleChoice(MegatronModule):
             state_dict[self._language_model_key], strict=strict)
         if self.post_process:
             if self._multichoice_head_key in state_dict:
+                gd.debuginfo(prj="mt")
                 self.multichoice_head.load_state_dict(
                     state_dict[self._multichoice_head_key], strict=strict)
             else:
+                gd.debuginfo(prj="mt")
                 print_rank_last('***WARNING*** could not find {} in the checkpoint, '
                                 'initializing to random'.format(
                                     self._multichoice_head_key))

@@ -55,16 +55,19 @@ class ICTBertModel(MegatronModule):
         self.use_query_model = not only_block_model
 
         if self.use_query_model:
+            gd.debuginfo(prj="mt")
             # this model embeds (pseudo-)queries - Embed_input in the paper
             self.query_model = IREncoderBertModel(**bert_kwargs)
             self._query_key = 'question_model'
 
         if self.use_block_model:
+            gd.debuginfo(prj="mt")
             # this model embeds evidence blocks - Embed_doc in the paper
             self.block_model = IREncoderBertModel(**bert_kwargs)
             self._block_key = 'context_model'
 
     def forward(self, query_tokens, query_attention_mask, block_tokens, block_attention_mask):
+        gd.debuginfo(prj="mt")
         """Run a forward pass for each of the models and return the respective embeddings."""
         query_logits = self.embed_query(query_tokens, query_attention_mask)
         block_logits = self.embed_block(block_tokens, block_attention_mask)
@@ -73,6 +76,7 @@ class ICTBertModel(MegatronModule):
     def embed_query(self, query_tokens, query_attention_mask):
         """Embed a batch of tokens using the query model"""
         if self.use_query_model:
+            gd.debuginfo(prj="mt")
             query_types = torch.cuda.LongTensor(*query_tokens.shape).fill_(0)
             query_ict_logits, _ = self.query_model.forward(query_tokens, query_attention_mask, query_types)
             return query_ict_logits
@@ -92,13 +96,13 @@ class ICTBertModel(MegatronModule):
         """Save dict with state dicts of each of the models."""
         state_dict_ = {}
         if self.use_query_model:
-            state_dict_[self._query_key] \
-                = self.query_model.state_dict_for_save_checkpoint(
+            gd.debuginfo(prj="mt")
+            state_dict_[self._query_key] = self.query_model.state_dict_for_save_checkpoint(
                     prefix=prefix, keep_vars=keep_vars)
 
         if self.use_block_model:
-            state_dict_[self._block_key] \
-                = self.block_model.state_dict_for_save_checkpoint(
+            gd.debuginfo(prj="mt")
+            state_dict_[self._block_key] = self.block_model.state_dict_for_save_checkpoint(
                     prefix=prefix, keep_vars=keep_vars)
 
         return state_dict_
@@ -117,6 +121,8 @@ class ICTBertModel(MegatronModule):
 
     def init_state_dict_from_bert(self):
         """Initialize the state from a pretrained BERT model on iteration zero of ICT pretraining"""
+        gd.debuginfo(prj="mt")
+
         args = get_args()
         tracker_filename = get_checkpoint_tracker_filename(args.bert_load)
         if not os.path.isfile(tracker_filename):
@@ -147,6 +153,8 @@ class ICTBertModel(MegatronModule):
 class IREncoderBertModel(MegatronModule):
     """BERT-based encoder for queries or blocks used for learned information retrieval."""
     def __init__(self, ict_head_size, num_tokentypes=2, parallel_output=True):
+        gd.debuginfo(prj="mt")
+
         super(IREncoderBertModel, self).__init__()
         args = get_args()
 
@@ -167,6 +175,8 @@ class IREncoderBertModel(MegatronModule):
         self._ict_head_key = 'ict_head'
 
     def forward(self, input_ids, attention_mask, tokentype_ids=None):
+        gd.debuginfo(prj="mt")
+
         extended_attention_mask = bert_extended_attention_mask(
             attention_mask, next(self.language_model.parameters()).dtype)
         position_ids = bert_position_ids(input_ids)
@@ -184,7 +194,7 @@ class IREncoderBertModel(MegatronModule):
     def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
         """For easy load when model is combined with other heads,
         add an extra key."""
-
+        gd.debuginfo(prj="mt")
         state_dict_ = {}
         state_dict_[self._language_model_key] \
             = self.language_model.state_dict_for_save_checkpoint(prefix=prefix,
@@ -195,6 +205,7 @@ class IREncoderBertModel(MegatronModule):
         return state_dict_
 
     def load_state_dict(self, state_dict, strict=True):
+        gd.debuginfo(prj="mt")
         """Customized load."""
         self.language_model.load_state_dict(
             state_dict[self._language_model_key], strict=strict)

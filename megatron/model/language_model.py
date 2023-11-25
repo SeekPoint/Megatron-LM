@@ -23,13 +23,14 @@ def parallel_lm_logits(input_, word_embeddings_weight, parallel_output,
     """LM logits using word embedding weights."""
     args = get_args()
     # Parallel logits.
-    if args.async_tensor_model_parallel_allreduce or\
-            args.sequence_parallel:
+    if args.async_tensor_model_parallel_allreduce or args.sequence_parallel:
+        gd.debuginfo(prj="mt")
         input_parallel = input_
         model_parallel = mpu.get_tensor_model_parallel_world_size() > 1
         async_grad_allreduce = args.async_tensor_model_parallel_allreduce and \
             model_parallel and not args.sequence_parallel
     else:
+        gd.debuginfo(prj="mt")
         input_parallel = tensor_parallel.copy_to_tensor_model_parallel_region(input_)
         async_grad_allreduce = False
 
@@ -44,6 +45,7 @@ def parallel_lm_logits(input_, word_embeddings_weight, parallel_output,
     # Gather if needed.
 
     if parallel_output:
+        gd.debuginfo(prj="mt")
         return logits_parallel
 
     return tensor_parallel.gather_from_tensor_model_parallel_region(logits_parallel)
@@ -58,11 +60,14 @@ def get_language_model(num_tokentypes, add_pooler,
                        pre_process=True, post_process=True):
     """Build language model and return along with the key to save."""
     args = get_args()
+    gd.debuginfo(prj="mt")
 
     if init_method is None:
+        gd.debuginfo(prj="mt")
         init_method = init_method_normal(args.init_method_std)
 
     if scaled_init_method is None:
+        gd.debuginfo(prj="mt")
         scaled_init_method = scaled_init_method_normal(args.init_method_std,
                                                        args.num_layers)
 
@@ -98,6 +103,7 @@ class Pooler(MegatronModule):
     """
 
     def __init__(self, hidden_size, init_method):
+        gd.debuginfo(prj="mt")
         super(Pooler, self).__init__()
         args = get_args()
         self.dense = get_linear_layer(hidden_size, hidden_size, init_method)
@@ -105,12 +111,15 @@ class Pooler(MegatronModule):
 
 
     def forward(self, hidden_states, sequence_index=0):
+        gd.debuginfo(prj="mt")
+
         # hidden_states: [s, b, h]
         # sequence_index: index of the token to pool.
 
         # gather data along sequence dimensions
         # same pooler is run on all tensor parallel nodes
         if self.sequence_parallel:
+            gd.debuginfo(prj="mt")
             hidden_states = tensor_parallel.gather_from_sequence_parallel_region(
                 hidden_states,
                 tensor_parallel_output_grad=False)
@@ -147,6 +156,7 @@ class Embedding(MegatronModule):
                  init_method,
                  num_tokentypes=0,
                  embedding_weights_in_fp32=False):
+        gd.debuginfo(prj="mt")
         super(Embedding, self).__init__()
 
         self.hidden_size = hidden_size
@@ -170,6 +180,7 @@ class Embedding(MegatronModule):
         # Position embedding (serial).
         self.add_position_embedding = args.add_position_embedding
         if self.add_position_embedding:
+            gd.debuginfo(prj="mt")
             self.position_embeddings = torch.nn.Embedding(
                 max_sequence_length, self.hidden_size)
             self._position_embeddings_key = 'position_embeddings'
@@ -183,12 +194,15 @@ class Embedding(MegatronModule):
         # token types and add them as needed.
         self._tokentype_embeddings_key = 'tokentype_embeddings'
         if self.num_tokentypes > 0:
+            gd.debuginfo(prj="mt")
             self.tokentype_embeddings = torch.nn.Embedding(self.num_tokentypes,
                                                            self.hidden_size)
             # Initialize the token-type embeddings.
             if args.perform_initialization:
+                gd.debuginfo(prj="mt")
                 self.init_method(self.tokentype_embeddings.weight)
         else:
+            gd.debuginfo(prj="mt")
             self.tokentype_embeddings = None
 
         self.fp32_residual_connection = args.fp32_residual_connection
@@ -201,9 +215,11 @@ class Embedding(MegatronModule):
         self.word_embeddings.weight.data.fill_(0)
         self.word_embeddings.weight.shared = True
         if self.add_position_embedding:
+            gd.debuginfo(prj="mt")
             self.position_embeddings.weight.data.fill_(0)
             self.position_embeddings.weight.shared = True
         if self.num_tokentypes > 0:
+            gd.debuginfo(prj="mt")
             self.tokentype_embeddings.weight.data.fill_(0)
             self.tokentype_embeddings.weight.shared = True
 
@@ -212,6 +228,8 @@ class Embedding(MegatronModule):
         token-type embeddings in case the pretrained model does not have it.
         This allows us to load the model normally and then add this embedding.
         """
+        gd.debuginfo(prj="mt")
+
         if self.tokentype_embeddings is not None:
             raise Exception('tokentype embeddings is already initialized')
         if torch.distributed.get_rank() == 0:
@@ -224,23 +242,31 @@ class Embedding(MegatronModule):
         self.init_method(self.tokentype_embeddings.weight)
 
     def forward(self, input_ids, position_ids, tokentype_ids=None):
+        gd.debuginfo(prj="mt")
         # Embeddings.
         if self.embedding_weights_in_fp32:
+            gd.debuginfo(prj="mt")
             self.word_embeddings = self.word_embeddings.to(torch.float32)
+
         words_embeddings = self.word_embeddings(input_ids)
         if self.embedding_weights_in_fp32:
+            gd.debuginfo(prj="mt")
             words_embeddings = words_embeddings.to(self.params_dtype)
             self.word_embeddings = self.word_embeddings.to(self.params_dtype)
         if self.add_position_embedding:
+            gd.debuginfo(prj="mt")
             position_embeddings = self.position_embeddings(position_ids)
             embeddings = words_embeddings + position_embeddings
         else:
+            gd.debuginfo(prj="mt")
             embeddings = words_embeddings
 
         if tokentype_ids is not None:
+            gd.debuginfo(prj="mt")
             assert self.tokentype_embeddings is not None
             embeddings = embeddings + self.tokentype_embeddings(tokentype_ids)
         else:
+            gd.debuginfo(prj="mt")
             assert self.tokentype_embeddings is None
 
         # Data format change to avoid explicit tranposes : [b s h] --> [s b h].
@@ -248,14 +274,17 @@ class Embedding(MegatronModule):
 
         # If the input flag for fp32 residual connection is set, convert for float.
         if self.fp32_residual_connection:
+            gd.debuginfo(prj="mt")
             embeddings = embeddings.float()
 
         # Dropout.
         if self.sequence_parallel:
+            gd.debuginfo(prj="mt")
             embeddings = tensor_parallel.scatter_to_sequence_parallel_region(embeddings)
             with tensor_parallel.get_cuda_rng_tracker().fork():
                 embeddings = self.embedding_dropout(embeddings)
         else:
+            gd.debuginfo(prj="mt")
             embeddings = self.embedding_dropout(embeddings)
 
         return embeddings
@@ -263,15 +292,19 @@ class Embedding(MegatronModule):
     def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
         """For easy load."""
 
+        gd.debuginfo(prj="mt")
+
         state_dict_ = {}
         state_dict_[self._word_embeddings_key] \
             = self.word_embeddings.state_dict(prefix=prefix,
                                               keep_vars=keep_vars)
         if self.add_position_embedding:
+            gd.debuginfo(prj="mt")
             state_dict_[self._position_embeddings_key] \
                 = self.position_embeddings.state_dict(prefix=prefix,
                                                   keep_vars=keep_vars)
         if self.num_tokentypes > 0:
+            gd.debuginfo(prj="mt")
             state_dict_[self._tokentype_embeddings_key] \
                 = self.tokentype_embeddings.state_dict(prefix=prefix,
                                                        keep_vars=keep_vars)
@@ -283,8 +316,10 @@ class Embedding(MegatronModule):
 
         # Word embedding.
         if self._word_embeddings_key in state_dict:
+            gd.debuginfo(prj="mt")
             state_dict_ = state_dict[self._word_embeddings_key]
         else:
+            gd.debuginfo(prj="mt")
             # for backward compatibility.
             state_dict_ = {}
             for key in state_dict.keys():
@@ -296,8 +331,10 @@ class Embedding(MegatronModule):
         # Position embedding.
         if self.add_position_embedding:
             if self._position_embeddings_key in state_dict:
+                gd.debuginfo(prj="mt")
                 state_dict_ = state_dict[self._position_embeddings_key]
             else:
+                gd.debuginfo(prj="mt")
                 # for backward compatibility.
                 state_dict_ = {}
                 for key in state_dict.keys():
@@ -311,13 +348,16 @@ class Embedding(MegatronModule):
             state_dict_ = {}
             if self._tokentype_embeddings_key in state_dict:
                 state_dict_ = state_dict[self._tokentype_embeddings_key]
+                gd.debuginfo(prj="mt")
             else:
+                gd.debuginfo(prj="mt")
                 # for backward compatibility.
                 for key in state_dict.keys():
                     if 'tokentype_embeddings' in key:
                         state_dict_[key.split('tokentype_embeddings.')[1]] \
                             = state_dict[key]
             if len(state_dict_.keys()) > 0:
+                gd.debuginfo(prj="mt")
                 self.tokentype_embeddings.load_state_dict(state_dict_,
                                                           strict=strict)
             else:
@@ -355,6 +395,8 @@ class TransformerLanguageModel(MegatronModule):
                  add_pooler=False,
                  pre_process=True,
                  post_process=True):
+        gd.debuginfo(prj="mt")
+
         args = get_args()
         # TODO: passing share_word_embeddings=False will not work correctly for T5 and embeddings will not be synced. Fix later for T5.
         if args.untie_embeddings_and_output_weights: assert not add_decoder
@@ -376,6 +418,7 @@ class TransformerLanguageModel(MegatronModule):
 
         # Embeddings.
         if self.pre_process:
+            gd.debuginfo(prj="mt")
             self.embedding = Embedding(self.hidden_size,
                                        args.padded_vocab_size,
                                        args.max_position_embeddings,
@@ -386,14 +429,15 @@ class TransformerLanguageModel(MegatronModule):
             self._embedding_key = 'embedding'
 
         # Rotary positional embeddings
-        self.use_rotary_position_embeddings = \
-            args.use_rotary_position_embeddings
+        self.use_rotary_position_embeddings = args.use_rotary_position_embeddings
         if args.use_rotary_position_embeddings:
+            gd.debuginfo(prj="mt")
             self.seq_length = args.seq_length
             rotary_dim = args.hidden_size // args.num_attention_heads \
                 if args.kv_channels is None else args.kv_channels
 
             if args.rotary_percent < 1.0:
+                gd.debuginfo(prj="mt")
                 rotary_dim = int(rotary_dim * args.rotary_percent)
 
             # partial rotary embeddings, which is better than full rotary
@@ -404,6 +448,7 @@ class TransformerLanguageModel(MegatronModule):
         # Encoder (usually set to True, False if part of an encoder-decoder
         # architecture and in encoder-only stage).
         if self.add_encoder:
+            gd.debuginfo(prj="mt")
             self.encoder = ParallelTransformer(
                 self.init_method,
                 output_layer_init_method,
@@ -415,11 +460,13 @@ class TransformerLanguageModel(MegatronModule):
             )
             self._encoder_key = 'encoder'
         else:
+            gd.debuginfo(prj="mt")
             self.encoder = None
 
         # Decoder (usually set to False, True if part of an encoder-decoder
         # architecture and in decoder-only stage).
         if self.add_decoder:
+            gd.debuginfo(prj="mt")
             self.decoder = ParallelTransformer(
                 self.init_method,
                 output_layer_init_method,
@@ -430,15 +477,18 @@ class TransformerLanguageModel(MegatronModule):
                 post_process=self.post_process)
             self._decoder_key = 'decoder'
         else:
+            gd.debuginfo(prj="mt")
             self.decoder = None
 
         if self.post_process:
             # Pooler.
             if self.add_pooler:
+                gd.debuginfo(prj="mt")
                 self.pooler = Pooler(self.hidden_size, self.init_method)
                 self._pooler_key = 'pooler'
 
             if self.untie_embeddings_and_output_weights:
+                gd.debuginfo(prj="mt")
                 self.output_layer = tensor_parallel.ColumnParallelLinear(
                     args.hidden_size,
                     args.padded_vocab_size,
@@ -454,21 +504,26 @@ class TransformerLanguageModel(MegatronModule):
         # This is usually handled in schedules.py but some inference code still
         # gives us non-lists or None
         if not isinstance(input_tensor, list):
+            gd.debuginfo(prj="mt")
             input_tensor = [input_tensor]
 
         if self.add_encoder and self.add_decoder:
+            gd.debuginfo(prj="mt")
             assert len(input_tensor) == 1, \
                 'input_tensor should only be length 1 for stage with both encoder and decoder'
             self.encoder.set_input_tensor(input_tensor[0])
         elif self.add_encoder:
+            gd.debuginfo(prj="mt")
             assert len(input_tensor) == 1, \
                 'input_tensor should only be length 1 for stage with only encoder'
             self.encoder.set_input_tensor(input_tensor[0])
         elif self.add_decoder:
             if len(input_tensor) == 2:
+                gd.debuginfo(prj="mt")
                 self.decoder.set_input_tensor(input_tensor[0])
                 self.encoder_hidden_state = input_tensor[1]
             elif len(input_tensor) == 1:
+                gd.debuginfo(prj="mt")
                 self.decoder.set_input_tensor(None)
                 self.encoder_hidden_state = input_tensor[0]
             else:
@@ -488,31 +543,37 @@ class TransformerLanguageModel(MegatronModule):
 
         # Encoder embedding.
         if self.pre_process:
+            gd.debuginfo(prj="mt")
             encoder_input = self.embedding(enc_input_ids, enc_position_ids,
                                            tokentype_ids=tokentype_ids)
         else:
+            gd.debuginfo(prj="mt")
             encoder_input = None
 
         # Retriever embedding.
         if self.add_retriever and self.pre_process:
+            gd.debuginfo(prj="mt")
             retriever_input = self.embedding(retriever_input_ids,
                                              retriever_position_ids,
                                              tokentype_ids=tokentype_ids)
         else:
+            gd.debuginfo(prj="mt")
             retriever_input = None
 
         # Rotary positional embeddings
         rotary_pos_emb = None
         if self.use_rotary_position_embeddings:
             if inference_params is not None:
-                rotary_pos_emb = \
-                    self.rotary_pos_emb(inference_params.max_sequence_len)
+                gd.debuginfo(prj="mt")
+                rotary_pos_emb = self.rotary_pos_emb(inference_params.max_sequence_len)
             else:
+                gd.debuginfo(prj="mt")
                 rotary_pos_emb = self.rotary_pos_emb(self.seq_length)
 
         # Run encoder.
         if enc_hidden_states is None:
             if self.encoder is not None:
+                gd.debuginfo(prj="mt")
                 encoder_output = self.encoder(
                     encoder_input,
                     enc_attn_mask,
@@ -521,30 +582,37 @@ class TransformerLanguageModel(MegatronModule):
                     inference_params=inference_params,
                     rotary_pos_emb=rotary_pos_emb)
             else:
+                gd.debuginfo(prj="mt")
                 encoder_output = self.encoder_hidden_state
         else:
+            gd.debuginfo(prj="mt")
             encoder_output = enc_hidden_states.to(encoder_input.dtype)
 
         if self.post_process:
+            gd.debuginfo(prj="mt")
             if self.add_pooler:
-                pooled_output = self.pooler(encoder_output,
-                                            pooling_sequence_index)
+                gd.debuginfo(prj="mt")
+                pooled_output = self.pooler(encoder_output, pooling_sequence_index)
 
         # output_enc_hidden refers to when we just need the encoder's
         # output. For example, it is helpful to compute
         # similarity between two sequences by average pooling
         if not self.add_decoder or output_enc_hidden:
             if self.add_pooler and self.post_process:
+                gd.debuginfo(prj="mt")
                 return encoder_output, pooled_output
             else:
+                gd.debuginfo(prj="mt")
                 return encoder_output
 
         # Decoder embedding.
         if self.pre_process:
             decoder_input = self.embedding(dec_input_ids,
                                            dec_position_ids)
+            gd.debuginfo(prj="mt")
         else:
             decoder_input = None
+            gd.debuginfo(prj="mt")
 
         # Run decoder.
         decoder_output = self.decoder(
@@ -556,8 +624,10 @@ class TransformerLanguageModel(MegatronModule):
             rotary_pos_emb=rotary_pos_emb)
 
         if self.add_pooler and self.post_process:
+            gd.debuginfo(prj="mt")
             return decoder_output, encoder_output, pooled_output
         else:
+            gd.debuginfo(prj="mt")
             return decoder_output, encoder_output
 
     def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
@@ -565,23 +635,28 @@ class TransformerLanguageModel(MegatronModule):
 
         state_dict_ = {}
         if self.pre_process:
+            gd.debuginfo(prj="mt")
             state_dict_[self._embedding_key] \
                 = self.embedding.state_dict_for_save_checkpoint(prefix=prefix,
                                                                 keep_vars=keep_vars)
         if self.add_encoder:
+            gd.debuginfo(prj="mt")
             state_dict_[self._encoder_key] \
                 = self.encoder.state_dict_for_save_checkpoint(prefix=prefix,
                                                               keep_vars=keep_vars)
         if self.post_process:
             if self.add_pooler:
+                gd.debuginfo(prj="mt")
                 state_dict_[self._pooler_key] \
                     = self.pooler.state_dict_for_save_checkpoint(prefix=prefix,
                                                                  keep_vars=keep_vars)
             if self.untie_embeddings_and_output_weights:
+                gd.debuginfo(prj="mt")
                 state_dict_[self._output_layer_key] \
                     = self.output_layer.state_dict(prefix=prefix, keep_vars=keep_vars)
 
         if self.add_decoder:
+            gd.debuginfo(prj="mt")
             state_dict_[self._decoder_key] \
                 = self.decoder.state_dict_for_save_checkpoint(prefix=prefix,
                                                               keep_vars=keep_vars)
@@ -591,11 +666,15 @@ class TransformerLanguageModel(MegatronModule):
     def load_state_dict(self, state_dict, strict=True):
         """Customized load."""
 
+        gd.debuginfo(prj="mt")
+
         # Embedding.
         if self.pre_process:
             if self._embedding_key in state_dict:
+                gd.debuginfo(prj="mt")
                 state_dict_ = state_dict[self._embedding_key]
             else:
+                gd.debuginfo(prj="mt")
                 # for backward compatibility.
                 state_dict_ = {}
                 for key in state_dict.keys():
@@ -606,11 +685,14 @@ class TransformerLanguageModel(MegatronModule):
         # Encoder.
         if self.add_encoder:
             if self._encoder_key in state_dict:
+                gd.debuginfo(prj="mt")
                 state_dict_ = state_dict[self._encoder_key]
             # For backward compatibility.
             elif 'transformer' in state_dict:
+                gd.debuginfo(prj="mt")
                 state_dict_ = state_dict['transformer']
             else:
+                gd.debuginfo(prj="mt")
                 # For backward compatibility.
                 state_dict_ = {}
                 for key in state_dict.keys():
@@ -621,9 +703,11 @@ class TransformerLanguageModel(MegatronModule):
             state_dict_self_attention = {}
             for key in state_dict_.keys():
                 if '.attention.' in key:
+                    gd.debuginfo(prj="mt")
                     state_dict_self_attention[key.replace(".attention.",
                         ".self_attention.")] = state_dict_[key]
                 else:
+                    gd.debuginfo(prj="mt")
                     state_dict_self_attention[key] = state_dict_[key]
             state_dict_ = state_dict_self_attention
 
@@ -632,17 +716,20 @@ class TransformerLanguageModel(MegatronModule):
         # Pooler.
         if self.post_process:
             if self.add_pooler:
+                gd.debuginfo(prj="mt")
                 assert 'pooler' in state_dict, \
                     'could not find data for pooler in the checkpoint'
                 self.pooler.load_state_dict(state_dict[self._pooler_key],
                                             strict=strict)
             if self.untie_embeddings_and_output_weights:
+                gd.debuginfo(prj="mt")
                 assert 'output_layer' in state_dict, \
                     'could not find data for output_layer in the checkpoint'
                 self.output_layer.load_state_dict(state_dict[self._output_layer_key],
                                                   strict=strict)
         # Decoder.
         if self.add_decoder:
+            gd.debuginfo(prj="mt")
             assert 'decoder' in state_dict, \
                 'could not find data for pooler in the checkpoint'
             self.decoder.load_state_dict(state_dict[self._decoder_key],

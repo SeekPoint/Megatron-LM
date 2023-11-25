@@ -14,7 +14,10 @@ gd.debuginfo(prj="mt")
 def recv_from_prev_pipeline_rank_(recv_buffer=None):
     """Receive from previous pipeline stage and update the
     input buffer inplace."""
+    gd.debuginfo(prj="mt")
+
     if not mpu.is_pipeline_first_stage():
+        gd.debuginfo(prj="mt")
         assert recv_buffer is not None
         recv_prev_op = torch.distributed.P2POp(
             torch.distributed.irecv, recv_buffer,
@@ -30,7 +33,9 @@ def recv_from_prev_pipeline_rank_(recv_buffer=None):
 # TODO: use functions from megatron/p2p
 def send_to_next_pipeline_rank(tensor=None):
     """Send output to the next pipeline stage."""
+    gd.debuginfo(prj="mt")
     if not mpu.is_pipeline_last_stage():
+        gd.debuginfo(prj="mt")
         assert tensor is not None
         send_next_op = torch.distributed.P2POp(
             torch.distributed.isend, tensor,
@@ -61,17 +66,22 @@ def broadcast_from_last_pipeline_stage(size, dtype, tensor=None):
     """Broadcast a tensor from last pipeline stage to all ranks."""
 
     is_last_stage = mpu.is_pipeline_last_stage()
+    gd.debuginfo(prj="mt", info=f'is_last_stage={is_last_stage}')
+
     # If first stage and last state are the same, then there is no
     # pipeline parallelism and no need to communicate.
     if mpu.is_pipeline_first_stage() and is_last_stage:
+        gd.debuginfo(prj="mt")
         return tensor
 
     if is_last_stage:
+        gd.debuginfo(prj="mt")
         _is_cuda_contiguous(tensor)
     else:
         tensor = torch.empty(size,
                              dtype=dtype,
                              device=torch.cuda.current_device())
+        gd.debuginfo(prj="mt", info=f'tensor={infoTensor(tensor)}')
     # Get the group and corresponding source rank.
     src = mpu.get_pipeline_model_parallel_last_rank()
     group = mpu.get_pipeline_model_parallel_group()

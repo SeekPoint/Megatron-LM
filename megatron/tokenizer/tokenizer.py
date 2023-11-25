@@ -11,6 +11,7 @@ from pydebug import gd, infoTensor
 gd.debuginfo(prj="mt")
 
 def build_tokenizer(args):
+    gd.debuginfo(prj='ds')
     """Initialize tokenizer."""
     if args.rank == 0:
         gd.debuginfo(prj="mt", info=f'> building {args.tokenizer_type} tokenizer ...')
@@ -51,6 +52,7 @@ def build_tokenizer(args):
 
 
 def _vocab_size_with_padding(orig_vocab_size, args):
+    gd.debuginfo(prj='ds')
     """Pad vocab size so it is divisible by model parallel size and
     still having GPU friendly size."""
 
@@ -128,6 +130,8 @@ class _BertWordPieceTokenizer(AbstractTokenizer):
     """Original BERT wordpiece tokenizer."""
 
     def __init__(self, vocab_file, lower_case=True, vocab_extra_ids=0):
+        gd.debuginfo(prj='ds')
+
         if lower_case:
             name = 'BERT Lower Case'
         else:
@@ -259,6 +263,7 @@ class _GPT2BPETokenizer(AbstractTokenizer):
     """Original GPT2 BPE tokenizer."""
 
     def __init__(self, vocab_file, merge_file):
+        gd.debuginfo(prj='ds')
         name = 'GPT2 BPE'
         super().__init__(name)
 
@@ -293,6 +298,7 @@ class _SentencePieceTokenizer(AbstractTokenizer):
     """SentencePieceTokenizer-Megatron wrapper"""
 
     def __init__(self, model_file, vocab_extra_ids=0):
+        gd.debuginfo(prj='ds')
         name = 'SentencePieceTokenizer'
         super().__init__(name)
 
@@ -301,6 +307,7 @@ class _SentencePieceTokenizer(AbstractTokenizer):
         self._initalize(vocab_extra_ids)
 
     def _populate_vocab(self):
+        gd.debuginfo(prj='ds')
         self._vocab = {}
         self._inv_vocab = {}
 
@@ -310,6 +317,7 @@ class _SentencePieceTokenizer(AbstractTokenizer):
             self._vocab[t] = i
 
     def _initalize(self, vocab_extra_ids):
+        gd.debuginfo(prj='ds')
         self._populate_vocab()
         self._special_tokens = {}
         self._inv_special_tokens = {}
