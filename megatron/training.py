@@ -47,7 +47,7 @@ def print_datetime(string):
     """Note that this call will sync across all ranks."""
     torch.distributed.barrier()
     time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    gd.debuginfo(prj="mt", info=f'datetime: {time_str} ')
+    gd.debuginfo(prj="mt", info=f'datetime: {time_str} ', level=2)
 
 '''
 3. 预训练
@@ -97,17 +97,33 @@ def pretrain(train_valid_test_dataset_provider,
         args_defaults: a dictionary from argument-name to argument-value. It
             to set already parse arguments.
     """
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+
+    gd.debuginfo(prj="mt", info=f'------__FUNC_START__--------')
+
+    if torch.distributed.get_rank() == 0:
+        logf = f'_initialize_megatron_'
+        gd.enable(info=logf)
 
     # Initalize and get arguments, timers, and Tensorboard writer.
     initialize_megatron(extra_args_provider=extra_args_provider,
                         args_defaults=args_defaults)
 
-    gd.debuginfo(prj="mt", info=f'-----------initialize_megatron end------------')
+    if torch.distributed.get_rank() == 0:
+        gd.disable(info=logf)
+
+    gd.debuginfo(prj="mt", info=f'------initialize_megatron ends--------')
+
+    if torch.distributed.get_rank() == 0:
+        logf = f'_set_jit_fusion_options_'
+        gd.enable(info=logf)
 
     # Set pytorch JIT layer fusion options and warmup JIT functions.
     set_jit_fusion_options()
-    gd.debuginfo(prj="mt", info=f'-----------set_jit_fusion_options------------')
+
+    if torch.distributed.get_rank() == 0:
+        gd.disable(info=logf)
+
+    gd.debuginfo(prj="mt", info=f'------set_jit_fusion_options ends--------')
 
     # Adjust the startup time so it reflects the largest value.
     # This will be closer to what scheduler will see (outside of
@@ -121,7 +137,8 @@ def pretrain(train_valid_test_dataset_provider,
 
     _TRAIN_START_TIME = start_time_tensor.item()
 
-    gd.debuginfo(prj="mt", info=f'_TRAIN_START_TIME={infoTensor(_TRAIN_START_TIME)}')
+    gd.debuginfo(prj="mt",
+                 info=f'_TRAIN_START_TIME={infoTensor(_TRAIN_START_TIME)}')
     
     gd.debuginfo(prj="mt",
                  info=f'time to initialize megatron (seconds): {time.time() - _TRAIN_START_TIME:.3f}')
@@ -136,6 +153,12 @@ def pretrain(train_valid_test_dataset_provider,
     # Model, optimizer, and learning rate.
     timers('model-and-optimizer-setup', log_level=0).start(barrier=True)
 
+    gd.debuginfo(prj="mt", info=f'------setup_model_and_optimizer start--------')
+
+    if torch.distributed.get_rank() == 0:
+        logf = f'_setup_model_and_optimizer_'
+        gd.enable(info=logf)
+
     # Model, optimizer, and learning rate. 使用model_provider设置模型、优化器和lr计划
     model, optimizer, opt_param_scheduler = setup_model_and_optimizer(
         model_provider, model_type)
@@ -144,6 +167,10 @@ def pretrain(train_valid_test_dataset_provider,
     gd.debuginfo(prj="mt", info=f'optimizer={optimizer}')
     gd.debuginfo(prj="mt", info=f'opt_param_scheduler={opt_param_scheduler}')
 
+    if torch.distributed.get_rank() == 0:
+        gd.disable(info=logf)
+
+    gd.debuginfo(prj="mt", info=f'------setup_model_and_optimizer ends--------')
 
     timers('model-and-optimizer-setup').stop()
     print_datetime('after model, optimizer, and learning rate '
@@ -155,6 +182,7 @@ def pretrain(train_valid_test_dataset_provider,
 
     # Data stuff. 调用train_val_test_data_provider以获取train/val/测试数据集
     if args.virtual_pipeline_model_parallel_size is not None:
+        gd.debuginfo(prj="mt")
         all_data_iterators = [
             build_train_valid_test_data_iterators(
                 train_valid_test_dataset_provider)
@@ -167,6 +195,7 @@ def pretrain(train_valid_test_dataset_provider,
         test_data_iterator = [data_iterators[2]
                               for data_iterators in all_data_iterators]
     else:
+        gd.debuginfo(prj="mt")
         train_data_iterator, valid_data_iterator, test_data_iterator \
             = build_train_valid_test_data_iterators(
                 train_valid_test_dataset_provider)
@@ -190,14 +219,17 @@ def pretrain(train_valid_test_dataset_provider,
         #7. 训练
         # pretrain 之中会调用 train 来进行训练。
         if args.do_train and args.train_iters > 0:
+            gd.debuginfo(prj="mt", info=f'-----------start train------------')
             iteration = train(forward_step_func,
                             model, optimizer, opt_param_scheduler,
                             train_data_iterator, valid_data_iterator,
                             process_non_loss_data_func)
+            gd.debuginfo(prj="mt", info=f'-----------end train------------')
 
         print_datetime('after training is done')
 
         if args.save and iteration != 0:
+            gd.debuginfo(prj="mt")
             save_checkpoint(iteration, model, optimizer, opt_param_scheduler)
     else:
         gd.debuginfo(prj="mt", info=f'skipping training (--skip-train is on) ...')
@@ -205,6 +237,7 @@ def pretrain(train_valid_test_dataset_provider,
         iteration = args.iteration
 
     if args.do_valid:
+        gd.debuginfo(prj="mt")
         prefix = f'iteration {iteration} on {args.eval_iters * args.global_batch_size}-sample draw from validation set'
         evaluate_and_print_results(prefix, forward_step_func,
                                    valid_data_iterator, model,
@@ -212,6 +245,7 @@ def pretrain(train_valid_test_dataset_provider,
                                    verbose=True, write_to_tensorboard=not args.skip_train)
 
     if args.do_test:
+        gd.debuginfo(prj="mt")
         prefix = f'iteration {iteration} on {args.eval_iters * args.global_batch_size}-sample draw from test set'
         evaluate_and_print_results(prefix, forward_step_func,
                                    test_data_iterator, model,
@@ -824,7 +858,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
           train_data_iterator, valid_data_iterator,
           process_non_loss_data_func):
     """Train the model function."""
-    gd.debuginfo(prj="mt")
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
 
     args = get_args()
     timers = get_timers()
@@ -846,16 +880,37 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
     timers('interval-time', log_level=0).start(barrier=True)
     print_datetime('before the start of training step')
     report_memory_flag = True
+
+    gd.debuginfo(prj="mt", info=f'iteration={iteration}, args.train_iters={args.train_iters}')
+
     while iteration < args.train_iters:
-        gd.debuginfo(prj="mt", info=f'iteration={iteration}')
+
         update_num_microbatches(args.consumed_train_samples)
         args.curr_iteration = iteration
+
+        gd.debuginfo(prj="mt", info=f'----------------------train 1--------------------------')
+
+        if torch.distributed.get_rank() == 0:
+            logf = f'_train_step_'
+            gd.enable_times(info=logf)
+
         loss_dict, skipped_iter, grad_norm, num_zeros_in_grad = \
             train_step(forward_step_func,
                        train_data_iterator,
                        model,
                        optimizer,
                        opt_param_scheduler)
+
+        gd.debuginfo(prj="mt", info=f'loss_dict={loss_dict}')
+        gd.debuginfo(prj="mt", info=f'skipped_iter={skipped_iter}')
+        gd.debuginfo(prj="mt", info=f'grad_norm={grad_norm}')
+        gd.debuginfo(prj="mt", info=f'num_zeros_in_grad={num_zeros_in_grad}')
+
+        if torch.distributed.get_rank() == 0:
+            gd.disable_times(info=logf)
+
+        gd.debuginfo(prj="mt", info=f'----------------------train 2--------------------------')
+
         iteration += 1
         args.consumed_train_samples += mpu.get_data_parallel_world_size() * \
                                        args.micro_batch_size * \
@@ -865,27 +920,32 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
         loss_scale = optimizer.get_loss_scale().item()
         params_norm = None
         if args.log_params_norm:
+            gd.debuginfo(prj="mt")
             params_norm = calc_params_l2_norm(model)
+
         report_memory_flag = training_log(loss_dict, total_loss_dict,
                                           optimizer.param_groups[0]['lr'],
                                           iteration, loss_scale,
                                           report_memory_flag, skipped_iter,
                                           grad_norm, params_norm, num_zeros_in_grad)
 
+        gd.debuginfo(prj="mt", info=f'----------------------train 3--------------------------')
+
         # Autoresume
-        if args.adlr_autoresume and \
-           (iteration % args.adlr_autoresume_interval == 0):
+        if args.adlr_autoresume and (iteration % args.adlr_autoresume_interval == 0):
             check_adlr_autoresume_termination(iteration, model, optimizer,
                                               opt_param_scheduler)
 
+        gd.debuginfo(prj="mt", info=f'----------------------train 4--------------------------')
+
         # Evaluation
-        if args.eval_interval and iteration % args.eval_interval == 0 and \
-           args.do_valid:
+        if args.eval_interval and iteration % args.eval_interval == 0 and args.do_valid:
             prefix = 'iteration {}'.format(iteration)
             evaluate_and_print_results(prefix, forward_step_func,
                                        valid_data_iterator, model,
                                        iteration, process_non_loss_data_func,
                                        False)
+        gd.debuginfo(prj="mt", info=f'----------------------train 5--------------------------')
 
         # Checkpointing
         saved_checkpoint = False
@@ -897,11 +957,15 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 print_datetime('exiting program after receiving SIGTERM.')
                 sys.exit()
 
+        gd.debuginfo(prj="mt", info=f'----------------------train 6--------------------------')
+
         if args.save and args.save_interval and \
            iteration % args.save_interval == 0:
             save_checkpoint_and_time(iteration, model, optimizer,
                                      opt_param_scheduler)
             saved_checkpoint = True
+
+        gd.debuginfo(prj="mt", info=f'----------------------train 7--------------------------')
 
         # Exiting based on duration
         if args.exit_duration_in_mins:
@@ -918,6 +982,8 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 print_datetime('exiting program after {} minutes'.format(train_time))
                 sys.exit()
 
+        gd.debuginfo(prj="mt", info=f'----------------------train 8--------------------------')
+
         # Exiting based on iterations
         if args.exit_interval and iteration % args.exit_interval == 0:
             if args.save and not saved_checkpoint:
@@ -926,6 +992,10 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
             torch.distributed.barrier()
             print_datetime('exiting program at iteration {}'.format(iteration))
             sys.exit()
+
+        gd.debuginfo(prj="mt", info=f'----------------------train 9--------------------------')
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
     return iteration
 
@@ -1051,12 +1121,14 @@ def build_train_valid_test_datasets(build_train_valid_test_datasets_provider):
         train_samples = args.train_samples
     else:
         train_samples = args.train_iters * args.global_batch_size
-    eval_iters = (args.train_iters // args.eval_interval + 1) * \
-                 args.eval_iters
+
+    eval_iters = (args.train_iters // args.eval_interval + 1) * args.eval_iters
     test_iters = args.eval_iters
+
     train_val_test_num_samples = [train_samples,
                                   eval_iters * args.global_batch_size,
                                   test_iters * args.global_batch_size]
+
     gd.debuginfo(prj="mt", info=f' > datasets target sizes (minimum size):')
     gd.debuginfo(prj="mt", info=f'    train:      {train_val_test_num_samples[0]}')
     gd.debuginfo(prj="mt", info=f'    validation: {train_val_test_num_samples[1]}')
@@ -1066,8 +1138,7 @@ def build_train_valid_test_datasets(build_train_valid_test_datasets_provider):
     return build_train_valid_test_datasets_provider(train_val_test_num_samples)
 
 # 具体看 build_train_valid_test_data_loaders 函数
-def build_train_valid_test_data_loaders(
-        build_train_valid_test_datasets_provider):
+def build_train_valid_test_data_loaders(build_train_valid_test_datasets_provider):
     """Build pretraining data loaders."""
     gd.debuginfo(prj="mt")
     args = get_args()
@@ -1131,16 +1202,14 @@ dataloader_type 有 2 种模式：
     
     cyclic：multiple pass data loader
 '''
-def build_train_valid_test_data_iterators(
-        build_train_valid_test_datasets_provider):
+def build_train_valid_test_data_iterators(build_train_valid_test_datasets_provider):
     """Build pretraining data iterators."""
     gd.debuginfo(prj="mt")
     args = get_args()
 
     # Build loaders.
     train_dataloader, valid_dataloader, test_dataloader = \
-        build_train_valid_test_data_loaders(
-            build_train_valid_test_datasets_provider)
+        build_train_valid_test_data_loaders(build_train_valid_test_datasets_provider)
 
     # Build iterators.
     dl_type = args.dataloader_type

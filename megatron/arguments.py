@@ -12,10 +12,10 @@ from megatron.global_vars import set_retro_args, get_retro_args
 from tools.retro.utils import get_args_path as get_retro_args_path
 
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
 def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     """Parse all arguments."""
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     parser = argparse.ArgumentParser(description='Megatron-LM Arguments',
                                      allow_abbrev=False)
 
@@ -55,7 +55,7 @@ def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     return args
 
 def validate_args(args, defaults={}):
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     # Tensor model parallel size.
     args.tensor_model_parallel_size = min(
         args.tensor_model_parallel_size, args.world_size)

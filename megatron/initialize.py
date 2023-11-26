@@ -21,7 +21,7 @@ from megatron.global_vars import set_global_variables
 from megatron.model.transformer import bias_dropout_add_fused_train
 from megatron.model.fused_bias_gelu import bias_gelu
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
 # 4.1 初始化
 # initialize_megatron方法会设置全局变量，初始化分布式环境。
 def initialize_megatron(extra_args_provider=None, args_defaults={},
@@ -34,7 +34,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
     Returns a function to finalize distributed env initialization 
     (optionally, only when args.lazy_mpu_init == True)
     """
-    gd.debuginfo(prj="mt")
+    gd.debuginfo(prj="mt", info='__FUNC_START__')
 
     if not allow_no_cuda:
         # Make sure cuda is available.
@@ -55,6 +55,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
 
     # torch.distributed initialization
     def finish_mpu_init():
+        gd.debuginfo(prj="mt")
         args = get_args()
         # Pytorch distributed.
         _initialize_distributed()
@@ -66,6 +67,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
 
     args = get_args()
     if  args.lazy_mpu_init:
+        gd.debuginfo(prj="mt")
         # TODO is this still a necessary option?
         args.use_cpu_initialization=True
         # delayed initialization of DDP-related stuff
@@ -74,8 +76,11 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         # and return function for external DDP manager
         # to call when it has DDP initialized
         mpu.set_tensor_model_parallel_rank(args.rank)
+
+        gd.debuginfo(prj="mt", info='__FUNC_START__')
         return finish_mpu_init
     else:
+        gd.debuginfo(prj="mt")
         # Megatron's MPU is the master. Complete initialization right away.
         finish_mpu_init()
 
@@ -86,11 +91,13 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         _compile_dependencies()
 
         # No continuation function
+
+        gd.debuginfo(prj="mt", info='__FUNC_START__')
         return None
 
 
 def _compile_dependencies():
-
+    gd.debuginfo(prj="mt")
     args = get_args()
 
     # =========================
@@ -134,6 +141,7 @@ def _compile_dependencies():
         fused_kernels.load(args)
         torch.distributed.barrier()
     else:
+        gd.debuginfo(prj="mt")
         torch.distributed.barrier()
         fused_kernels.load(args)
     # Simple barrier to make sure all ranks have passed the
@@ -161,6 +169,8 @@ torch.distributed.init_process_group 会生成一个进程组，同组内进程�
 如果是单机多卡并行，local rank 和 global rank 是一致的。
 '''
 def _initialize_distributed():
+    gd.debuginfo(prj="mt")
+
     """Initialize torch.distributed and core model parallel."""
     args = get_args()
 
@@ -177,15 +187,16 @@ def _initialize_distributed():
 
         if args.rank == 0:
             gd.debuginfo(prj="mt", info=f'> initializing torch distributed ...')
+
         # Manually set the device ids.
         if device_count > 0:
             device = args.rank % device_count
             if args.local_rank is not None:
-                assert args.local_rank == device, \
-                    'expected local-rank to be the same as rank % device-count.'
+                assert args.local_rank == device, 'expected local-rank to be the same as rank % device-count.'
             else:
                 args.local_rank = device
             torch.cuda.set_device(device)
+
     # Call the init process
     torch.distributed.init_process_group(
         backend=args.distributed_backend,
@@ -198,6 +209,7 @@ def _initialize_distributed():
         if mpu.model_parallel_is_initialized():
             gd.debuginfo(prj="mt", info=f'model parallel is already initialized')
         else:
+            gd.debuginfo(prj="mt")
             mpu.initialize_model_parallel(args.tensor_model_parallel_size,
                                            args.pipeline_model_parallel_size,
                                            args.virtual_pipeline_model_parallel_size,
@@ -210,9 +222,12 @@ def _initialize_distributed():
 
 
 def _init_autoresume():
+    gd.debuginfo(prj="mt")
+
     """Set autoresume start time."""
     autoresume = get_adlr_autoresume()
     if autoresume:
+        gd.debuginfo(prj="mt")
         torch.distributed.barrier()
         autoresume.init()
         torch.distributed.barrier()
@@ -221,11 +236,16 @@ def _init_autoresume():
 def _set_random_seed(seed_, data_parallel_random_init=False):
     """Set random seed for reproducability."""
     if seed_ is not None and seed_ > 0:
+        gd.debuginfo(prj="mt")
+
         # Ensure that different pipeline MP stages get different seeds.
         seed = seed_ + (100 * mpu.get_pipeline_model_parallel_rank())
+
         # Ensure different data parallel ranks get different seeds
         if data_parallel_random_init:
+            gd.debuginfo(prj="mt")
             seed = seed + (10 * mpu.get_data_parallel_rank())
+
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)

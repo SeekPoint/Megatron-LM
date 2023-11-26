@@ -15,7 +15,7 @@ class MNLIDataset(GLUEAbstractDataset):
 
     def __init__(self, name, datapaths, tokenizer, max_seq_length,
                  test_label='contradiction'):
-        gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
+        gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
         self.test_label = test_label
         super().__init__('MNLI', name, datapaths,
                          tokenizer, max_seq_length)

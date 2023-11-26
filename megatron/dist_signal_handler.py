@@ -3,11 +3,14 @@ import signal
 import torch
 
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+#gd.debuginfo(prj="mt")
+
 def get_world_size():
     if torch.distributed.is_available() and torch.distributed.is_initialized():
+        gd.debuginfo(prj="mt")
         world_size = torch.distributed.get_world_size()
     else:
+        gd.debuginfo(prj="mt")
         world_size = 1
     return world_size
 
@@ -23,6 +26,7 @@ def get_device(local_rank=None):
         device = torch.device('cpu')
     else:
         raise RuntimeError
+    gd.debuginfo(prj="mt", info=f'device={device}')
     return device
 
 
@@ -45,6 +49,7 @@ def all_gather_item(item, dtype, group=None, async_op=False, local_rank=None):
     ]
     torch.distributed.all_gather(output_tensors, tensor, group, async_op)
     output = [elem.item() for elem in output_tensors]
+    gd.debuginfo(prj="mt", info=f'output={output}')
     return output
 
 

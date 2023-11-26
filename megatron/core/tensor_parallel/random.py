@@ -39,13 +39,13 @@ def _set_cuda_rng_state(new_state, device=-1):
     major performance issues for +4 GPU cases.
     """
     if hasattr(_C, '_cuda_setRNGState') and callable(_C._cuda_setRNGState):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         # older PyTorch
         def cb():
             with device_ctx_manager(device):
                 _C._cuda_setRNGState(new_state)
     else:
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         # newer PyTorch
         if device == -1:
             device = torch.device('cuda')
@@ -75,20 +75,20 @@ class CudaRNGStatesTracker:
     """
 
     def __init__(self):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         # Map from a string name to the cuda rng state.
         self.states_ = {}
         # Seeds are just for book keeping and ensure no seed is set twice.
         self.seeds_ = set()
 
     def reset(self):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         """Set to the initial state (no tracker)."""
         self.states_ = {}
         self.seeds_ = set()
 
     def get_states(self):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         """Get rng states. Copy the dictionary so we have direct
         pointers to the states, not just a pointer to the dictionary."""
         states = {}
@@ -102,7 +102,7 @@ class CudaRNGStatesTracker:
         self.states_ = states
 
     def add(self, name, seed):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         """Track the rng state."""
         # Check seed is not already used.
         if seed in self.seeds_:
@@ -121,7 +121,7 @@ class CudaRNGStatesTracker:
 
     @contextlib.contextmanager
     def fork(self, name=_MODEL_PARALLEL_RNG_TRACKER_NAME):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         """Fork the cuda rng state, perform operations, and exit with
         the original state."""
         # Check if we have added the state
@@ -190,7 +190,7 @@ class CheckpointFunction(torch.autograd.Function):
     """
     @staticmethod
     def forward(ctx, run_function, distribute_saved_activations, *args):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         ctx.run_function = run_function
         ctx.distribute_saved_activations \
             = distribute_saved_activations
@@ -206,7 +206,7 @@ class CheckpointFunction(torch.autograd.Function):
         # Divide hidden states across model parallel group and only keep
         # the chunk corresponding to the current rank.
         if distribute_saved_activations:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             ctx.input_0_shape = args[0].data.shape
             safely_set_viewless_tensor_data(
                 args[0],
@@ -219,7 +219,7 @@ class CheckpointFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, *args):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         if not torch.autograd._is_checkpoint_valid():
             raise RuntimeError("Checkpointing is not compatible with .grad(), "
                                "please use .backward() if possible")

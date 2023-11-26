@@ -10,13 +10,13 @@ from megatron.core.parallel_state import (
 
 from .utils import VocabUtility
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
 
 class _VocabParallelCrossEntropy(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, vocab_parallel_logits, target, label_smoothing=0.0):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         # Maximum value along vocab dimension across all GPUs.
         logits_max = torch.max(vocab_parallel_logits, dim=-1)[0]
         torch.distributed.all_reduce(logits_max,
@@ -79,7 +79,7 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
             = (1 - (alpha * K) / (K - 1)) * y_gt + ( (alpha * K) / (K - 1) ) * \sum_{i} y_i / K
             From: https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/common/losses/smoothed_cross_entropy.py
             """
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             assert 1.0 > label_smoothing > 0.0
             smoothing = label_smoothing * vocab_size / (vocab_size - 1)
 
@@ -98,7 +98,7 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         # Retreive tensors from the forward path.
         softmax, target_mask, masked_target_1d = ctx.saved_tensors
         label_smoothing, vocab_size = ctx.label_smoothing, ctx.vocab_size
@@ -142,5 +142,5 @@ def vocab_parallel_cross_entropy(vocab_parallel_logits, target, label_smoothing=
         lobal_smoothing: smoothing factor, must be in range [0.0, 1.0)
                          default is no smoothing (=0.0)
     """
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     return _VocabParallelCrossEntropy.apply(vocab_parallel_logits, target, label_smoothing)

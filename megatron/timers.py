@@ -9,7 +9,7 @@ import time
 import torch
 
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
 
 class TimerBase(ABC):
 

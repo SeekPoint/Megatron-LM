@@ -33,7 +33,7 @@ class PerspectiveApiScorer:
         """
         :param api_key: the API key to use. For details, see https://support.perspectiveapi.com/s/docs-get-started
         """
-        gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
+        gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
         api_key = ''
         self._service = discovery.build(
             "commentanalyzer",
@@ -50,7 +50,7 @@ class PerspectiveApiScorer:
         :param requested_attributes: the attributes for which to compute scores
         :return: a mapping from attribute names to scores
         """
-        gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
+        gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
         requested_attributes = requested_attributes if requested_attributes else PerspectiveApiScorer.DEFAULT_ATTRIBUTES
 
         analyze_request = {

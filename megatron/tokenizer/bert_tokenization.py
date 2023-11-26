@@ -24,7 +24,7 @@ import re
 import unicodedata
 import six
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
 
 def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
     """Checks whether the casing config is consistent with the checkpoint name."""
@@ -33,7 +33,7 @@ def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
     # as to whether it matches the checkpoint. The casing information probably
     # should have been stored in the bert_config.json file, but it's not, so
     # we have to heuristically detect it to validate.
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     if not init_checkpoint:
         return
 
@@ -55,12 +55,14 @@ def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
 
     is_bad_config = False
     if model_name in lower_models and not do_lower_case:
+        gd.debuginfo(prj="mt")
         is_bad_config = True
         actual_flag = "False"
         case_name = "lowercased"
         opposite_flag = "True"
 
     if model_name in cased_models and do_lower_case:
+        gd.debuginfo(prj="mt")
         is_bad_config = True
         actual_flag = "True"
         case_name = "cased"
@@ -77,7 +79,7 @@ def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
 
 
 def convert_to_unicode(text):
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     """Converts `text` to Unicode (if it's not already), assuming utf-8 input."""
     if six.PY3:
         if isinstance(text, str):
@@ -121,7 +123,7 @@ def printable_text(text):
 
 
 def load_vocab(vocab_file):
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     """Loads a vocabulary file into a dictionary."""
     vocab = collections.OrderedDict()
     index = 0
@@ -165,12 +167,14 @@ class FullTokenizer(object):
     """Runs end-to-end tokenziation."""
 
     def __init__(self, vocab_file, do_lower_case=True):
+        gd.debuginfo(prj="mt")
         self.vocab = load_vocab(vocab_file)
         self.inv_vocab = {v: k for k, v in self.vocab.items()}
         self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
         self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab)
 
     def tokenize(self, text):
+        gd.debuginfo(prj="mt")
         split_tokens = []
         for token in self.basic_tokenizer.tokenize(text):
             for sub_token in self.wordpiece_tokenizer.tokenize(token):
@@ -229,6 +233,8 @@ class BasicTokenizer(object):
         self.do_lower_case = do_lower_case
 
     def tokenize(self, text):
+        gd.debuginfo(prj="mt")
+
         """Tokenizes a piece of text."""
         text = convert_to_unicode(text)
         text = self._clean_text(text)
@@ -336,6 +342,7 @@ class WordpieceTokenizer(object):
     """Runs WordPiece tokenziation."""
 
     def __init__(self, vocab, unk_token="[UNK]", max_input_chars_per_word=200):
+        gd.debuginfo(prj="mt")
         self.vocab = vocab
         self.unk_token = unk_token
         self.max_input_chars_per_word = max_input_chars_per_word

@@ -6,7 +6,8 @@ from abc import ABC
 from abc import abstractmethod
 
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
+
 def build_num_microbatches_calculator(args):
 
     # Constant num micro-batches.
@@ -42,6 +43,7 @@ def build_num_microbatches_calculator(args):
 class NumMicroBatchesCalculator(ABC):
 
     def __init__(self):
+        gd.debuginfo(prj="mt")
         self.num_micro_batches = None
         self.current_global_batch_size = None
 
@@ -59,6 +61,8 @@ class NumMicroBatchesCalculator(ABC):
 class ConstantNumMicroBatches(NumMicroBatchesCalculator):
 
     def __init__(self, global_batch_size, micro_batch_size, data_parallel_size):
+        gd.debuginfo(prj="mt")
+
         micro_batch_times_data_parallel = micro_batch_size * \
                                           data_parallel_size
         assert global_batch_size % micro_batch_times_data_parallel == 0, \
@@ -95,6 +99,8 @@ class RampupBatchsizeNumMicroBatches(NumMicroBatchesCalculator):
             data_parallel_size: data parallel size.
         """
 
+        gd.debuginfo(prj="mt")
+
         self.micro_batch_size = micro_batch_size
         self.data_parallel_size = data_parallel_size
         self.micro_batch_times_data_parallel_size = self.micro_batch_size * \
@@ -126,14 +132,17 @@ class RampupBatchsizeNumMicroBatches(NumMicroBatchesCalculator):
     def update(self, consumed_samples, consistency_check):
 
         if consumed_samples > self.ramup_samples:
+            gd.debuginfo(prj="mt")
             self.current_global_batch_size = self.global_batch_size
         else:
+            gd.debuginfo(prj="mt")
             steps = int(consumed_samples / self.rampup_samples_per_increment)
             self.current_global_batch_size = self.start_batch_size + \
                 steps * self.batch_size_increment
             assert self.current_global_batch_size <= self.global_batch_size
 
         if consistency_check:
+            gd.debuginfo(prj="mt")
             assert self.current_global_batch_size % \
                 self.micro_batch_times_data_parallel_size == 0, 'current global ' \
                 'batch size ({}) is not divisible by micro-batch-size ({}) times' \

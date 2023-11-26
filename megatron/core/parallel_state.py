@@ -7,7 +7,8 @@ from typing import Optional
 
 from .utils import GlobalMemoryBuffer
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
+
 # Intra-layer model parallel group that the current rank belongs to.
 _TENSOR_MODEL_PARALLEL_GROUP = None
 # Inter-layer model parallel group that the current rank belongs to.
@@ -122,7 +123,7 @@ def initialize_model_parallel(
     ranks 8 to 15 belong to the second box.
 
     """
-    gd.debuginfo(prj='ds', info=f'__FUNC_START__')
+    gd.debuginfo(prj='mt', info=f'__FUNC_START__')
 
     # Get world size and rank. Ensure some consistencies.
     assert torch.distributed.is_initialized()
@@ -142,7 +143,7 @@ def initialize_model_parallel(
     num_data_parallel_groups: int = world_size // data_parallel_size
 
     if virtual_pipeline_model_parallel_size is not None:
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         if not pipeline_model_parallel_size > 2:
             raise RuntimeError("pipeline-model-parallel size should be greater than 2 with "
                                "interleaved schedule")
@@ -152,7 +153,7 @@ def initialize_model_parallel(
         _VIRTUAL_PIPELINE_MODEL_PARALLEL_WORLD_SIZE = virtual_pipeline_model_parallel_size
 
     if pipeline_model_parallel_split_rank is not None:
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         global _PIPELINE_MODEL_PARALLEL_SPLIT_RANK
         _PIPELINE_MODEL_PARALLEL_SPLIT_RANK = pipeline_model_parallel_split_rank
 
@@ -195,7 +196,7 @@ def initialize_model_parallel(
     assert _DATA_PARALLEL_GROUP is None, 'data parallel group is already initialized'
     all_data_parallel_group_ranks = []
     for i in range(pipeline_model_parallel_size): # 遍历流水线深度
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         start_rank = i * num_pipeline_model_parallel_groups # 找到每个stage的起始rank
         end_rank = (i + 1) * num_pipeline_model_parallel_groups  # 找到每个stage的终止rank
         for j in range(tensor_model_parallel_size): # 遍历tensor model分组size
@@ -336,7 +337,7 @@ def initialize_model_parallel(
     # we could stick it there
     _set_global_memory_buffer()
 
-    gd.debuginfo(prj='ds', info=f'__FUNC_END__')
+    gd.debuginfo(prj='mt', info=f'__FUNC_END__')
 
     '''
     假设当前有 16 个GPU，分布在两个节点，其中编号0～7属于第一个节点，编号8～15属于第二个节点。
@@ -537,7 +538,7 @@ def is_pipeline_last_stage(ignore_virtual=False):
 
 def is_rank_in_embedding_group(ignore_virtual=False):
     """Return true if current rank is in embedding group, False otherwise."""
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
 
     rank = torch.distributed.get_rank()
     global _EMBEDDING_GLOBAL_RANKS

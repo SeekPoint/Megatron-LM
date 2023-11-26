@@ -21,6 +21,8 @@ class IndexBuilder(object):
     embeddings
     """
     def __init__(self):
+        gd.debuginfo(prj="mt")
+
         args = get_args()
         self.model = None
         self.dataloader = None
@@ -44,8 +46,11 @@ class IndexBuilder(object):
         """
         Load the necessary attributes: model, dataloader and empty BlockData
         """
+        gd.debuginfo(prj="mt")
+
         only_context_model = True
         if self.biencoder_shared_query_context_model:
+            gd.debuginfo(prj="mt")
             only_context_model = False
 
         model = get_model(get_model_provider(only_context_model=\
@@ -69,6 +74,7 @@ class IndexBuilder(object):
         """
         Utility function for tracking progress
         """
+        gd.debuginfo(prj="mt")
         self.iteration += 1
         self.total_processed += batch_size * self.num_total_builders
         if self.is_main_builder and self.iteration % self.log_interval == 0:
@@ -91,6 +97,7 @@ class IndexBuilder(object):
 
         while True:
             try:
+                gd.debuginfo(prj="mt")
                 # batch also has query_tokens and query_pad_data
                 row_id, context_tokens, context_mask, context_types, \
                     context_pad_mask = get_open_retrieval_batch( \
@@ -119,6 +126,7 @@ class IndexBuilder(object):
 
         # rank 0 process builds the final copy
         if self.is_main_builder:
+            gd.debuginfo(prj="mt")
             self.evidence_embedder_obj.merge_shards_and_save()
             # make sure that every single piece of data was embedded
             assert len(self.evidence_embedder_obj.embed_data) == \

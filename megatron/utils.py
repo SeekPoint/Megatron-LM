@@ -108,6 +108,7 @@ def report_memory(name):
         torch.cuda.memory_reserved() / mega_bytes)
     string += ' | max reserved: {}'.format(
         torch.cuda.max_memory_reserved() / mega_bytes)
+
     if mpu.get_data_parallel_rank() == 0:
         gd.debuginfo(prj="mt", info=f"[Rank {torch.distributed.get_rank()}] {string}")
 
@@ -127,11 +128,13 @@ def print_params_min_max_norm(optimizer, iteration):
             string += '{:7d}, {:4d}, {:4d}, {:2d}, '.format(
                 iteration, rank, index, int(param.tensor_model_parallel))
             string += '{:.6E}, {:.6E}, {:.6E}\n'.format(min_, max_, norm)
-    gd.debuginfo(prj="mt", info=fstring)
+    gd.debuginfo(prj="mt", info=string)
 
 
 def check_adlr_autoresume_termination(iteration, model,
                                       optimizer, opt_param_scheduler):
+    gd.debuginfo(prj="mt")
+
     """Check for autoresume signal and exit if it is received."""
     from megatron.checkpointing import save_checkpoint
 
@@ -161,8 +164,10 @@ def get_ltor_masks_and_position_ids(data,
 
     # Attention mask (lower triangular).
     if reset_attention_mask:
+        gd.debuginfo(prj="mt")
         att_mask_batch = micro_batch_size
     else:
+        gd.debuginfo(prj="mt")
         att_mask_batch = 1
     attention_mask = torch.tril(torch.ones(
         (att_mask_batch, seq_length, seq_length), device=data.device)).view(
@@ -174,14 +179,17 @@ def get_ltor_masks_and_position_ids(data,
         loss_mask[data == eod_token] = 0.0
 
     # Position ids.
-    position_ids = torch.arange(seq_length, dtype=torch.long,
-                                device=data.device)
+    position_ids = torch.arange(seq_length, dtype=torch.long, device=data.device)
+
     position_ids = position_ids.unsqueeze(0).expand_as(data)
+
     # We need to clone as the ids will be modifed based on batch index.
     if reset_position_ids:
+        gd.debuginfo(prj="mt")
         position_ids = position_ids.clone()
 
     if reset_position_ids or reset_attention_mask:
+        gd.debuginfo(prj="mt")
         # Loop through the batches:
         for b in range(micro_batch_size):
 
@@ -205,6 +213,10 @@ def get_ltor_masks_and_position_ids(data,
 
     # Convert attention mask to binary:
     attention_mask = (attention_mask < 0.5)
+
+    gd.debuginfo(prj="mt", info=f'attention_mask={attention_mask}')
+    gd.debuginfo(prj="mt", info=f'loss_mask={loss_mask}')
+    gd.debuginfo(prj="mt", info=f'position_ids={position_ids}')
 
     return attention_mask, loss_mask, position_ids
 

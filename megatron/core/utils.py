@@ -8,7 +8,7 @@ import torch
 
 from megatron.core import parallel_state
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
 '''
 4.2.1 切分size
 self.output_size_per_partition = divide(output_size, world_size) 这里有一个分割 size 操作，得到每个子模型应该拥有的权重大小。
@@ -48,11 +48,11 @@ class GlobalMemoryBuffer:
     are not used concurrently."""
 
     def __init__(self):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         self.buffer = {}
 
     def get_tensor(self, tensor_shape, dtype, name):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         required_len = reduce(operator.mul, tensor_shape, 1)
         if self.buffer.get((name, dtype), None) is None or \
                 self.buffer[(name, dtype)].numel() < required_len:
@@ -73,7 +73,7 @@ def _kernel_make_viewless_tensor(inp, requires_grad):
     data, without linking the viewed tensor, referenced via the '._base'
     field.
     '''
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     out = torch.empty(
         (1,),
         dtype = inp.dtype,
@@ -108,7 +108,7 @@ def make_viewless_tensor(inp, requires_grad, keep_graph):
     switch for determining if an autograd function or a regular method
     should be used to create the tensor.
     '''
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     # return tensor as-is, if not a 'view'
     if inp._base is None:
         return inp

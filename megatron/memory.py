@@ -4,7 +4,8 @@
 import torch
 
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
+
 # A dictionary of all the memory buffers allocated.
 _MEM_BUFFS = dict()
 
@@ -35,6 +36,7 @@ class MemoryBuffer:
 
     """
     def __init__(self, name, numel, dtype, track_usage):
+        gd.debuginfo(prj="mt")
         if torch.distributed.get_rank() == 0:
             element_size = torch.tensor([], dtype=dtype).element_size()
             gd.debuginfo(prj="mt", info=f'> building the {} memory buffer with {} num elements '
@@ -75,6 +77,8 @@ class MemoryBuffer:
 
 
     def add(self, tensor):
+        gd.debuginfo(prj="mt")
+
         """Allocate a chunk of memory from the buffer to tensor and copy
         the values."""
         assert tensor.dtype == self.dtype, \
@@ -98,6 +102,7 @@ class MemoryBuffer:
     def get_data(self):
         """Return the data currently in use."""
         if self.track_usage:
+            gd.debuginfo(prj="mt")
             self.in_use_value += float(self._start)
             self.total_value += float(self.numel)
         return self.data[:self._start]
@@ -116,6 +121,7 @@ class RingMemBuffer:
     """A ring of memory buffers."""
 
     def __init__(self, name, num_buffers, numel, dtype, track_usage):
+        gd.debuginfo(prj="mt")
         self.num_buffers = num_buffers
         self.buffers = [
             allocate_mem_buff(name+' {}'.format(i), numel, dtype, track_usage)

@@ -11,7 +11,7 @@ from megatron.tokenizer import build_tokenizer
 from .microbatches import build_num_microbatches_calculator
 from .timers import Timers
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+# gd.debuginfo(prj="mt")
 _GLOBAL_ARGS = None
 _GLOBAL_RETRO_ARGS = None
 _GLOBAL_NUM_MICROBATCHES_CALCULATOR = None

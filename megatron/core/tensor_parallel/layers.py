@@ -49,14 +49,14 @@ _MODEL_PARALLEL_ATTRIBUTE_DEFAULTS = {'tensor_model_parallel': False,
                                       'partition_stride': 1}
 
 def param_is_not_tensor_parallel_duplicate(param):
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     return (hasattr(param, 'tensor_model_parallel') and
             param.tensor_model_parallel) or (
                 get_tensor_model_parallel_rank() == 0)
 
 
 def set_tensor_model_parallel_attributes(tensor, is_parallel, dim, stride):
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     # Make sure the attributes are not set.
     for attribute in _MODEL_PARALLEL_ATTRIBUTE_DEFAULTS:
         assert not hasattr(tensor, attribute)
@@ -68,24 +68,24 @@ def set_tensor_model_parallel_attributes(tensor, is_parallel, dim, stride):
 
 def set_defaults_if_not_set_tensor_model_parallel_attributes(tensor):
     def maybe_set(attribute, value):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         if not hasattr(tensor, attribute):
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             setattr(tensor, attribute, value)
     for attribute in _MODEL_PARALLEL_ATTRIBUTE_DEFAULTS:
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         maybe_set(attribute, _MODEL_PARALLEL_ATTRIBUTE_DEFAULTS[attribute])
 
 
 def copy_tensor_model_parallel_attributes(destination_tensor, source_tensor):
     def maybe_copy(attribute):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         if hasattr(source_tensor, attribute):
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             setattr(destination_tensor, attribute,
                     getattr(source_tensor, attribute))
     for attribute in _MODEL_PARALLEL_ATTRIBUTE_DEFAULTS:
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         maybe_copy(attribute)
 
 '''
@@ -95,14 +95,14 @@ def copy_tensor_model_parallel_attributes(destination_tensor, source_tensor):
 def _initialize_affine_weight_gpu(weight, init_method,
                                   partition_dim, stride=1):
     """Initialize affine weight for model parallel on GPU."""
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     set_tensor_model_parallel_attributes(tensor=weight,
                                          is_parallel=True,
                                          dim=partition_dim,
                                          stride=stride)
 
     with get_cuda_rng_tracker().fork():
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         init_method(weight)
 
 
@@ -115,7 +115,7 @@ def _initialize_affine_weight_cpu(weight, output_size, input_size,
 
     Build the master weight on all processes and scatter
     the relevant chunk."""
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     set_tensor_model_parallel_attributes(tensor=weight,
                                          is_parallel=True,
                                          dim=partition_dim,
@@ -166,7 +166,7 @@ class VocabParallelEmbedding(torch.nn.Module):
                  params_dtype: torch.dtype=torch.float32,
                  use_cpu_initialization: bool=False,
                  perform_initialization: bool=True):
-        gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
+        gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
         super(VocabParallelEmbedding, self).__init__()
         # Keep the input dimensions.
         self.num_embeddings = num_embeddings
@@ -189,7 +189,7 @@ class VocabParallelEmbedding(torch.nn.Module):
 
         # Allocate weights and initialize.
         if use_cpu_initialization:
-            gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
+            gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
             self.weight = Parameter(torch.empty(
                 self.num_embeddings_per_partition, self.embedding_dim,
                 dtype=params_dtype))
@@ -199,7 +199,7 @@ class VocabParallelEmbedding(torch.nn.Module):
                     self.num_embeddings_per_partition, 0, init_method,
                     params_dtype=params_dtype)
         else:
-            gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
+            gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
             self.weight = Parameter(torch.empty(
                 self.num_embeddings_per_partition, self.embedding_dim,
                 device=torch.cuda.current_device(), dtype=params_dtype))
@@ -213,7 +213,7 @@ class VocabParallelEmbedding(torch.nn.Module):
     '''
     def forward(self, input_):
         if self.tensor_model_parallel_size > 1:
-            gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
+            gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
             # Build the mask.
             input_mask = (input_ < self.vocab_start_index) | \
                          (input_ >= self.vocab_end_index)
@@ -221,7 +221,7 @@ class VocabParallelEmbedding(torch.nn.Module):
             masked_input = input_.clone() - self.vocab_start_index
             masked_input[input_mask] = 0
         else:
-            gd.debuginfo(prj='ds', info=f"C:{self.__class__.__name__}")
+            gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
             masked_input = input_
             # Get the embeddings.
 
@@ -254,7 +254,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         async_grad_allreduce,
         sequence_parallel,
     ):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         # 使用上下文对象ctx保存输入和权重，以便在后向传播中使用。
         ctx.save_for_backward(input, weight)
         # 在上下文对象ctx中存储其他变量和标志。
@@ -265,7 +265,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
 
         # 如果启用了序列并行，则进行以下操作：
         if sequence_parallel:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             # 获取模型并行的world_size（通常是参与并行处理的GPU数量）。
             world_size = get_tensor_model_parallel_world_size()
             # 更改输入的第一个维度以考虑模型并行的全部大小。
@@ -281,7 +281,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             # 更新total_input为收集的数据。
             total_input = all_gather_buffer
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             # 如果不使用序列并行，则total_input仅仅是传入的输入。
             total_input = input
 
@@ -289,14 +289,14 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         output = torch.matmul(total_input, weight.t())
         # 如果提供了偏置，则将其添加到输出中
         if bias is not None:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             output = output + bias
         return output
 
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
 
         # 从上下文对象中恢复前向传播保存的张量
         input, weight = ctx.saved_tensors
@@ -307,7 +307,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         # 如果启用了序列并行，要如何获取完整的输入数据。
         # 它通过分布式的_all_gather_base函数来异步地聚集所有输入。
         if ctx.sequence_parallel:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             world_size = get_tensor_model_parallel_world_size()
             dim_size = list(input.size())
             dim_size[0] = dim_size[0] * world_size
@@ -323,7 +323,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             total_input = all_gather_buffer
         # 如果没有启用序列并行，那么完整的输入就是原始输入。
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             total_input = input
 
         # 通过矩阵乘法计算关于输入的梯度。
@@ -331,7 +331,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
 
         # 如果启用了序列并行，则等待所有聚集操作完成。
         if ctx.sequence_parallel:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             handle.wait()
 
         # Doing gather + slicing during the NeMo forward pass can make this tensor
@@ -364,7 +364,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         # 接着，创建一个新的sub_grad_input张量，并执行一个reduce_scatter操作。
         # 这是一个分布式操作，它会将输入的梯度从所有工作节点上聚合到一个工作节点上。
         if ctx.sequence_parallel:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             assert not ctx.async_grad_allreduce
             dim_size = list(input.size())
             sub_grad_input = torch.empty(dim_size, dtype=input.dtype,
@@ -380,12 +380,12 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         # 根据是否启用了梯度累积融合，使用特定的CUDA操作或标准的矩阵乘法来计算权重的梯度。
         # 这个条件检查是否启用了梯度累积融合。梯度累积通常在小批量训练中用于累积梯度以在较大的有效批量上更新模型。
         if ctx.gradient_accumulation_fusion:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             if weight.main_grad.dtype == torch.float32:
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 fused_weight_gradient_mlp_cuda.wgrad_gemm_accum_fp32(total_input, grad_output, weight.main_grad)
             elif weight.main_grad.dtype in (torch.float16, torch.bfloat16):
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 fused_weight_gradient_mlp_cuda.wgrad_gemm_accum_fp16(total_input, grad_output, weight.main_grad)
             else:
                 raise RuntimeError("Unsupported gradient type for gradient accumulation fusion")
@@ -393,20 +393,20 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             # 这意味着梯度已经在前面的CUDA函数中直接更新了（weight.main_grad），所以在这里没有返回值。
             grad_weight = None
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             grad_weight = grad_output.t().matmul(total_input)
         # 如果使用偏置，则计算关于偏置的梯度。
         grad_bias = grad_output.sum(dim=0) if use_bias else None
 
         # 如果启用了序列并行，等待上述操作完成，并返回计算得到的梯度。
         if ctx.sequence_parallel:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             handle.wait()
             return sub_grad_input, grad_weight, grad_bias, None, None, None
 
         # 如果启用了异步all-reduce，等待all-reduce操作完成。
         if ctx.async_grad_allreduce:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             handle.wait()
 
         return grad_input, grad_weight, grad_bias, None, None, None
@@ -511,7 +511,7 @@ def linear_with_grad_accumulation_and_async_allreduce(
     sequence_parallel_enabled (bool required): 表示使用了序列并行，
     因此在前向传播中，输入是add gather后的，在反向传播中，输入梯度是reduce scatter后的。
     """
-    gd.debuginfo(prj='ds')
+    gd.debuginfo(prj='mt')
     # 这部分创建了一个名为args的列表，它基本上是函数输入参数的集合。
     args = [
         input,
@@ -524,12 +524,12 @@ def linear_with_grad_accumulation_and_async_allreduce(
 
     # 这部分检查是否已经发出警告。函数使用一个类级别变量warned来记住是否已经向用户显示了警告。
     if not linear_with_grad_accumulation_and_async_allreduce.warned:
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         # 这部分检查环境变量CUDA_DEVICE_MAX_CONNECTIONS是否设置为"1"。
         # 如果没有，并且满足某些条件（sequence_parallel_enabled或async_grad_allreduce），
         # 它会发出警告。然后将warned标志设置为True，以便不会重复发出此警告。
         if os.environ.get('CUDA_DEVICE_MAX_CONNECTIONS') != "1":
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             if sequence_parallel_enabled:
                 warnings.warn(
                     "When using sequence parallelism it is recommended to set the "
@@ -602,7 +602,7 @@ class ColumnParallelLinear(torch.nn.Module):
                  gradient_accumulation_fusion=False,
                  sequence_parallel_enabled: bool = False,
                  ):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         super(ColumnParallelLinear, self).__init__()
 
         # Keep input parameters
@@ -619,37 +619,37 @@ class ColumnParallelLinear(torch.nn.Module):
         # we allocate the transpose.
         # Initialize weight.
         if use_cpu_initialization:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             # 用切分的size初始化权重
             self.weight = Parameter(torch.empty(self.output_size_per_partition,
                                                 self.input_size,
                                                 dtype=params_dtype))
             if perform_initialization:
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 self.master_weight = _initialize_affine_weight_cpu(  # 初始化权重
                     self.weight, self.output_size, self.input_size,
                     self.output_size_per_partition, 0, init_method,
                     stride=stride, return_master_weight=keep_master_weight_for_test)
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             # 用切分的size初始化权重
             self.weight = Parameter(torch.empty(
                 self.output_size_per_partition, self.input_size,
                 device=torch.cuda.current_device(), dtype=params_dtype))
             if perform_initialization:
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 _initialize_affine_weight_gpu(self.weight, init_method, # 初始化权重
                                               partition_dim=0, stride=stride)
 
         if bias:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             if use_cpu_initialization:
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 # 用切分的size初始化权重
                 self.bias = Parameter(torch.empty(
                     self.output_size_per_partition, dtype=params_dtype))
             else:
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 # 用切分的size初始化权重
                 self.bias = Parameter(torch.empty(
                     self.output_size_per_partition,
@@ -661,7 +661,7 @@ class ColumnParallelLinear(torch.nn.Module):
             with torch.no_grad():
                 self.bias.zero_()
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             self.register_parameter('bias', None)
 
         self.async_tensor_model_parallel_allreduce = (
@@ -669,7 +669,7 @@ class ColumnParallelLinear(torch.nn.Module):
                 world_size > 1)
 
         if sequence_parallel_enabled:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             if world_size <= 1:
                 warnings.warn(
                     f"`sequence_parallel_enabled` is set to `True`, but tensor model parallel size is {world_size}. "
@@ -679,7 +679,7 @@ class ColumnParallelLinear(torch.nn.Module):
         self.sequence_parallel_enabled = sequence_parallel_enabled
 
         if gradient_accumulation_fusion:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             if not _grad_accum_fusion_available:
                 raise RuntimeError(
                     "ColumnParallelLinear was called with gradient_accumulation_fusion set "
@@ -718,17 +718,17 @@ class ColumnParallelLinear(torch.nn.Module):
             - output
             - bias
         """
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
         # 如果选择忽略 bias，就会设置为 None，后续就不用处理了
         bias = self.bias if not self.skip_bias_add else None
 
         # 下面主要是图中的 f 操作
         if self.async_tensor_model_parallel_allreduce or self.sequence_parallel_enabled:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             # 建立反向传播时候的异步all-reduce
             input_parallel = input_
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             # Set up backprop all-reduce.
             # 建立反向传播all-reduce，就是图中f的backward
             input_parallel = copy_to_tensor_model_parallel_region(input_)
@@ -750,9 +750,9 @@ class ColumnParallelLinear(torch.nn.Module):
             # 聚合输出，就是图中 g 的 forward
             assert not self.sequence_parallel_enabled
             output = gather_from_tensor_model_parallel_region(output_parallel)
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             output = output_parallel
 
         output_bias = self.bias if self.skip_bias_add else None # 如果不忽略bias，还得传出去
@@ -810,7 +810,7 @@ class RowParallelLinear(torch.nn.Module):
                  gradient_accumulation_fusion=False,
                  sequence_parallel_enabled: bool = False,
                  ):
-        gd.debuginfo(prj='ds')
+        gd.debuginfo(prj='mt')
 
         super(RowParallelLinear, self).__init__()
 
@@ -832,34 +832,34 @@ class RowParallelLinear(torch.nn.Module):
         # we allocate the transpose.
         # Initialize weight.
         if use_cpu_initialization:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             self.weight = Parameter(torch.empty(self.output_size,
                                                 self.input_size_per_partition,
                                                 dtype=params_dtype))
             if perform_initialization:
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 self.master_weight = _initialize_affine_weight_cpu(
                     self.weight, self.output_size, self.input_size,
                     self.input_size_per_partition, 1, init_method,
                     stride=stride, return_master_weight=keep_master_weight_for_test,
                     params_dtype=params_dtype)
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             self.weight = Parameter(torch.empty(
                 self.output_size, self.input_size_per_partition,
                 device=torch.cuda.current_device(), dtype=params_dtype))
             if perform_initialization:
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 _initialize_affine_weight_gpu(self.weight, init_method,
                                               partition_dim=1, stride=stride)
         if bias:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             if use_cpu_initialization:
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 self.bias = Parameter(torch.empty(self.output_size,
                                                   dtype=params_dtype))
             else:
-                gd.debuginfo(prj='ds')
+                gd.debuginfo(prj='mt')
                 self.bias = Parameter(torch.empty(
                     self.output_size, device=torch.cuda.current_device(),
                     dtype=params_dtype))
@@ -890,10 +890,10 @@ class RowParallelLinear(torch.nn.Module):
         """
         # Set up backprop all-reduce.
         if self.input_is_parallel:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             input_parallel = input_
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             assert not self.sequence_parallel_enabled
             input_parallel = scatter_to_tensor_model_parallel_region(input_)
 
@@ -909,17 +909,17 @@ class RowParallelLinear(torch.nn.Module):
 
         # All-reduce across all the partitions.
         if self.sequence_parallel_enabled:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             output_ = reduce_scatter_to_sequence_parallel_region(output_parallel)
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             output_ = reduce_from_tensor_model_parallel_region(output_parallel)
         if not self.skip_bias_add:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             output = output_ + self.bias if self.bias is not None else output_
             output_bias = None
         else:
-            gd.debuginfo(prj='ds')
+            gd.debuginfo(prj='mt')
             output = output_
             output_bias = self.bias
 
