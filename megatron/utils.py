@@ -162,6 +162,8 @@ def get_ltor_masks_and_position_ids(data,
     # Extract batch size and sequence length.
     micro_batch_size, seq_length = data.size()
 
+    gd.debuginfo(prj="mt", info=f'__FUNC_START_ micro_batch_size={micro_batch_size}, seq_length={seq_length}')
+
     # Attention mask (lower triangular).
     if reset_attention_mask:
         gd.debuginfo(prj="mt")
@@ -169,24 +171,32 @@ def get_ltor_masks_and_position_ids(data,
     else:
         gd.debuginfo(prj="mt")
         att_mask_batch = 1
+
     attention_mask = torch.tril(torch.ones(
         (att_mask_batch, seq_length, seq_length), device=data.device)).view(
             att_mask_batch, 1, seq_length, seq_length)
 
+    gd.debuginfo(prj="mt", info=f'attention_mask={infoTensor(attention_mask)}')
+
     # Loss mask.
     loss_mask = torch.ones(data.size(), dtype=torch.float, device=data.device)
+    gd.debuginfo(prj="mt", info=f'loss_mask={infoTensor(loss_mask)}')
+
     if eod_mask_loss:
+        gd.debuginfo(prj="mt")
         loss_mask[data == eod_token] = 0.0
 
     # Position ids.
     position_ids = torch.arange(seq_length, dtype=torch.long, device=data.device)
+    gd.debuginfo(prj="mt", info=f'1-position_ids={infoTensor(position_ids)}')
 
     position_ids = position_ids.unsqueeze(0).expand_as(data)
+    gd.debuginfo(prj="mt", info=f'2-position_ids={infoTensor(position_ids)}')
 
     # We need to clone as the ids will be modifed based on batch index.
     if reset_position_ids:
-        gd.debuginfo(prj="mt")
         position_ids = position_ids.clone()
+        gd.debuginfo(prj="mt", info=f'3-position_ids={infoTensor(position_ids)}')
 
     if reset_position_ids or reset_attention_mask:
         gd.debuginfo(prj="mt")
@@ -195,28 +205,38 @@ def get_ltor_masks_and_position_ids(data,
 
             # Find indecies where EOD token is.
             eod_index = position_ids[b, data[b] == eod_token]
+            gd.debuginfo(prj="mt", info=f'b={b}, 2-eod_index={infoTensor(eod_index)}')
+
             # Detach indecies from positions if going to modify positions.
             if reset_position_ids:
                 eod_index = eod_index.clone()
+                gd.debuginfo(prj="mt", info=f'3-eod_index={infoTensor(eod_index)}')
 
             # Loop through EOD indecies:
             prev_index = 0
             for j in range(eod_index.size()[0]):
                 i = eod_index[j]
+                gd.debuginfo(prj="mt", info=f'j={j}, i={i}')
+
                 # Mask attention loss.
                 if reset_attention_mask:
+                    gd.debuginfo(prj="mt")
                     attention_mask[b, 0, (i + 1):, :(i + 1)] = 0
+
                 # Reset positions.
                 if reset_position_ids:
+                    gd.debuginfo(prj="mt")
                     position_ids[b, (i + 1):] -= (i + 1 - prev_index)
                     prev_index = i + 1
 
     # Convert attention mask to binary:
     attention_mask = (attention_mask < 0.5)
 
-    gd.debuginfo(prj="mt", info=f'attention_mask={attention_mask}')
-    gd.debuginfo(prj="mt", info=f'loss_mask={loss_mask}')
-    gd.debuginfo(prj="mt", info=f'position_ids={position_ids}')
+    gd.debuginfo(prj="mt", info=f'attention_mask={infoTensor(attention_mask)}')
+    gd.debuginfo(prj="mt", info=f'loss_mask={infoTensor(loss_mask)}')
+    gd.debuginfo(prj="mt", info=f'position_ids={infoTensor(position_ids)}')
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
     return attention_mask, loss_mask, position_ids
 

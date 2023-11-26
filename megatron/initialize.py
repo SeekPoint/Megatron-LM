@@ -77,22 +77,22 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         # to call when it has DDP initialized
         mpu.set_tensor_model_parallel_rank(args.rank)
 
-        gd.debuginfo(prj="mt", info='__FUNC_START__')
+        gd.debuginfo(prj="mt", info='__FUNC_END__')
         return finish_mpu_init
     else:
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info='------1----')
+
         # Megatron's MPU is the master. Complete initialization right away.
         finish_mpu_init()
-
+        gd.debuginfo(prj="mt", info='------2----')
         # Autoresume.
         _init_autoresume()
-
+        gd.debuginfo(prj="mt", info='------3----')
         # Compile dependencies. 编译算子相关
         _compile_dependencies()
-
+        gd.debuginfo(prj="mt", info='------5----')
         # No continuation function
-
-        gd.debuginfo(prj="mt", info='__FUNC_START__')
+        gd.debuginfo(prj="mt", info='__FUNC_END__') # codepa
         return None
 
 
@@ -118,21 +118,20 @@ def _compile_dependencies():
 
     # Custom kernel constraints check.
     seq_len = args.seq_length
-    attn_batch_size = \
-        (args.num_attention_heads / args.tensor_model_parallel_size) * \
-        args.micro_batch_size
+    attn_batch_size = (args.num_attention_heads / args.tensor_model_parallel_size) * args.micro_batch_size
+
     # Constraints on sequence length and attn_batch_size to enable warp based
     # optimization and upper triangular optimization (for causal mask)
-    custom_kernel_constraint = seq_len > 16 and seq_len <=4096 and \
-        seq_len % 4 == 0 and attn_batch_size % 4 == 0
+    custom_kernel_constraint = seq_len > 16 and seq_len <=4096 and seq_len % 4 == 0 and attn_batch_size % 4 == 0
+
     # Print a warning.
     if not ((args.fp16 or args.bf16) and
             custom_kernel_constraint and
             args.masked_softmax_fusion):
         if args.rank == 0:
-            gd.debuginfo(prj="mt", info=f'WARNING: constraints for invoking optimized'
-                  ' fused softmax kernel are not met. We default'
-                  ' back to unfused kernel invocations.')
+            gd.debuginfo(prj="mt", info=f'WARNING: constraints for invoking optimized '
+                                        f'fused softmax kernel are not met. We default '
+                                        f'back to unfused kernel invocations.')
     
     # Always build on rank zero first.
     if torch.distributed.get_rank() == 0:

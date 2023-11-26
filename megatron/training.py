@@ -100,16 +100,15 @@ def pretrain(train_valid_test_dataset_provider,
 
     gd.debuginfo(prj="mt", info=f'------__FUNC_START__--------')
 
-    if torch.distributed.get_rank() == 0:
-        logf = f'_initialize_megatron_'
-        gd.enable(info=logf)
+    # 还没有init，此处不能用  if torch.distributed.get_rank() == 0:
+    logf = f'_initialize_megatron_'
+    gd.enable(info=logf)
 
     # Initalize and get arguments, timers, and Tensorboard writer.
-    initialize_megatron(extra_args_provider=extra_args_provider,
-                        args_defaults=args_defaults)
+    initialize_megatron(extra_args_provider=extra_args_provider, args_defaults=args_defaults)
 
-    if torch.distributed.get_rank() == 0:
-        gd.disable(info=logf)
+    # if torch.distributed.get_rank() == 0:
+    gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/')
 
     gd.debuginfo(prj="mt", info=f'------initialize_megatron ends--------')
 
@@ -121,7 +120,7 @@ def pretrain(train_valid_test_dataset_provider,
     set_jit_fusion_options()
 
     if torch.distributed.get_rank() == 0:
-        gd.disable(info=logf)
+        gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/')
 
     gd.debuginfo(prj="mt", info=f'------set_jit_fusion_options ends--------')
 
@@ -168,7 +167,7 @@ def pretrain(train_valid_test_dataset_provider,
     gd.debuginfo(prj="mt", info=f'opt_param_scheduler={opt_param_scheduler}')
 
     if torch.distributed.get_rank() == 0:
-        gd.disable(info=logf)
+        gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/')
 
     gd.debuginfo(prj="mt", info=f'------setup_model_and_optimizer ends--------')
 
@@ -177,8 +176,7 @@ def pretrain(train_valid_test_dataset_provider,
                    'scheduler are built')
 
     # Data stuff.
-    timers('train/valid/test-data-iterators-setup', log_level=0).start(
-        barrier=True)
+    timers('train/valid/test-data-iterators-setup', log_level=0).start(barrier=True)
 
     # Data stuff. 调用train_val_test_data_provider以获取train/val/测试数据集
     if args.virtual_pipeline_model_parallel_size is not None:
@@ -188,16 +186,12 @@ def pretrain(train_valid_test_dataset_provider,
                 train_valid_test_dataset_provider)
             for _ in range(len(model))
         ]
-        train_data_iterator = [data_iterators[0]
-                               for data_iterators in all_data_iterators]
-        valid_data_iterator = [data_iterators[1]
-                               for data_iterators in all_data_iterators]
-        test_data_iterator = [data_iterators[2]
-                              for data_iterators in all_data_iterators]
+        train_data_iterator = [data_iterators[0] for data_iterators in all_data_iterators]
+        valid_data_iterator = [data_iterators[1] for data_iterators in all_data_iterators]
+        test_data_iterator = [data_iterators[2] for data_iterators in all_data_iterators]
     else:
         gd.debuginfo(prj="mt")
-        train_data_iterator, valid_data_iterator, test_data_iterator \
-            = build_train_valid_test_data_iterators(
+        train_data_iterator, valid_data_iterator, test_data_iterator = build_train_valid_test_data_iterators(
                 train_valid_test_dataset_provider)
 
     timers('train/valid/test-data-iterators-setup').stop()
@@ -221,16 +215,23 @@ def pretrain(train_valid_test_dataset_provider,
         if args.do_train and args.train_iters > 0:
             gd.debuginfo(prj="mt", info=f'-----------start train------------')
             iteration = train(forward_step_func,
-                            model, optimizer, opt_param_scheduler,
-                            train_data_iterator, valid_data_iterator,
-                            process_non_loss_data_func)
+                              model,
+                              optimizer,
+                              opt_param_scheduler,
+                              train_data_iterator,
+                              valid_data_iterator,
+                              process_non_loss_data_func)
+
             gd.debuginfo(prj="mt", info=f'-----------end train------------')
 
         print_datetime('after training is done')
 
         if args.save and iteration != 0:
             gd.debuginfo(prj="mt")
-            save_checkpoint(iteration, model, optimizer, opt_param_scheduler)
+            save_checkpoint(iteration,
+                            model,
+                            optimizer,
+                            opt_param_scheduler)
     else:
         gd.debuginfo(prj="mt", info=f'skipping training (--skip-train is on) ...')
 
@@ -525,12 +526,10 @@ def setup_model_and_optimizer(model_provider_func,
     model = get_model(model_provider_func, model_type)
     gd.debuginfo(prj="mt", info=f'model={model}')
 
-    unwrapped_model = unwrap_model(model,
-                                   (torchDDP, LocalDDP, Float16Module))
+    unwrapped_model = unwrap_model(model, (torchDDP, LocalDDP, Float16Module))
     gd.debuginfo(prj="mt", info=f'unwrapped_model={unwrapped_model}')
 
-    optimizer = get_megatron_optimizer(model, no_wd_decay_cond,
-                                       scale_lr_cond, lr_mult)
+    optimizer = get_megatron_optimizer(model, no_wd_decay_cond, scale_lr_cond, lr_mult)
 
     gd.debuginfo(prj="mt", info=f'optimizer={optimizer}')
 
@@ -554,9 +553,11 @@ def setup_model_and_optimizer(model_provider_func,
 
     # get model without FP16 and/or TorchDDP wrappers
     if args.iteration == 0 and len(unwrapped_model) == 1 \
-        and hasattr(unwrapped_model[0], 'init_state_dict_from_bert'):
+            and hasattr(unwrapped_model[0], 'init_state_dict_from_bert'):
         gd.debuginfo(prj="mt", info=f"Initializing ICT from pretrained BERT model")
+
         unwrapped_model[0].init_state_dict_from_bert()
+
         if args.fp16:
             gd.debuginfo(prj="mt")
             optimizer.reload_model_params()
@@ -581,12 +582,15 @@ def train_step(forward_step_func, data_iterator,
             gd.debuginfo(prj="mt", info=f'partition={partition}')
             partition.zero_grad_buffer()
 
+    gd.debuginfo(prj="mt", info=f'================1==============')
     optimizer.zero_grad()
+    gd.debuginfo(prj="mt", info=f'================2==============')
 
     # Forward pass.
     timers('forward-backward', log_level=1).start(barrier=args.barrier_with_L1_time)
 
     forward_backward_func = get_forward_backward_func()
+    gd.debuginfo(prj="mt", info=f'forward_backward_func={forward_backward_func}')
 
     fwd_bwd_timers = timers if args.timing_log_level > 1 else None
 
@@ -604,6 +608,8 @@ def train_step(forward_step_func, data_iterator,
         forward_only=False,
         timers=fwd_bwd_timers)
 
+    gd.debuginfo(prj="mt", info=f'================3==============')
+
     timers('forward-backward').stop()
 
     # Empty unused memory.
@@ -614,27 +620,33 @@ def train_step(forward_step_func, data_iterator,
     # Reduce gradients.
     optimizer.reduce_model_grads(args, timers)
 
+    gd.debuginfo(prj="mt", info=f'================4==============')
+
     # Vision gradients.
     if args.vision_pretraining and args.vision_pretraining_type == "dino":
-        gd.debuginfo(prj="mt")
         unwrapped_model = unwrap_model(model[0], (torchDDP, LocalDDP, Float16Module))
         unwrapped_model.cancel_gradients_last_layer(args.curr_iteration)
+        gd.debuginfo(prj="mt", info=f'unwrapped_model={unwrapped_model}')
 
     # Update parameters.
     timers('optimizer', log_level=1).start(barrier=args.barrier_with_L1_time)
     update_successful, grad_norm, num_zeros_in_grad = optimizer.step(args, timers)
     timers('optimizer').stop()
 
+    gd.debuginfo(prj="mt", info=f'================5==============')
+
     # Gather params.
     if update_successful:
         gd.debuginfo(prj="mt")
         optimizer.gather_model_params(args, timers)
 
+    gd.debuginfo(prj="mt", info=f'================6==============')
+
     # Vision momentum.
     if args.vision_pretraining and args.vision_pretraining_type == "dino":
-        gd.debuginfo(prj="mt")
         unwrapped_model = unwrap_model(model[0], (torchDDP, LocalDDP, Float16Module))
         unwrapped_model.update_momentum(args.curr_iteration)
+        gd.debuginfo(prj="mt", info=f'unwrapped_model={unwrapped_model}')
 
     # Update learning rate.
     if update_successful:
@@ -647,6 +659,7 @@ def train_step(forward_step_func, data_iterator,
     else:
         gd.debuginfo(prj="mt")
         skipped_iter = 1
+    gd.debuginfo(prj="mt", info=f'================7==============')
 
     # Empty unused memory.
     if args.empty_unused_memory_level >= 2:
@@ -660,7 +673,18 @@ def train_step(forward_step_func, data_iterator,
             gd.debuginfo(prj="mt", info=f'key={key}')
             losses_reduced_for_key = [x[key] for x in losses_reduced]
             loss_reduced[key] = sum(losses_reduced_for_key) / len(losses_reduced_for_key)
+
+        gd.debuginfo(prj="mt", info=f'loss_reduced={loss_reduced}')
+        gd.debuginfo(prj="mt", info=f'skipped_iter={skipped_iter}')
+        gd.debuginfo(prj="mt", info=f'grad_norm={grad_norm}')
+        gd.debuginfo(prj="mt", info=f'num_zeros_in_grad={num_zeros_in_grad}')
+
         return loss_reduced, skipped_iter, grad_norm, num_zeros_in_grad
+
+
+    gd.debuginfo(prj="mt", info=f'num_zeros_in_grad={num_zeros_in_grad}')
+    gd.debuginfo(prj="mt", info=f'skipped_iter={skipped_iter}')
+    gd.debuginfo(prj="mt", info=f'grad_norm={grad_norm}')
 
     gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
@@ -907,7 +931,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
         gd.debuginfo(prj="mt", info=f'num_zeros_in_grad={num_zeros_in_grad}')
 
         if torch.distributed.get_rank() == 0:
-            gd.disable_times(info=logf)
+            gd.disable_times(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/')
 
         gd.debuginfo(prj="mt", info=f'----------------------train 2--------------------------')
 
@@ -1059,6 +1083,7 @@ def evaluate(forward_step_func,
 
     # Move model back to the train mode.
     for model_module in model:
+        gd.debuginfo(prj="mt")
         model_module.train()
 
     for key in total_loss_dict:

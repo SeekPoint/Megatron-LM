@@ -1136,13 +1136,12 @@ class ParallelTransformerLayer(MegatronModule):
                 retriever_attn_mask=None,
                 inference_params=None,
                 rotary_pos_emb=None):
-
-        gd.debuginfo(prj="mt")
-
+        gd.debuginfo(prj="mt", info=f'__FUNC_START__')
         # hidden_states: [s, b, h]
 
         # Layer norm at the beginning of the transformer layer.
         layernorm_output = self.input_layernorm(hidden_states)
+        gd.debuginfo(prj="mt", info=f'layernorm_output={infoTensor(layernorm_output)}')
 
         # Self attention.
         attention_output, attention_bias = \
@@ -1152,13 +1151,16 @@ class ParallelTransformerLayer(MegatronModule):
                 inference_params=inference_params,
                 rotary_pos_emb=rotary_pos_emb)
 
+        gd.debuginfo(prj="mt", info=f'attention_output={infoTensor(attention_output)}')
+        gd.debuginfo(prj="mt", info=f'attention_bias={infoTensor(attention_bias)}')
+
         # Residual connection.
         if self.apply_residual_connection_post_layernorm:
-            gd.debuginfo(prj="mt")
             residual = layernorm_output
+            gd.debuginfo(prj="mt", info=f'layernorm_output={infoTensor(layernorm_output)}')
         else:
-            gd.debuginfo(prj="mt")
             residual = hidden_states
+            gd.debuginfo(prj="mt", info=f'hidden_states={infoTensor(hidden_states)}')
 
         if self.drop_path is None:
             # jit scripting for a nn.module (with dropout) is not
@@ -1177,31 +1179,36 @@ class ParallelTransformerLayer(MegatronModule):
                 bias_dropout_add_func = get_bias_dropout_add(self.training)
 
             if attention_bias is not None:
-                gd.debuginfo(prj="mt")
                 attention_bias = attention_bias.expand_as(residual)
+                gd.debuginfo(prj="mt", info=f'attention_bias={infoTensor(attention_bias)}')
+
             with self.bias_dropout_add_exec_handler():
                 layernorm_input = bias_dropout_add_func(
                     attention_output,
                     attention_bias,
                     residual,
                     self.hidden_dropout)
+
+                gd.debuginfo(prj="mt", info=f'layernorm_input={infoTensor(layernorm_input)}')
         else:
-            gd.debuginfo(prj="mt")
             out = torch.nn.functional.dropout(attention_output + attention_bias,
                                               p=self.hidden_dropout,
                                               training=self.training)
+            gd.debuginfo(prj="mt", info=f'out={infoTensor(out)}')
+
             layernorm_input = residual + self.drop_path(out)
+            gd.debuginfo(prj="mt", info=f'layernorm_input={infoTensor(layernorm_input)}')
 
         # Layer norm post the self attention.
         # 处理attention输出
         layernorm_output = self.post_attention_layernorm(layernorm_input)
+        gd.debuginfo(prj="mt", info=f'layernorm_output={infoTensor(layernorm_output)}')
 
         # Cross attention.
         if self.layer_type == LayerType.encoder:
             gd.debuginfo(prj="mt")
             pass
         elif self.layer_type == LayerType.decoder:
-            gd.debuginfo(prj="mt")
             layernorm_input, layernorm_output = \
                 self.default_decoder_cross_attention(
                     encoder_output,
@@ -1209,17 +1216,19 @@ class ParallelTransformerLayer(MegatronModule):
                     layernorm_input,
                     layernorm_output,
                     bias_dropout_add_func)
+            gd.debuginfo(prj="mt", info=f'layernorm_input={infoTensor(layernorm_input)}')
+            gd.debuginfo(prj="mt", info=f'layernorm_output={infoTensor(layernorm_output)}')
         elif self.layer_type == LayerType.retro_encoder:
-            gd.debuginfo(prj="mt")
             layernorm_input, layernorm_output = \
                 self.retro_encoder_cross_attention(
                     retriever_output,
                     layernorm_input,
                     layernorm_output,
                     bias_dropout_add_func)
+            gd.debuginfo(prj="mt", info=f'layernorm_input={infoTensor(layernorm_input)}')
+            gd.debuginfo(prj="mt", info=f'layernorm_output={infoTensor(layernorm_output)}')
         elif self.layer_type in (LayerType.retro_decoder,
                                  LayerType.retro_decoder_with_retriever):
-            gd.debuginfo(prj="mt")
             retriever_output, layernorm_input, layernorm_output = \
                 self.retro_decoder_cross_attention(
                     retriever_input,
@@ -1229,32 +1238,38 @@ class ParallelTransformerLayer(MegatronModule):
                     layernorm_output,
                     inference_params,
                     bias_dropout_add_func)
+            gd.debuginfo(prj="mt", info=f'retriever_output={infoTensor(retriever_output)}')
+            gd.debuginfo(prj="mt", info=f'layernorm_output={infoTensor(layernorm_output)}')
+            gd.debuginfo(prj="mt", info=f'layernorm_input={infoTensor(layernorm_input)}')
         else:
             raise Exception("Unsupported layer type, '%s'." %
                             self.layer_type.name)
 
         # MLP.
         mlp_output, mlp_bias = self.mlp(layernorm_output)
+        gd.debuginfo(prj="mt", info=f'mlp_output={infoTensor(mlp_output)}')
+        gd.debuginfo(prj="mt", info=f'mlp_bias={infoTensor(mlp_bias)}')
 
         # Second residual connection.
         if self.apply_residual_connection_post_layernorm:
-            gd.debuginfo(prj="mt")
             residual = layernorm_output
+            gd.debuginfo(prj="mt", info=f'layernorm_output={infoTensor(layernorm_output)}')
         else:
-            gd.debuginfo(prj="mt")
             residual = layernorm_input
+            gd.debuginfo(prj="mt", info=f'layernorm_input={infoTensor(layernorm_input)}')
 
         if self.drop_path is None:
-            gd.debuginfo(prj="mt")
             if mlp_bias is not None:
-                gd.debuginfo(prj="mt")
                 mlp_bias = mlp_bias.expand_as(residual)
+                gd.debuginfo(prj="mt", info=f'mlp_bias={infoTensor(mlp_bias)}')
+
             with self.bias_dropout_add_exec_handler():
                 output = bias_dropout_add_func(
                     mlp_output,
                     mlp_bias,
                     residual,
                     self.hidden_dropout)
+                gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
 
             # Jit compiled function creates 'view' tensor. This tensor
             # potentially gets saved in the MPU checkpoint function context,
@@ -1265,23 +1280,30 @@ class ParallelTransformerLayer(MegatronModule):
             output = core.utils.make_viewless_tensor(inp = output,
                                                      requires_grad = output.requires_grad,
                                                      keep_graph = True)
+            gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
 
         else:
-            gd.debuginfo(prj="mt")
             if mlp_bias is not None:
-                gd.debuginfo(prj="mt")
                 mlp_output = mlp_output + mlp_bias
+                gd.debuginfo(prj="mt", info=f'mlp_output={infoTensor(mlp_output)}')
+
             out = torch.nn.functional.dropout(mlp_output,
                                               p=self.hidden_dropout,
                                               training=self.training)
+            gd.debuginfo(prj="mt", info=f'out={infoTensor(out)}')
+
             output = residual + self.drop_path(out)
+            gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
 
         if self.layer_type == LayerType.retro_decoder_with_retriever:
-            gd.debuginfo(prj="mt")
+            gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
+            gd.debuginfo(prj="mt", info=f'retriever_output={infoTensor(retriever_output)}')
             return output, retriever_output
         else:
-            gd.debuginfo(prj="mt")
+            gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
             return output
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
 
 class NoopTransformerLayer(MegatronModule):

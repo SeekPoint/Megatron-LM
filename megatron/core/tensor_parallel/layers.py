@@ -213,27 +213,37 @@ class VocabParallelEmbedding(torch.nn.Module):
     '''
     def forward(self, input_):
         if self.tensor_model_parallel_size > 1:
-            gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
             # Build the mask.
-            input_mask = (input_ < self.vocab_start_index) | \
-                         (input_ >= self.vocab_end_index)
+            input_mask = (input_ < self.vocab_start_index) | (input_ >= self.vocab_end_index)
+            gd.debuginfo(prj='mt', info=f"input_mask={infoTensor(input_mask)}")
+
             # Mask the input.
             masked_input = input_.clone() - self.vocab_start_index
             masked_input[input_mask] = 0
         else:
-            gd.debuginfo(prj='mt', info=f"C:{self.__class__.__name__}")
+            gd.debuginfo(prj='mt', info=f"input_={infoTensor(input_)}")
             masked_input = input_
             # Get the embeddings.
 
-        output_parallel = F.embedding(masked_input, self.weight,
-                                      self.padding_idx, self.max_norm,
-                                      self.norm_type, self.scale_grad_by_freq,
+        output_parallel = F.embedding(masked_input,
+                                      self.weight,
+                                      self.padding_idx,
+                                      self.max_norm,
+                                      self.norm_type,
+                                      self.scale_grad_by_freq,
                                       self.sparse)
+
+        gd.debuginfo(prj='mt', info=f"output_parallel={infoTensor(output_parallel)}")
+
         # Mask the output embedding.
         if self.tensor_model_parallel_size > 1:
             output_parallel[input_mask, :] = 0.0
+
         # Reduce across all the model parallel GPUs.
         output = reduce_from_tensor_model_parallel_region(output_parallel)
+
+        gd.debuginfo(prj='mt', info=f"output={infoTensor(output)}")
+
         return output
 
 # 这定义了一个名为LinearWithGradAccumulationAndAsyncCommunication的类，
@@ -273,11 +283,13 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             dim_size[0] = dim_size[0] * world_size
 
             # 收集所有GPU上的输入。
-            get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
+            all_gather_buffer = get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
+
             torch.distributed._all_gather_base(
                 all_gather_buffer,
                 input,
                 group=get_tensor_model_parallel_group())
+
             # 更新total_input为收集的数据。
             total_input = all_gather_buffer
         else:
@@ -511,7 +523,7 @@ def linear_with_grad_accumulation_and_async_allreduce(
     sequence_parallel_enabled (bool required): 表示使用了序列并行，
     因此在前向传播中，输入是add gather后的，在反向传播中，输入梯度是reduce scatter后的。
     """
-    gd.debuginfo(prj='mt')
+
     # 这部分创建了一个名为args的列表，它基本上是函数输入参数的集合。
     args = [
         input,
@@ -521,6 +533,8 @@ def linear_with_grad_accumulation_and_async_allreduce(
         async_grad_allreduce,
         sequence_parallel_enabled,
     ]
+
+    gd.debuginfo(prj='mt', info=f'args={args}')
 
     # 这部分检查是否已经发出警告。函数使用一个类级别变量warned来记住是否已经向用户显示了警告。
     if not linear_with_grad_accumulation_and_async_allreduce.warned:
@@ -890,12 +904,13 @@ class RowParallelLinear(torch.nn.Module):
         """
         # Set up backprop all-reduce.
         if self.input_is_parallel:
-            gd.debuginfo(prj='mt')
+            gd.debuginfo(prj='mt', info=f'input_={infoTensor(input_)}')
             input_parallel = input_
         else:
-            gd.debuginfo(prj='mt')
+            gd.debuginfo(prj='mt', info=f'input_={infoTensor(input_)}')
             assert not self.sequence_parallel_enabled
             input_parallel = scatter_to_tensor_model_parallel_region(input_)
+            gd.debuginfo(prj='mt', info=f'input_parallel={infoTensor(input_parallel)}')
 
         # Matrix multiply.
         output_parallel = linear_with_grad_accumulation_and_async_allreduce(
@@ -907,20 +922,24 @@ class RowParallelLinear(torch.nn.Module):
             sequence_parallel_enabled=False,
         )
 
+        gd.debuginfo(prj='mt', info=f'output_parallel={infoTensor(output_parallel)}')
+
         # All-reduce across all the partitions.
         if self.sequence_parallel_enabled:
-            gd.debuginfo(prj='mt')
             output_ = reduce_scatter_to_sequence_parallel_region(output_parallel)
+            gd.debuginfo(prj='mt', info=f'output_={infoTensor(output_)}')
         else:
-            gd.debuginfo(prj='mt')
             output_ = reduce_from_tensor_model_parallel_region(output_parallel)
+            gd.debuginfo(prj='mt', info=f'output_={infoTensor(output_)}')
         if not self.skip_bias_add:
-            gd.debuginfo(prj='mt')
             output = output_ + self.bias if self.bias is not None else output_
+            gd.debuginfo(prj='mt', info=f'output={infoTensor(output)}')
             output_bias = None
+            gd.debuginfo(prj='mt', info=f'output_bias is None')
         else:
-            gd.debuginfo(prj='mt')
             output = output_
             output_bias = self.bias
+            gd.debuginfo(prj='mt', info=f'output={infoTensor(output)}')
+            gd.debuginfo(prj='mt', info=f'output_bias={infoTensor(output_bias)}')
 
         return output, output_bias

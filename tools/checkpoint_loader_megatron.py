@@ -5,7 +5,7 @@ import types
 
 import torch
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 def add_arguments(parser):
     group = parser.add_argument_group(title='Megatron loader')
 
@@ -18,6 +18,7 @@ def add_arguments(parser):
                        help='Base directory of deepspeed repository')
 
 def _load_checkpoint(queue, args):
+    gd.debuginfo(prj="mt")
 
     # Search in directory above this
     sys.path.append(os.path.abspath(
@@ -106,6 +107,8 @@ def _load_checkpoint(queue, args):
     consumed_train_samples = None
     consumed_valid_samples = None
     def get_models(count, dtype):
+        gd.debuginfo(prj="mt")
+
         nonlocal consumed_train_samples
         nonlocal consumed_valid_samples
         model_array_len = margs.virtual_pipeline_model_parallel_size
@@ -157,8 +160,10 @@ def _load_checkpoint(queue, args):
 
     # Get true (non-padded) vocab size
     if args.true_vocab_size is not None:
+        gd.debuginfo(prj="mt")
         true_vocab_size = args.true_vocab_size
     elif args.vocab_file is not None:
+        gd.debuginfo(prj="mt")
         vocab = json.load(open(args.vocab_file))
         true_vocab_size = len(vocab)
         if args.true_vocab_size is not None and true_vocab_size != args.true_vocab_size:

@@ -541,39 +541,39 @@ class TransformerLanguageModel(MegatronModule):
                 pooling_sequence_index=0,
                 enc_hidden_states=None, output_enc_hidden=False):
 
+        gd.debuginfo(prj="mt", info=f'__FUNC_START_')
+
         # Encoder embedding.
         if self.pre_process:
-            gd.debuginfo(prj="mt")
-            encoder_input = self.embedding(enc_input_ids, enc_position_ids,
-                                           tokentype_ids=tokentype_ids)
+            encoder_input = self.embedding(enc_input_ids, enc_position_ids, tokentype_ids=tokentype_ids)
+            gd.debuginfo(prj="mt", info=f'encoder_input={infoTensor(encoder_input)}')
         else:
-            gd.debuginfo(prj="mt")
+            gd.debuginfo(prj="mt", info=f'encoder_input is None')
             encoder_input = None
 
         # Retriever embedding.
         if self.add_retriever and self.pre_process:
-            gd.debuginfo(prj="mt")
             retriever_input = self.embedding(retriever_input_ids,
                                              retriever_position_ids,
                                              tokentype_ids=tokentype_ids)
+            gd.debuginfo(prj="mt", info=f'retriever_input={infoTensor(retriever_input)}')
         else:
-            gd.debuginfo(prj="mt")
+            gd.debuginfo(prj="mt", info=f'retriever_input is None')
             retriever_input = None
 
         # Rotary positional embeddings
         rotary_pos_emb = None
         if self.use_rotary_position_embeddings:
             if inference_params is not None:
-                gd.debuginfo(prj="mt")
                 rotary_pos_emb = self.rotary_pos_emb(inference_params.max_sequence_len)
+                gd.debuginfo(prj="mt", info=f'rotary_pos_emb={infoTensor(rotary_pos_emb)}')
             else:
-                gd.debuginfo(prj="mt")
                 rotary_pos_emb = self.rotary_pos_emb(self.seq_length)
+                gd.debuginfo(prj="mt", info=f'rotary_pos_emb={infoTensor(rotary_pos_emb)}')
 
         # Run encoder.
         if enc_hidden_states is None:
             if self.encoder is not None:
-                gd.debuginfo(prj="mt")
                 encoder_output = self.encoder(
                     encoder_input,
                     enc_attn_mask,
@@ -581,38 +581,38 @@ class TransformerLanguageModel(MegatronModule):
                     retriever_attn_mask=retriever_attn_mask,
                     inference_params=inference_params,
                     rotary_pos_emb=rotary_pos_emb)
+                gd.debuginfo(prj="mt", info=f'encoder_output={infoTensor(encoder_output)}')
             else:
-                gd.debuginfo(prj="mt")
                 encoder_output = self.encoder_hidden_state
+                gd.debuginfo(prj="mt", info=f'encoder_output={infoTensor(encoder_output)}')
         else:
-            gd.debuginfo(prj="mt")
             encoder_output = enc_hidden_states.to(encoder_input.dtype)
+            gd.debuginfo(prj="mt", info=f'encoder_output={infoTensor(encoder_output)}')
 
         if self.post_process:
-            gd.debuginfo(prj="mt")
             if self.add_pooler:
-                gd.debuginfo(prj="mt")
                 pooled_output = self.pooler(encoder_output, pooling_sequence_index)
+                gd.debuginfo(prj="mt", info=f'pooled_output={infoTensor(pooled_output)}')
 
         # output_enc_hidden refers to when we just need the encoder's
         # output. For example, it is helpful to compute
         # similarity between two sequences by average pooling
         if not self.add_decoder or output_enc_hidden:
             if self.add_pooler and self.post_process:
-                gd.debuginfo(prj="mt")
+                gd.debuginfo(prj="mt", info=f'encoder_output={infoTensor(encoder_output)}')
+                gd.debuginfo(prj="mt", info=f'pooled_output={infoTensor(pooled_output)}')
                 return encoder_output, pooled_output
             else:
-                gd.debuginfo(prj="mt")
+                gd.debuginfo(prj="mt", info=f'encoder_output={infoTensor(encoder_output)}')
                 return encoder_output
 
         # Decoder embedding.
         if self.pre_process:
-            decoder_input = self.embedding(dec_input_ids,
-                                           dec_position_ids)
-            gd.debuginfo(prj="mt")
+            decoder_input = self.embedding(dec_input_ids, dec_position_ids)
+            gd.debuginfo(prj="mt", info=f'decoder_input={infoTensor(decoder_input)}')
         else:
             decoder_input = None
-            gd.debuginfo(prj="mt")
+            gd.debuginfo(prj="mt", info=f'encoder_output is None')
 
         # Run decoder.
         decoder_output = self.decoder(
@@ -623,12 +623,20 @@ class TransformerLanguageModel(MegatronModule):
             inference_params=inference_params,
             rotary_pos_emb=rotary_pos_emb)
 
+        gd.debuginfo(prj="mt", info=f'decoder_output={infoTensor(decoder_output)}')
+
         if self.add_pooler and self.post_process:
-            gd.debuginfo(prj="mt")
+            gd.debuginfo(prj="mt", info=f'decoder_output={infoTensor(decoder_output)}')
+            gd.debuginfo(prj="mt", info=f'encoder_output={infoTensor(encoder_output)}')
+            gd.debuginfo(prj="mt", info=f'pooled_output={infoTensor(pooled_output)}')
             return decoder_output, encoder_output, pooled_output
         else:
-            gd.debuginfo(prj="mt")
+            gd.debuginfo(prj="mt", info=f'decoder_output={infoTensor(decoder_output)}')
+            gd.debuginfo(prj="mt", info=f'encoder_output={infoTensor(encoder_output)}')
             return decoder_output, encoder_output
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_END_')
+
 
     def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
         """For easy load."""

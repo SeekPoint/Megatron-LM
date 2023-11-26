@@ -202,11 +202,11 @@ class DistributedDataParallel(DistributedDataParallelBase):
 
 
     def zero_grad_buffer(self):
-        gd.debuginfo(prj="mt")
         """Set the grad buffer data to zero. Needs to be called at the
         begining of each iteration."""
         assert self._grad_buffers is not None, 'buffers are not initialized.'
         for _, buffer_ in self._grad_buffers.items():
+            gd.debuginfo(prj="mt", info=f'buffer_={buffer_}')
             buffer_.zero()
 
 

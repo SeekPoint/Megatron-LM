@@ -241,6 +241,8 @@ def forward_step(forward_step_func,
 
     with context_manager:
         output_tensor, loss_func = forward_step_func(data_iterator, model)
+        gd.debuginfo(prj="mt", info=f'output_tensor={infoTensor(output_tensor)}')
+        gd.debuginfo(prj="mt", info=f'loss_func={loss_func}')
 
     if parallel_state.is_pipeline_last_stage():
         if not collect_non_loss_data:
@@ -261,6 +263,8 @@ def forward_step(forward_step_func,
     # and in decoder stack, then send encoder_hidden_state
     # downstream as well.
     model_type = get_model_type(model)
+    gd.debuginfo(prj="mt", info=f'model_type={model_type}')
+    gd.debuginfo(prj="mt", info=f'output_tensor={infoTensor(output_tensor)}')
 
     if parallel_state.is_pipeline_stage_after_split() and model_type == ModelType.encoder_and_decoder:
         return [output_tensor, input_tensor[-1]]
@@ -449,7 +453,7 @@ def forward_backward_no_pipelining(*,
         backward_step(grad_scaler, input_tensor, output_tensor,
                       output_tensor_grad, model_type, timers, deallocate_pipeline_outputs)
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
 
     return forward_data_store
 
