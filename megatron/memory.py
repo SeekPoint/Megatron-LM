@@ -39,10 +39,8 @@ class MemoryBuffer:
         gd.debuginfo(prj="mt")
         if torch.distributed.get_rank() == 0:
             element_size = torch.tensor([], dtype=dtype).element_size()
-            gd.debuginfo(prj="mt", info=f'> building the {} memory buffer with {} num elements '
-                  'and {} dtype ({:.1f} MB)...'.format(
-                      name, numel, dtype, numel*element_size/1024/1024),
-                  flush=True)
+            gd.debuginfo(prj="mt", info=f'> building the {name} memory buffer with {numel} num elements '
+                                        f'and {dtype} dtype ({numel*element_size/1024/1024:.1f} MB)...')
         self.name = name
         self.numel = numel
         self.dtype = dtype

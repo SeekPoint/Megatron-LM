@@ -52,8 +52,8 @@ def accuracy_func_provider(single_dataset_provider):
             total += total_count
         if is_last_rank():
             percent = float(correct) * 100.0 / float(total)
-            gd.debuginfo(prj="mt", info=f' >> |epoch: {}| overall: correct / total = {} / {} = '
-                  '{:.4f} %'.format(epoch, correct, total, percent))
+            gd.debuginfo(prj="mt",
+                         info=f' >> |epoch: {epoch}| overall: correct / total = {correct} / {total} = {percent:.4f} %')
 
         if output_predictions and is_last_rank():
             assert args.load is not None
