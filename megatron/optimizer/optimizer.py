@@ -27,7 +27,7 @@ def _zero_grad_group_helper(group, set_to_none):
     Note: copied from torch.optim.optimizer."""
 
     for param in group:
-        gd.debuginfo(prj="mt", info=f'param={param}')
+        gd.debuginfo(prj="mt", info=f'param={infoTensor(param)}')
         if param.grad is not None:
             gd.debuginfo(prj="mt", info=f'param.grad={infoTensor(param.grad)}')
             if set_to_none:
@@ -598,16 +598,19 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
         fp32_from_float16_groups as a memory optimization to reduce
         fragmentation; in the case of set_to_none==True, the space
         used by this field can be safely deallocated at this point."""
-        for group in self.float16_groups:
-            gd.debuginfo(prj="mt", info=f'group={group}')
+        for gid, group in enumerate(self.float16_groups):
+            for i, val in enumerate(group):
+                gd.debuginfo(prj="mt", info=f'g[{gid}][{i}]={infoTensor(val)}')
             _zero_grad_group_helper(group, set_to_none)
 
-        for group in self.fp32_from_float16_groups:
-            gd.debuginfo(prj="mt", info=f'group={group}')
+        for gid, group in enumerate(self.fp32_from_float16_groups):
+            for i, val in enumerate(group):
+                gd.debuginfo(prj="mt", info=f'g[{gid}][{i}]={infoTensor(val)}')
             _zero_grad_group_helper(group, set_to_none)
 
-        for group in self.fp32_from_fp32_groups:
-            gd.debuginfo(prj="mt", info=f'group={group}')
+        for gid, group in enumerate(self.fp32_from_fp32_groups):
+            for i, val in enumerate(group):
+                gd.debuginfo(prj="mt", info=f'g[{gid}][{i}]={infoTensor(val)}')
             _zero_grad_group_helper(group, set_to_none)
 
 

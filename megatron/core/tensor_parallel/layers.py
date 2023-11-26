@@ -534,7 +534,12 @@ def linear_with_grad_accumulation_and_async_allreduce(
         sequence_parallel_enabled,
     ]
 
-    gd.debuginfo(prj='mt', info=f'args={args}')
+    gd.debuginfo(prj='mt', info=f'input={infoTensor(input)}')
+    gd.debuginfo(prj='mt', info=f'weight={infoTensor(weight)}')
+    gd.debuginfo(prj='mt', info=f'bias={infoTensor(bias)}')
+    gd.debuginfo(prj='mt', info=f'gradient_accumulation_fusion={gradient_accumulation_fusion}')
+    gd.debuginfo(prj='mt', info=f'async_grad_allreduce={async_grad_allreduce}')
+    gd.debuginfo(prj='mt', info=f'sequence_parallel_enabled={sequence_parallel_enabled}')
 
     # 这部分检查是否已经发出警告。函数使用一个类级别变量warned来记住是否已经向用户显示了警告。
     if not linear_with_grad_accumulation_and_async_allreduce.warned:
