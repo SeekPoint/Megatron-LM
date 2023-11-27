@@ -72,22 +72,31 @@ def process_batch(batch):
 
 def forward_step(batch, model, eval_metric):
     """Forward step."""
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
 
     # Get the batch.
-    tokens, labels, attention_mask, position_ids, loss_mask = process_batch(
-        batch)
+    tokens, labels, attention_mask, position_ids, loss_mask = process_batch(batch)
+    gd.debuginfo(prj="mt", info=f'tokens={tokens}')
+    gd.debuginfo(prj="mt", info=f'labels={labels}')
+    gd.debuginfo(prj="mt", info=f'attention_mask={attention_mask}')
+    gd.debuginfo(prj="mt", info=f'position_ids={position_ids}')
+    gd.debuginfo(prj="mt", info=f'loss_mask={loss_mask}')
 
     # Tell the model what our actual batch size will be
     args = get_args()
     args.micro_batch_size = len(labels)
+    gd.debuginfo(prj="mt", info=f'args.micro_batch_size={args.micro_batch_size}')
 
     input_tensor = recv_forward()
 
     # Forward pass through the model.
-    unwrapped_model = unwrap_model(
-        model, (torchDDP, LocalDDP, Float16Module))
+    gd.debuginfo(prj="mt", info=f'model={model}')
+    unwrapped_model = unwrap_model(model, (torchDDP, LocalDDP, Float16Module))
+    gd.debuginfo(prj="mt", info=f'unwrapped_model={unwrapped_model}')
+
     unwrapped_model.set_input_tensor(input_tensor)
     output = model(tokens, position_ids, attention_mask)
+    gd.debuginfo(prj="mt", info=f'output={output}')
 
     send_forward(output)
 
@@ -96,8 +105,11 @@ def forward_step(batch, model, eval_metric):
         if eval_metric == 'loss':
             losses = tensor_parallel.vocab_parallel_cross_entropy(
                 output.contiguous().float(), labels.contiguous())
+
             loss = torch.sum(
                 losses.view(-1) * loss_mask.contiguous().view(-1).float())
+
+            gd.debuginfo(prj="mt", info=f'losses={losses}, loss={loss}')
             return loss
 
         # For accuracy, return the number of correctly predicted samples.
@@ -110,6 +122,9 @@ def forward_step(batch, model, eval_metric):
 
         raise NotImplementedError('forward method for evaluation metric {} '
                                   'is not implemented.'.format(eval_metric))
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+
     return None
 
 

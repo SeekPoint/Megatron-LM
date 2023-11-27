@@ -216,6 +216,7 @@ class MegatronOptimizer(ABC):
         parameters stay in sync. This should only run for models that support
         pipelined model parallelism (BERT and GPT-2).
         """
+        gd.debuginfo(prj="mt", info=f'------__FUNC_START__--------')
 
         if mpu.is_rank_in_embedding_group(ignore_virtual=True) and \
                 mpu.get_pipeline_model_parallel_world_size() > 1:
@@ -235,6 +236,7 @@ class MegatronOptimizer(ABC):
                 else:
                     grad = word_embeddings_weight.grad
                 torch.distributed.all_reduce(grad, group=mpu.get_embedding_group())
+        gd.debuginfo(prj="mt", info=f'------__FUNC_END__--------')
 
 
     def allreduce_position_embedding_grads(self, args):
@@ -537,8 +539,8 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
         self.fp32_from_fp32_groups = []
 
         # For all the groups in the original optimizer:
-        for param_group in self.optimizer.param_groups:
-            gd.debuginfo(prj="mt", info=f'param_group={param_group}')
+        for gid, param_group in enumerate(self.optimizer.param_groups):
+            gd.debuginfo(prj="mt", info=f'gid={gid}')
             float16_params_this_group = []
             fp32_params_this_group = []
             fp32_from_float16_params_this_group = []
@@ -602,12 +604,12 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
             for i, val in enumerate(group):
                 gd.debuginfo(prj="mt", info=f'g[{gid}][{i}]={infoTensor(val)}')
             _zero_grad_group_helper(group, set_to_none)
-
+        gd.debuginfo(prj="mt", info=f'*********************************************************')
         for gid, group in enumerate(self.fp32_from_float16_groups):
             for i, val in enumerate(group):
                 gd.debuginfo(prj="mt", info=f'g[{gid}][{i}]={infoTensor(val)}')
             _zero_grad_group_helper(group, set_to_none)
-
+        gd.debuginfo(prj="mt", info=f'*********************************************************')
         for gid, group in enumerate(self.fp32_from_fp32_groups):
             for i, val in enumerate(group):
                 gd.debuginfo(prj="mt", info=f'g[{gid}][{i}]={infoTensor(val)}')

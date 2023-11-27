@@ -40,6 +40,8 @@ def get_batch(data_iterator):
     args = get_args()
     tokenizer = get_tokenizer()
 
+    gd.debuginfo(prj="mt", info=f'tokenizer={tokenizer}')
+
     # Items and their type.
     keys = ['text']
     datatype = torch.int64
@@ -49,12 +51,19 @@ def get_batch(data_iterator):
         data = next(data_iterator) # 获取数据
     else:
         data = None
+
     data_b = tensor_parallel.broadcast_data(keys, data, datatype) # 把数据广播到各个GPU
+
+    gd.debuginfo(prj="mt", info=f'data_b={data_b}')
 
     # Unpack.
     tokens_ = data_b['text'].long()
     labels = tokens_[:, 1:].contiguous()
     tokens = tokens_[:, :-1].contiguous()
+
+    gd.debuginfo(prj="mt", info=f'tokens_={tokens_}')
+    gd.debuginfo(prj="mt", info=f'labels={labels}')
+    gd.debuginfo(prj="mt", info=f'tokens={tokens}')
 
     # Get the masks and postition ids.
     attention_mask, loss_mask, position_ids = get_ltor_masks_and_position_ids(
@@ -63,6 +72,11 @@ def get_batch(data_iterator):
         args.reset_position_ids,
         args.reset_attention_mask,
         args.eod_mask_loss)
+
+
+    gd.debuginfo(prj="mt", info=f'position_ids={infoTensor(position_ids)}')
+    gd.debuginfo(prj="mt", info=f'attention_mask={infoTensor(attention_mask)}')
+    gd.debuginfo(prj="mt", info=f'loss_mask={infoTensor(loss_mask)}')
 
     return tokens, labels, loss_mask, attention_mask, position_ids
 
@@ -73,6 +87,12 @@ def loss_func(loss_mask, output_tensor):
 
     # Reduce loss for logging.
     averaged_loss = average_losses_across_data_parallel_group([loss])
+
+    gd.debuginfo(prj="mt", info=f'loss={loss}')
+    gd.debuginfo(prj="mt", info=f'loss_mask={loss_mask}')
+    gd.debuginfo(prj="mt", info=f'averaged_loss={averaged_loss}')
+    gd.debuginfo(prj="mt", info=f'losses={infoTensor(losses)}')
+
 
     return loss, {'lm loss': averaged_loss[0]}
 
@@ -90,10 +110,16 @@ def forward_step(data_iterator, model):
     tokens, labels, loss_mask, attention_mask, position_ids = get_batch(
         data_iterator)
     timers('batch-generator').stop()
+    gd.debuginfo(prj="mt", info=f'tokens={tokens}')
+    gd.debuginfo(prj="mt", info=f'labels={labels}')
+    gd.debuginfo(prj="mt", info=f'loss_mask={infoTensor(loss_mask)}')
+    gd.debuginfo(prj="mt", info=f'attention_mask={infoTensor(attention_mask)}')
+    gd.debuginfo(prj="mt", info=f'position_ids={infoTensor(position_ids)}')
 
     output_tensor = model(tokens, position_ids, attention_mask,
                           labels=labels)
 
+    gd.debuginfo(prj="mt", info=f'output_tensor={infoTensor(output_tensor)}')
     return output_tensor, partial(loss_func, loss_mask)
 
 # 2.2.2 获取数据集
@@ -103,8 +129,8 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     args = get_args()
 
-    gd.debuginfo(prj="mt", info=f'> building train, validation, and test datasets '
-                 'for GPT ...')
+    gd.debuginfo(prj="mt", info=f'> building train, validation, and test datasets for GPT ...')
+
     train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
         data_prefix=args.data_path,
         data_impl=args.data_impl,

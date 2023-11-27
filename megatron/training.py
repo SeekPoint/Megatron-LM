@@ -624,6 +624,7 @@ def train_step(forward_step_func, data_iterator,
 
     # Vision gradients.
     if args.vision_pretraining and args.vision_pretraining_type == "dino":
+        gd.debuginfo(prj="mt", info=f'model[0]={model[0]}')
         unwrapped_model = unwrap_model(model[0], (torchDDP, LocalDDP, Float16Module))
         unwrapped_model.cancel_gradients_last_layer(args.curr_iteration)
         gd.debuginfo(prj="mt", info=f'unwrapped_model={unwrapped_model}')
@@ -644,6 +645,7 @@ def train_step(forward_step_func, data_iterator,
 
     # Vision momentum.
     if args.vision_pretraining and args.vision_pretraining_type == "dino":
+        gd.debuginfo(prj="mt", info=f'model[0]={model[0]}')
         unwrapped_model = unwrap_model(model[0], (torchDDP, LocalDDP, Float16Module))
         unwrapped_model.update_momentum(args.curr_iteration)
         gd.debuginfo(prj="mt", info=f'unwrapped_model={unwrapped_model}')

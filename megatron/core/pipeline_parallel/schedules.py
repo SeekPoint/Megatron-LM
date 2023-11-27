@@ -218,7 +218,7 @@ def forward_step(forward_step_func,
     passed-in input_tensor is used.
 
     Returns output tensor."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_START__ forward_step_func={forward_step_func}')
 
     if timers is not None:
         timers('forward-compute', log_level=2).start()
@@ -228,8 +228,8 @@ def forward_step(forward_step_func,
         gd.debuginfo(prj="mt")
         input_tensor = [input_tensor]
         unwrap_output_tensor = True
-
     set_input_tensor = get_attr_wrapped_model(model, "set_input_tensor")
+    gd.debuginfo(prj="mt", info=f'set_input_tensor={set_input_tensor}')
     set_input_tensor(input_tensor)
 
     if enable_autocast:
