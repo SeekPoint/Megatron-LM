@@ -19,13 +19,13 @@ from megatron.data.dataset_utils import (
     create_masked_lm_predictions
 )
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 class BertDataset(torch.utils.data.Dataset):
 
     def __init__(self, name, indexed_dataset, data_prefix,
                  num_epochs, max_num_samples, masked_lm_prob,
                  max_seq_length, short_seq_prob, seed, binary_head):
-
+        gd.debuginfo(prj="mt")
         # Params to store.
         self.name = name
         self.seed = seed
@@ -60,6 +60,7 @@ class BertDataset(torch.utils.data.Dataset):
         return self.samples_mapping.shape[0]
 
     def __getitem__(self, idx):
+        gd.debuginfo(prj="mt")
         start_idx, end_idx, seq_length = self.samples_mapping[idx]
         sample = [self.indexed_dataset[i] for i in range(start_idx, end_idx)]
         # Note that this rng state should be numpy and not python since
@@ -101,17 +102,21 @@ def build_training_sample(sample,
               numpy and not python since python randint is inclusive for
               the opper bound whereas the numpy one is exclusive.
     """
+    gd.debuginfo(prj="mt")
 
     if binary_head:
         # We assume that we have at least two sentences in the sample
         assert len(sample) > 1
+        gd.debuginfo(prj="mt")
+
     assert target_seq_length <= max_seq_length
 
     # Divide sample into two segments (A and B).
     if binary_head:
-        tokens_a, tokens_b, is_next_random = get_a_and_b_segments(sample,
-                                                                  np_rng)
+        tokens_a, tokens_b, is_next_random = get_a_and_b_segments(sample, np_rng)
+        gd.debuginfo(prj="mt")
     else:
+        gd.debuginfo(prj="mt")
         tokens_a = []
         for j in range(len(sample)):
             tokens_a.extend(sample[j])
@@ -152,7 +157,7 @@ def build_training_sample(sample,
 def pad_and_convert_to_numpy(tokens, tokentypes, masked_positions,
                              masked_labels, pad_id, max_seq_length):
     """Pad sequences and convert them to numpy."""
-
+    gd.debuginfo(prj="mt")
     # Some checks.
     num_tokens = len(tokens)
     padding_length = max_seq_length - num_tokens

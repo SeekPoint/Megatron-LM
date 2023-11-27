@@ -33,6 +33,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
 
         # Single dataset.
         if len(data_prefix) == 1:
+            gd.debuginfo(prj="mt")
             return _build_train_valid_test_datasets(data_prefix[0],
                                                     data_impl, splits_string,
                                                     train_valid_test_num_samples,
@@ -72,22 +73,29 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
         if train_datasets:
             blending_train_dataset = BlendableDataset(train_datasets, weights, train_num_samples,
                                                       data_cache_path=data_cache_path)
+            gd.debuginfo(prj="mt", info=f'blending_train_dataset={blending_train_dataset}')
+
         blending_valid_dataset = None
+
         if valid_datasets:
             blending_valid_dataset = BlendableDataset(valid_datasets, weights, valid_num_samples,
                                                       data_cache_path=data_cache_path)
+            gd.debuginfo(prj="mt", info=f'blending_valid_dataset={blending_valid_dataset}')
+
         blending_test_dataset = None
+
         if test_datasets:
             blending_test_dataset = BlendableDataset(test_datasets, weights, test_num_samples,
                                                      data_cache_path=data_cache_path)
+            gd.debuginfo(prj="mt", info=f'blending_test_dataset={blending_test_dataset}')
 
-        return (blending_train_dataset, blending_valid_dataset,
-                blending_test_dataset)
+        return (blending_train_dataset, blending_valid_dataset, blending_test_dataset)
 
     else:
         gd.debuginfo(prj="mt", info=f"Separate data paths provided for train, valid & test. Split string will be ignored.")
 
         train_dataset, valid_dataset, test_dataset = None, None, None
+
         # Single dataset.
         if train_data_prefix is not None:
             train_dataset = build_dataset("train", train_data_prefix, data_impl,
@@ -95,6 +103,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                           train_valid_test_num_samples[0],
                                           seq_length, seed, skip_warmup,
                                           data_cache_path=data_cache_path)
+            gd.debuginfo(prj="mt", info=f'train_dataset={train_dataset}')
 
         if valid_data_prefix is not None:
             valid_dataset = build_dataset("valid", valid_data_prefix, data_impl,
@@ -102,6 +111,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                           train_valid_test_num_samples[1],
                                           seq_length, seed, False,
                                           data_cache_path=data_cache_path)
+            gd.debuginfo(prj="mt", info=f'valid_dataset={valid_dataset}')
 
 
         if test_data_prefix is not None:
@@ -110,6 +120,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                          train_valid_test_num_samples[2],
                                          seq_length, seed, False,
                                          data_cache_path=data_cache_path)
+            gd.debuginfo(prj="mt", info=f'test_dataset={test_dataset}')
 
         return (train_dataset, valid_dataset, test_dataset)
 
@@ -126,8 +137,13 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                            data_impl,
                                            skip_warmup)
 
+    gd.debuginfo(prj="mt", info=f'indexed_dataset={indexed_dataset}')
+
     total_num_of_documents = indexed_dataset.sizes.shape[0]
+    gd.debuginfo(prj="mt", info=f'total_num_of_documents={total_num_of_documents}')
+
     splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
+    gd.debuginfo(prj="mt", info=f'splits={splits}')
 
     # Print stats about the splits.
     gd.debuginfo(prj="mt", info=f' > dataset split:')

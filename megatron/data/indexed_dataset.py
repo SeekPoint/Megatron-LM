@@ -20,7 +20,7 @@ import numpy as np
 import torch
 from megatron import print_rank_0
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 
 def __best_fitting_dtype(vocab_size=None):
     if vocab_size is not None and vocab_size < 65500:
@@ -35,6 +35,7 @@ def get_available_dataset_impl():
 
 def infer_dataset_impl(path):
     if IndexedDataset.exists(path):
+        gd.debuginfo(prj="mt", info=f'path={path}')
         with open(index_file_path(path), 'rb') as f:
             magic = f.read(8)
             if magic == IndexedDataset._HDR_MAGIC:
@@ -389,6 +390,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
             return _Writer()
 
         def __init__(self, path, skip_warmup=False):
+            gd.debuginfo(prj="mt")
             with open(path, 'rb') as stream:
                 magic_test = stream.read(9)
                 assert self._HDR_MAGIC == magic_test, (
@@ -546,6 +548,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
 
 class MMapIndexedDatasetBuilder(object):
     def __init__(self, out_file, dtype=np.int64):
+        gd.debuginfo(prj="mt")
         self._data_file = open(out_file, 'wb')
         self._dtype = dtype
         self._sizes = []

@@ -129,6 +129,8 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     args = get_args()
 
+    gd.debuginfo(prj="mt", info=f"train_val_test_num_samples={train_val_test_num_samples}")
+
     gd.debuginfo(prj="mt", info=f'> building train, validation, and test datasets for GPT ...')
 
     train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
@@ -143,6 +145,9 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
         valid_data_prefix=args.valid_data_path,
         test_data_prefix=args.test_data_path,
         data_cache_path=args.data_cache_path)
+
+    gd.debuginfo(prj="mt", info=f"train_ds={train_ds}, valid_ds={valid_ds}, test_ds={test_ds}")
+
     gd.debuginfo(prj="mt", info=f"> finished creating GPT datasets ...")
 
     return train_ds, valid_ds, test_ds

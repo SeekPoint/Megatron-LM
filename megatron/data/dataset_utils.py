@@ -34,7 +34,7 @@ from megatron.core import mpu
 from megatron.data.blendable_dataset import BlendableDataset
 from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 DSET_TYPE_BERT = 'standard_bert'
 DSET_TYPE_ICT = 'ict'
 DSET_TYPE_T5  = 't5'
@@ -44,6 +44,7 @@ DSET_TYPES = [DSET_TYPE_BERT, DSET_TYPE_ICT, DSET_TYPE_T5]
 
 def get_datasets_weights_and_num_samples(data_prefix,
                                          train_valid_test_num_samples):
+    gd.debuginfo(prj="mt")
 
     # The data prefix should be in the format of:
     #   weight-1, data-prefix-1, weight-2, data-prefix-2, ..
@@ -65,12 +66,14 @@ def get_datasets_weights_and_num_samples(data_prefix,
     # not uniformly distribute the number of samples, we still have
     # samples left to feed to the network.
     if isinstance(train_valid_test_num_samples, list):
+        gd.debuginfo(prj="mt")
         datasets_train_valid_test_num_samples = []
         for weight in weights:
             datasets_train_valid_test_num_samples.append(
                 [int(math.ceil(val * weight * 1.005))
                 for val in train_valid_test_num_samples])
     else:
+        gd.debuginfo(prj="mt")
         # Used when separate dataset files are provided for train,
         # valid and test
         datasets_train_valid_test_num_samples = [
@@ -81,6 +84,7 @@ def get_datasets_weights_and_num_samples(data_prefix,
 
 
 def compile_helper():
+    gd.debuginfo(prj="mt")
     """Compile helper function ar runtime. Make sure this
     is invoked on a single process."""
     import os
@@ -94,6 +98,7 @@ def compile_helper():
 
 
 def get_a_and_b_segments(sample, np_rng):
+    gd.debuginfo(prj="mt")
     """Divide sample into a and b segments."""
 
     # Number of sentences in the sample.
@@ -126,6 +131,7 @@ def get_a_and_b_segments(sample, np_rng):
 
 
 def truncate_segments(tokens_a, tokens_b, len_a, len_b, max_num_tokens, np_rng):
+    gd.debuginfo(prj="mt")
     """Truncates a pair of sequences to a maximum sequence length."""
     #gd.debuginfo(prj="mt", info=flen_a, len_b, max_num_tokens)
     assert len_a > 0
@@ -146,6 +152,7 @@ def truncate_segments(tokens_a, tokens_b, len_a, len_b, max_num_tokens, np_rng):
 
 
 def create_tokens_and_tokentypes(tokens_a, tokens_b, cls_id, sep_id):
+    gd.debuginfo(prj="mt")
     """Merge segments A and B, add [CLS] and [SEP] and build tokentypes."""
 
     tokens = []
@@ -199,6 +206,7 @@ def create_masked_lm_predictions(tokens,
                                  masking_style="bert"):
     """Creates the predictions for the masked LM objective.
     Note: Tokens here are vocab ids and not text tokens."""
+    gd.debuginfo(prj="mt")
 
     cand_indexes = []
     # Note(mingdachen): We create a list for recording if the piece is
@@ -390,7 +398,7 @@ def create_masked_lm_predictions(tokens,
 def pad_and_convert_to_numpy(tokens, tokentypes, masked_positions,
                              masked_labels, pad_id, max_seq_length):
     """Pad sequences and convert them to numpy."""
-
+    gd.debuginfo(prj="mt")
     # Some checks.
     num_tokens = len(tokens)
     padding_length = max_seq_length - num_tokens
@@ -427,7 +435,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                     skip_warmup, binary_head=False,
                                     max_seq_length_dec=None,
                                     dataset_type='standard_bert'):
-
+    gd.debuginfo(prj="mt")
     if len(data_prefix) == 1:
         return _build_train_valid_test_datasets(data_prefix[0],
                                                 data_impl, splits_string,
@@ -488,7 +496,7 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                      skip_warmup, binary_head,
                                      max_seq_length_dec,
                                      dataset_type='standard_bert'):
-
+    gd.debuginfo(prj="mt")
     if dataset_type not in DSET_TYPES:
         raise ValueError("Invalid dataset_type: ", dataset_type)
 

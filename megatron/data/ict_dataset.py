@@ -9,13 +9,14 @@ from megatron import get_args
 from megatron.data.dataset_utils import get_indexed_dataset_
 from megatron.data.realm_dataset_utils import get_block_samples_mapping
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 def make_attention_mask(source_block, target_block):
     """
     Returns a 2-dimensional (2-D) attention mask
     :param source_block: 1-D array
     :param target_block: 1-D array
     """
+    gd.debuginfo(prj="mt")
     mask = (target_block[None, :] >= 1) * (source_block[:, None] >= 1)
     mask = mask.astype(np.int64)
     # (source_length, target_length)
@@ -25,6 +26,7 @@ def get_ict_dataset(use_titles=True, query_in_block_prob=1):
     """Get a dataset which uses block samples mappings to get ICT/block indexing data (via get_block())
     rather than for training, since it is only built with a single epoch sample mapping.
     """
+    gd.debuginfo(prj="mt")
     args = get_args()
     block_dataset = get_indexed_dataset_(args.data_path, 'mmap', True)
     titles_dataset = get_indexed_dataset_(args.titles_data_path, 'mmap', True)
@@ -51,6 +53,7 @@ class ICTDataset(Dataset):
     def __init__(self, name, block_dataset, title_dataset, data_prefix,
                  num_epochs, max_num_samples, max_seq_length, query_in_block_prob,
                  seed, use_titles=True, use_one_sent_docs=False, binary_head=False):
+        gd.debuginfo(prj="mt")
         self.name = name
         self.seed = seed
         self.max_seq_length = max_seq_length

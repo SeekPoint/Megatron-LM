@@ -10,13 +10,14 @@ from megatron.data.dataset_utils import create_masked_lm_predictions, \
                                             pad_and_convert_to_numpy
 from megatron.data.data_samplers import MegatronPretrainingSampler
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 def make_attention_mask(source_block, target_block):
     """
     Returns a 2-dimensional (2-D) attention mask
     :param source_block: 1-D array
     :param target_block: 1-D array
     """
+    gd.debuginfo(prj="mt")
     mask = (target_block[None, :] >= 1) * (source_block[:, None] >= 1)
     mask = mask.astype(np.int64)
     # (source_length, target_length)
@@ -25,7 +26,7 @@ def make_attention_mask(source_block, target_block):
 def get_one_epoch_dataloader(dataset, micro_batch_size=None):
     """Specifically one epoch to be used in an indexing job."""
     args = get_args()
-
+    gd.debuginfo(prj="mt")
     if micro_batch_size is None:
         micro_batch_size = args.micro_batch_size
     num_workers = args.num_workers
@@ -49,6 +50,7 @@ def get_one_epoch_dataloader(dataset, micro_batch_size=None):
 
 
 def get_ict_batch(data_iterator):
+    gd.debuginfo(prj="mt")
     # Items and their type.
     keys = ['query_tokens', 'query_mask',
             'context_tokens', 'context_mask', 'block_data']
@@ -92,6 +94,7 @@ class BlockSampleData(object):
     :param block_idx: a unique integer identifier given to every block.
     """
     def __init__(self, start_idx, end_idx, doc_idx, block_idx):
+        gd.debuginfo(prj="mt")
         self.start_idx = start_idx
         self.end_idx = end_idx
         self.doc_idx = doc_idx
@@ -106,6 +109,7 @@ class BlockSampleData(object):
 
 class BlockSamplesMapping(object):
     def __init__(self, mapping_array):
+        gd.debuginfo(prj="mt")
         # make sure that the array is compatible with BlockSampleData
         assert mapping_array.shape[1] == 4
         self.mapping_array = mapping_array
@@ -126,7 +130,7 @@ def get_block_samples_mapping(block_dataset, title_dataset, data_prefix, num_epo
 
     :return: samples_mapping (BlockSamplesMapping)
     """
-
+    gd.debuginfo(prj="mt")
     if not num_epochs:
         if not max_num_samples:
             raise ValueError("Need to specify either max_num_samples "
@@ -151,8 +155,7 @@ def get_block_samples_mapping(block_dataset, title_dataset, data_prefix, num_epo
     # Build the indexed mapping if not exist.
     if mpu.get_data_parallel_rank() == 0 and \
             not os.path.isfile(indexmap_filename):
-        gd.debuginfo(prj="mt", info=f' > WARNING: could not find index map file {}, building '
-              'the indices on rank 0 ...'.format(indexmap_filename))
+        gd.debuginfo(prj="mt", info=f' > WARNING: could not find index map file {indexmap_filename}, building ')
 
         # Make sure the types match the helpers input types.
         assert block_dataset.doc_idx.dtype == np.int64

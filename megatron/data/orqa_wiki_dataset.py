@@ -13,8 +13,9 @@ from megatron import print_rank_0, get_args, get_tokenizer
 from megatron.core import tensor_parallel
 from megatron.data.biencoder_dataset_utils import make_attention_mask
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 def get_open_retrieval_wiki_dataset():
+    gd.debuginfo(prj="mt")
     args = get_args()
     tokenizer = get_tokenizer()
 
@@ -27,6 +28,7 @@ def get_open_retrieval_wiki_dataset():
 
 
 def get_open_retrieval_batch(data_iterator):
+    gd.debuginfo(prj="mt")
     # Items and their type.
     keys = ['row_id', 'context', 'context_mask', 'context_types', 
         'context_pad_mask']
@@ -68,6 +70,7 @@ def build_tokens_types_paddings_from_text(row, tokenizer, max_seq_length):
 # noinspection DuplicatedCode
 def build_tokens_types_paddings_from_ids(text_ids, max_seq_length,
                                          cls_id, sep_id, pad_id):
+    gd.debuginfo(prj="mt")
     """Build token types and paddings, trim if needed, and pad if needed."""
     enc_ids = []
     tokentypes_enc = []

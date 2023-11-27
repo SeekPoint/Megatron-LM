@@ -14,7 +14,7 @@ from megatron.core.parallel_state import (
     get_pipeline_model_parallel_next_rank,
 )
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 # Types
 Shape = Union[List[int], torch.Size]
 
@@ -38,7 +38,7 @@ def _communicate_shapes(tensor_send_next, tensor_send_prev,
     Returns:
         (recv_prev_shape, recv_next_shape)
     """
-
+    gd.debuginfo(prj="mt")
     recv_prev_shape_tensor = None
     recv_next_shape_tensor = None
     send_prev_shape_tensor = None
@@ -47,10 +47,14 @@ def _communicate_shapes(tensor_send_next, tensor_send_prev,
         recv_prev_shape_tensor = torch.empty((3),
                                              device=torch.cuda.current_device(),
                                              dtype=torch.int64)
+        gd.debuginfo(prj="mt", info=f'recv_prev_shape_tensor={infoTensor(recv_prev_shape_tensor)}')
+
     if recv_next:
         recv_next_shape_tensor = torch.empty((3),
                                              device=torch.cuda.current_device(),
                                              dtype=torch.int64)
+        gd.debuginfo(prj="mt", info=f'recv_next_shape_tensor={infoTensor(recv_next_shape_tensor)}')
+
     if tensor_send_prev is not None:
         send_prev_shape_tensor = torch.tensor(tensor_send_prev.size(),
                                               device=torch.cuda.current_device(),
@@ -59,6 +63,7 @@ def _communicate_shapes(tensor_send_next, tensor_send_prev,
         send_next_shape_tensor = torch.tensor(tensor_send_next.size(),
                                               device=torch.cuda.current_device(),
                                               dtype=torch.int64)
+        gd.debuginfo(prj="mt", info=f'send_next_shape_tensor={infoTensor(send_next_shape_tensor)}')
 
     if use_ring_exchange_p2p:
         torch.distributed.ring_exchange(tensor_send_prev=send_prev_shape_tensor,
@@ -66,6 +71,7 @@ def _communicate_shapes(tensor_send_next, tensor_send_prev,
                                         tensor_send_next=send_next_shape_tensor,
                                         tensor_recv_next=recv_next_shape_tensor,
                                         group=get_pipeline_model_parallel_group())
+        gd.debuginfo(prj="mt")
     else:
         ops = []
         if send_prev_shape_tensor is not None:
@@ -73,24 +79,33 @@ def _communicate_shapes(tensor_send_next, tensor_send_prev,
                 torch.distributed.isend, send_prev_shape_tensor,
                 get_pipeline_model_parallel_prev_rank())
             ops.append(send_prev_op)
+            gd.debuginfo(prj="mt", info=f'send_prev_op={send_prev_op}')
+
         if recv_prev_shape_tensor is not None:
             recv_prev_op = torch.distributed.P2POp(
                 torch.distributed.irecv, recv_prev_shape_tensor,
                 get_pipeline_model_parallel_prev_rank())
             ops.append(recv_prev_op)
+            gd.debuginfo(prj="mt", info=f'recv_prev_op={recv_prev_op}')
+
         if send_next_shape_tensor is not None:
             send_next_op = torch.distributed.P2POp(
                 torch.distributed.isend, send_next_shape_tensor,
                 get_pipeline_model_parallel_next_rank())
             ops.append(send_next_op)
+            gd.debuginfo(prj="mt", info=f'send_next_op={send_next_op}')
+
         if recv_next_shape_tensor is not None:
             recv_next_op = torch.distributed.P2POp(
                 torch.distributed.irecv, recv_next_shape_tensor,
                 get_pipeline_model_parallel_next_rank())
             ops.append(recv_next_op)
+            gd.debuginfo(prj="mt", info=f'recv_next_op={recv_next_op}')
+
         if len(ops) > 0:
             reqs = torch.distributed.batch_isend_irecv(ops)
             for req in reqs:
+                gd.debuginfo(prj="mt", info=f'req={req}')
                 req.wait()
 
         # To protect against race condition when using batch_isend_irecv().
@@ -105,6 +120,8 @@ def _communicate_shapes(tensor_send_next, tensor_send_prev,
     if recv_next_shape_tensor is not None:
         recv_next_shape = recv_next_shape_tensor.tolist()
 
+    gd.debuginfo(prj="mt", info=f'recv_prev_shape={recv_prev_shape}')
+    gd.debuginfo(prj="mt", info=f'recv_next_shape={recv_next_shape}')
     return recv_prev_shape, recv_next_shape
 
 def _batched_p2p_ops(*,
@@ -114,32 +131,42 @@ def _batched_p2p_ops(*,
                      tensor_recv_next: Optional[torch.Tensor],
                      group: torch.distributed.ProcessGroup):
     ops = []
+
     if tensor_send_prev is not None:
         send_prev_op = torch.distributed.P2POp(
             torch.distributed.isend, tensor_send_prev,
             get_pipeline_model_parallel_prev_rank(),
             group)
         ops.append(send_prev_op)
+        gd.debuginfo(prj="mt", info=f'send_prev_op={send_prev_op}')
+
     if tensor_recv_prev is not None:
         recv_prev_op = torch.distributed.P2POp(
             torch.distributed.irecv, tensor_recv_prev,
             get_pipeline_model_parallel_prev_rank(),
             group)
         ops.append(recv_prev_op)
+        gd.debuginfo(prj="mt", info=f'recv_prev_op={recv_prev_op}')
+
     if tensor_send_next is not None:
         send_next_op = torch.distributed.P2POp(
             torch.distributed.isend, tensor_send_next,
             get_pipeline_model_parallel_next_rank(),
             group)
         ops.append(send_next_op)
+        gd.debuginfo(prj="mt", info=f'send_next_op={send_next_op}')
+
     if tensor_recv_next is not None:
         recv_next_op = torch.distributed.P2POp(
             torch.distributed.irecv, tensor_recv_next,
             get_pipeline_model_parallel_next_rank(),
             group)
         ops.append(recv_next_op)
+        gd.debuginfo(prj="mt", info=f'recv_next_op={recv_next_op}')
+
     if len(ops) > 0:
         reqs = torch.distributed.batch_isend_irecv(ops)
+        gd.debuginfo(prj="mt", info=f'reqs={reqs}')
     else:
         reqs = []
     return reqs
@@ -160,6 +187,7 @@ def _p2p_ops(*,
                 group=group,
             )
             reqs.append(send_next_req)
+            gd.debuginfo(prj="mt", info=f'send_next_req={send_next_req}')
 
         if tensor_recv_prev is not None:
             recv_prev_req = torch.distributed.irecv(
@@ -168,6 +196,7 @@ def _p2p_ops(*,
                 group=group,
             )
             reqs.append(recv_prev_req)
+            gd.debuginfo(prj="mt", info=f'recv_prev_req={recv_prev_req}')
 
         if tensor_send_prev is not None:
             send_prev_req = torch.distributed.isend(
@@ -176,6 +205,7 @@ def _p2p_ops(*,
                 group=group,
             )
             reqs.append(send_prev_req)
+            gd.debuginfo(prj="mt", info=f'send_prev_req={send_prev_req}')
 
         if tensor_recv_next is not None:
             recv_next_req = torch.distributed.irecv(
@@ -184,6 +214,7 @@ def _p2p_ops(*,
                 group=group,
             )
             reqs.append(recv_next_req)
+            gd.debuginfo(prj="mt", info=f'recv_next_req={recv_next_req}')
 
     else:
         if tensor_recv_prev is not None:
@@ -193,6 +224,7 @@ def _p2p_ops(*,
                 group=group,
             )
             reqs.append(recv_prev_req)
+            gd.debuginfo(prj="mt", info=f'recv_prev_req={recv_prev_req}')
 
         if tensor_send_next is not None:
             send_next_req = torch.distributed.isend(
@@ -201,6 +233,7 @@ def _p2p_ops(*,
                 group=group,
             )
             reqs.append(send_next_req)
+            gd.debuginfo(prj="mt", info=f'send_next_req={send_next_req}')
 
         if tensor_recv_next is not None:
             recv_next_req = torch.distributed.irecv(
@@ -209,6 +242,7 @@ def _p2p_ops(*,
                 group=group,
             )
             reqs.append(recv_next_req)
+            gd.debuginfo(prj="mt", info=f'recv_next_req={recv_next_req}')
 
         if tensor_send_prev is not None:
             send_prev_req = torch.distributed.isend(
@@ -217,6 +251,8 @@ def _p2p_ops(*,
                 group=group,
             )
             reqs.append(send_prev_req)
+            gd.debuginfo(prj="mt", info=f'send_prev_req={send_prev_req}')
+
     return reqs
 
 # 具体使用是在 megatron/p2p_communication.py，_communicate之中会用流水线组信息来进行通信。
@@ -298,12 +334,16 @@ def _communicate(*, tensor_send_next: Optional[torch.Tensor],
     if not variable_seq_lengths:
         recv_prev_shape = tensor_shape
         recv_next_shape = tensor_shape
+        gd.debuginfo(prj="mt", info=f'recv_prev_shape={recv_prev_shape}')
+        gd.debuginfo(prj="mt", info=f'recv_next_shape={recv_next_shape}')
     else:
         recv_prev_shape, recv_next_shape = \
             _communicate_shapes(tensor_send_next,
                                 tensor_send_prev,
                                 recv_prev,
                                 recv_next)
+        gd.debuginfo(prj="mt", info=f'recv_prev_shape={recv_prev_shape}')
+        gd.debuginfo(prj="mt", info=f'recv_next_shape={recv_next_shape}')
 
     if recv_prev:
         if dtype is None:
@@ -317,6 +357,9 @@ def _communicate(*, tensor_send_next: Optional[torch.Tensor],
                                        requires_grad=True,
                                        device=torch.cuda.current_device(),
                                        dtype=dtype)
+
+        gd.debuginfo(prj="mt", info=f'tensor_recv_prev={tensor_recv_prev}')
+
     if recv_next:
         if dtype is None:
             raise RuntimeError("dtype must be provided if recv_next is True")
@@ -329,6 +372,8 @@ def _communicate(*, tensor_send_next: Optional[torch.Tensor],
                                        requires_grad=True,
                                        device=torch.cuda.current_device(),
                                        dtype=dtype)
+
+        gd.debuginfo(prj="mt", info=f'tensor_recv_next={tensor_recv_next}')
 
     # Send tensors in both the forward and backward directions as appropriate.
     # # 这里使用get_pipeline_model_parallel_group 进行通信
@@ -343,14 +388,19 @@ def _communicate(*, tensor_send_next: Optional[torch.Tensor],
     else:
         p2p_func = _p2p_ops
 
+    gd.debuginfo(prj="mt", info=f'p2p_func={p2p_func}')
+
     reqs = p2p_func(tensor_send_prev=tensor_send_prev,
                     tensor_recv_prev=tensor_recv_prev,
                     tensor_send_next=tensor_send_next,
                     tensor_recv_next=tensor_recv_next,
                     group=get_pipeline_model_parallel_group())
 
+    gd.debuginfo(prj="mt", info=f'reqs={reqs}')
+
     if wait_on_reqs and len(reqs) > 0:
         for req in reqs:
+            gd.debuginfo(prj="mt", info=f'req={req}')
             req.wait()
         reqs = None
 
@@ -387,6 +437,9 @@ def recv_forward(tensor_shape: Shape,
             dtype=dtype)
         if timers is not None:
             timers('forward-recv').stop()
+
+    gd.debuginfo(prj="mt", info=f'input_tensor={infoTensor(input_tensor)}')
+
     return input_tensor
 
 
@@ -413,6 +466,9 @@ def recv_backward(tensor_shape: Shape,
             dtype=dtype)
         if timers is not None:
             timers('backward-recv').stop()
+
+    gd.debuginfo(prj="mt", info=f'output_tensor_grad={infoTensor(output_tensor_grad)}')
+
     return output_tensor_grad
 
 
@@ -423,7 +479,7 @@ def send_forward(output_tensor: torch.Tensor,
 
     See _communicate for argument details.
     """
-
+    gd.debuginfo(prj="mt")
     if not core.parallel_state.is_pipeline_last_stage():
         if timers is not None:
             timers('forward-send', log_level=2).start()
@@ -446,6 +502,8 @@ def send_backward(input_tensor_grad: torch.Tensor,
 
     See _communicate for argument details.
     """
+    gd.debuginfo(prj="mt")
+
     if not core.parallel_state.is_pipeline_first_stage():
         if timers is not None:
             timers('backward-send', log_level=2).start()
@@ -485,6 +543,9 @@ def send_forward_recv_backward(output_tensor: torch.Tensor,
             dtype=dtype)
         if timers is not None:
             timers('forward-send-backward-recv').stop()
+
+    gd.debuginfo(prj="mt", info=f'output_tensor_grad={infoTensor(output_tensor_grad)}')
+
     return output_tensor_grad
 
 
@@ -512,6 +573,9 @@ def send_backward_recv_forward(input_tensor_grad: torch.Tensor,
             dtype=dtype)
         if timers is not None:
             timers('backward-send-forward-recv').stop()
+
+    gd.debuginfo(prj="mt", info=f'input_tensor={infoTensor(input_tensor)}')
+
     return input_tensor
 
 
@@ -541,6 +605,9 @@ def send_forward_recv_forward(output_tensor: torch.Tensor,
         timers('forward-send-forward-recv').stop()
     if overlap_p2p_comm:
         return input_tensor, wait_handles
+
+    gd.debuginfo(prj="mt", info=f'input_tensor={infoTensor(input_tensor)}')
+
     return input_tensor
 
 
@@ -570,6 +637,9 @@ def send_backward_recv_backward(input_tensor_grad: torch.Tensor,
         timers('backward-send-backward-recv').stop()
     if overlap_p2p_comm:
         return output_tensor_grad, wait_handles
+
+    gd.debuginfo(prj="mt", info=f'output_tensor_grad={infoTensor(output_tensor_grad)}')
+
     return output_tensor_grad
 
 
@@ -599,4 +669,7 @@ def send_forward_backward_recv_forward_backward(
         dtype=dtype)
     if timers is not None:
         timers('forward-backward-send-forward-backward-recv').stop()
+
+    gd.debuginfo(prj="mt", info=f'input_tensor={infoTensor(input_tensor)}')
+    gd.debuginfo(prj="mt", info=f'output_tensor_grad={infoTensor(output_tensor_grad)}')
     return input_tensor, output_tensor_grad

@@ -73,6 +73,7 @@ class ImageNetPolicy:
         # two augmentation operations,
         # each of those parametrized as operation, probability, magnitude.
         # Those two operations are applied sequentially on the image upon call.
+        gd.debuginfo(prj="mt")
         self.policies = [
             SubPolicy("posterize", 0.4, 8, "rotate", 0.6, 9, fillcolor),
             SubPolicy("solarize", 0.6, 5, "autocontrast", 0.6, 5, fillcolor),
@@ -149,6 +150,7 @@ class SubPolicy:
             filling.
         Returns:
         """
+        gd.debuginfo(prj="mt")
         # List of supported operations for operation1 and operation2.
         supported_ops = [
             "shearX",
