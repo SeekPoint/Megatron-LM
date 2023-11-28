@@ -172,7 +172,7 @@ def custom_backward(output, grad_output):
     torch.autograd.backward. Pytorch's 'backward' checks that the output and
     grad have the same shape, while C++'s 'backward' does not.
     '''
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0007')
 
     assert output.numel() == 1, \
         "output should be pseudo-'freed' in schedule, to optimize memory"
@@ -200,7 +200,7 @@ def custom_backward(output, grad_output):
         allow_unreachable=True,
         accumulate_grad=True,
     )
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0007')
 
 def forward_step(forward_step_func,
                  data_iterator,
@@ -218,7 +218,8 @@ def forward_step(forward_step_func,
     passed-in input_tensor is used.
 
     Returns output tensor."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__ forward_step_func={forward_step_func}')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0008')
+    gd.debuginfo(prj="mt", info=f'forward_step_func={forward_step_func}')
 
     if timers is not None:
         timers('forward-compute', log_level=2).start()
@@ -231,6 +232,10 @@ def forward_step(forward_step_func,
     set_input_tensor = get_attr_wrapped_model(model, "set_input_tensor")
     gd.debuginfo(prj="mt", info=f'set_input_tensor={set_input_tensor}')
     set_input_tensor(input_tensor)
+    # codeparrot: megatron/model/gpt_model.py f# set_input_tensor ==>
+    #             megatron/model/language_model.py f# set_input_tensor L#: 516
+
+    gd.debuginfo(prj="mt", info=f'**********************1*************************')
 
     if enable_autocast:
         context_manager = torch.autocast("cuda", dtype=autocast_dtype)
@@ -238,6 +243,8 @@ def forward_step(forward_step_func,
     else:
         context_manager = contextlib.nullcontext()
         gd.debuginfo(prj="mt", info=f'context_manager={context_manager}')
+
+    gd.debuginfo(prj="mt", info=f'**********************2*************************')
 
     with context_manager:
         output_tensor, loss_func = forward_step_func(data_iterator, model)
@@ -273,7 +280,7 @@ def forward_step(forward_step_func,
         gd.debuginfo(prj="mt", info=f'output_tensor={output_tensor}')
         return output_tensor
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0008')
 
     return [output_tensor]
 
@@ -291,7 +298,7 @@ def backward_step(grad_scaler, input_tensor, output_tensor,
     # NOTE: This code currently can handle at most one skip connection. It
     # needs to be modified slightly to support arbitrary numbers of skip
     # connections.
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0009')
 
     if timers is not None:
         timers('backward-compute', log_level=2).start()
@@ -361,7 +368,7 @@ def backward_step(grad_scaler, input_tensor, output_tensor,
     if timers is not None:
         timers('backward-compute').stop()
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0009')
 
     return input_tensor_grad
 
@@ -395,7 +402,7 @@ def forward_backward_no_pipelining(*,
     See get_forward_backward_func() for argument details
     """
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0009')
 
     if isinstance(model, list):
         assert len(model) == 1, "non-pipeline-parallel schedule does not support model chunking"
@@ -453,7 +460,7 @@ def forward_backward_no_pipelining(*,
         backward_step(grad_scaler, input_tensor, output_tensor,
                       output_tensor_grad, model_type, timers, deallocate_pipeline_outputs)
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0009')
 
     return forward_data_store
 
@@ -484,7 +491,7 @@ def forward_backward_pipelining_with_interleaving(*,
 
     Returns dictionary with losses if the last stage, empty dict otherwise."""
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0010')
 
     assert isinstance(model, list), "interleaved pipeline parallelism expected model chunking"
     assert all(isinstance(chunk, torch.nn.Module) for chunk in model), "invalid model chunking"
@@ -598,7 +605,7 @@ def forward_backward_pipelining_with_interleaving(*,
         param_sync_func(model[0].parameters())
         param_sync_func(model[1].parameters())
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0010')
 
     def get_model_chunk_id(microbatch_id, forward):
         """Helper method to get the model chunk ID given the iteration number."""
@@ -649,7 +656,8 @@ def forward_backward_pipelining_with_interleaving(*,
 
         model_chunk_id = get_model_chunk_id(microbatch_id, forward=True)
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_START__, model_chunk_id={model_chunk_id}')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0012')
+        gd.debuginfo(prj="mt", info=f'model_chunk_id={model_chunk_id}')
 
         parallel_state.set_virtual_pipeline_model_parallel_rank(model_chunk_id)
 
@@ -699,7 +707,10 @@ def forward_backward_pipelining_with_interleaving(*,
             input_tensors[model_chunk_id].pop()
             output_tensors[model_chunk_id].pop()
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_END__ output_tensor={infoTensor(output_tensor)}')
+        gd.debuginfo(prj="mt", info=f'output_tensor={infoTensor(output_tensor)}')
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0012')
+
         return output_tensor
 
     def backward_step_helper(microbatch_id):
@@ -709,7 +720,8 @@ def forward_backward_pipelining_with_interleaving(*,
 
         model_chunk_id = get_model_chunk_id(microbatch_id, forward=False)
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_START__, model_chunk_id={model_chunk_id}')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0013')
+        gd.debuginfo(prj="mt", info=f'model_chunk_id={model_chunk_id}')
 
         parallel_state.set_virtual_pipeline_model_parallel_rank(model_chunk_id)
 
@@ -760,7 +772,9 @@ def forward_backward_pipelining_with_interleaving(*,
 
         disable_grad_sync()
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_END__ input_tensor_grad={infoTensor(input_tensor_grad)}')
+        gd.debuginfo(prj="mt", info=f'input_tensor_grad={infoTensor(input_tensor_grad)}')
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0013')
 
         return input_tensor_grad
 
@@ -1161,8 +1175,9 @@ def forward_backward_pipelining_with_interleaving(*,
             gd.debuginfo(prj="mt")
             grad_sync_func(params)
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__, forward_data_store={forward_data_store}')
+    gd.debuginfo(prj="mt", info=f'forward_data_store={forward_data_store}')
 
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0013')
     return forward_data_store
 
 def get_tensor_shapes(*,
@@ -1237,7 +1252,7 @@ def recv_backward(tensor_shapes, dtype, timers):
 
 
 def send_forward(output_tensors, tensor_shapes, timers):
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0014')
     if not isinstance(output_tensors, list):
         output_tensors = [output_tensors]
         gd.debuginfo(prj="mt", info=f'output_tensors={infoTensor(output_tensors)}')
@@ -1248,7 +1263,7 @@ def send_forward(output_tensors, tensor_shapes, timers):
         if tensor_shape is None:
             continue
         p2p_communication.send_forward(output_tensor, timers=timers)
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0014')
 
 
 def send_backward(input_tensor_grads, tensor_shapes, timers):
@@ -1345,7 +1360,7 @@ def forward_backward_pipelining_without_interleaving(*,
 
     Returns dictionary with losses if the last stage, empty dict otherwise."""
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0015')
 
     if isinstance(model, list):
         assert len(model) == 1, \
@@ -1562,6 +1577,7 @@ def forward_backward_pipelining_without_interleaving(*,
             gd.debuginfo(prj="mt")
             grad_sync_func(model.parameters())
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__, forward_data_store={forward_data_store}')
+    gd.debuginfo(prj="mt", info=f'forward_data_store={forward_data_store}')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0015')
 
     return forward_data_store

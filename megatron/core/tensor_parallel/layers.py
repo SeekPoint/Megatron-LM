@@ -308,7 +308,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output):
-        gd.debuginfo(prj='mt')
+        gd.debuginfo(prj='mt', info=f'grad_output={infoTensor(grad_output)}')
 
         # 从上下文对象中恢复前向传播保存的张量
         input, weight = ctx.saved_tensors
@@ -316,30 +316,40 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         # 从上下文对象中恢复偏置使用的信息。
         use_bias = ctx.use_bias
 
+        gd.debuginfo(prj='mt', info=f'input={infoTensor(input)}')
+        gd.debuginfo(prj='mt', info=f'weight={infoTensor(weight)}')
+        gd.debuginfo(prj='mt', info=f'use_bias={infoTensor(use_bias)}')
+
         # 如果启用了序列并行，要如何获取完整的输入数据。
         # 它通过分布式的_all_gather_base函数来异步地聚集所有输入。
         if ctx.sequence_parallel:
-            gd.debuginfo(prj='mt')
             world_size = get_tensor_model_parallel_world_size()
             dim_size = list(input.size())
             dim_size[0] = dim_size[0] * world_size
+            gd.debuginfo(prj='mt', info=f'world_size={world_size}, dim_size={dim_size}, dim_size[0]={dim_size[0]}')
 
             all_gather_buffer = get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
             handle = torch.distributed._all_gather_base(
                 all_gather_buffer,
                 input,
                 group=get_tensor_model_parallel_group(), async_op=True)
+            gd.debuginfo(prj='mt', info=f'all_gather_buffer={infoTensor(all_gather_buffer)}')
+            gd.debuginfo(prj='mt', info=f'handle={handle}')
 
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the
             # gather is scheduled before the input gradient computation
             total_input = all_gather_buffer
+            gd.debuginfo(prj='mt', info=f'total_input={infoTensor(total_input)}')
+
         # 如果没有启用序列并行，那么完整的输入就是原始输入。
         else:
             gd.debuginfo(prj='mt')
             total_input = input
 
+
         # 通过矩阵乘法计算关于输入的梯度。
         grad_input = grad_output.matmul(weight)
+        gd.debuginfo(prj='mt', info=f'grad_input={infoTensor(grad_input)}')
 
         # 如果启用了序列并行，则等待所有聚集操作完成。
         if ctx.sequence_parallel:
@@ -353,15 +363,18 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         # 这些是注释，提到在NeMo的前向传递中，执行gather和slicing操作可能会导致grad_output张量
         # 不是连续的。PyTorch只检查张量是否是连续的，并且只在不连续时克隆它。
         grad_output = grad_output.contiguous() # 确保grad_output是连续的
+        gd.debuginfo(prj='mt', info=f'1-grad_output={infoTensor(grad_output)}')
 
         # Convert the tensor shapes to 2D for execution compatibility
         # 将grad_output张量的形状转化为2D，以确保兼容性。
         grad_output = grad_output.view(grad_output.shape[0] * grad_output.shape[1],
                                        grad_output.shape[2])
+        gd.debuginfo(prj='mt', info=f'2-grad_output={infoTensor(grad_output)}')
 
         # 同样地，将total_input张量也转化为2D。
         total_input = total_input.view(total_input.shape[0] * total_input.shape[1],
     			       total_input.shape[2])
+        gd.debuginfo(prj='mt', info=f'2-total_input={infoTensor(total_input)}')
 
         # 如果启用了异步的梯度all-reduce，执行该操作。这是一个分布式操作，用于聚合所有工作节点上的梯度。
         if ctx.async_grad_allreduce:
@@ -369,6 +382,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             handle = torch.distributed.all_reduce(
                 grad_input, group=get_tensor_model_parallel_group(), async_op=True
             )
+            gd.debuginfo(prj='mt', info=f'1-handle={infoTensor(handle)}')
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the
             # all-reduce is scheduled before the weight gradient computation
 
@@ -386,13 +400,13 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             handle = torch.distributed._reduce_scatter_base(sub_grad_input, grad_input,
                                                             group=get_tensor_model_parallel_group(),
                                                             async_op=True)
+            gd.debuginfo(prj='mt', info=f'2-handle={infoTensor(handle)}')
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the
             # reduce scatter is scheduled before the weight gradient computation
 
         # 根据是否启用了梯度累积融合，使用特定的CUDA操作或标准的矩阵乘法来计算权重的梯度。
         # 这个条件检查是否启用了梯度累积融合。梯度累积通常在小批量训练中用于累积梯度以在较大的有效批量上更新模型。
         if ctx.gradient_accumulation_fusion:
-            gd.debuginfo(prj='mt')
             if weight.main_grad.dtype == torch.float32:
                 gd.debuginfo(prj='mt')
                 fused_weight_gradient_mlp_cuda.wgrad_gemm_accum_fp32(total_input, grad_output, weight.main_grad)
@@ -405,8 +419,9 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             # 这意味着梯度已经在前面的CUDA函数中直接更新了（weight.main_grad），所以在这里没有返回值。
             grad_weight = None
         else:
-            gd.debuginfo(prj='mt')
             grad_weight = grad_output.t().matmul(total_input)
+            gd.debuginfo(prj='mt', info=f'grad_weight={infoTensor(grad_weight)}')
+
         # 如果使用偏置，则计算关于偏置的梯度。
         grad_bias = grad_output.sum(dim=0) if use_bias else None
 
@@ -420,6 +435,10 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         if ctx.async_grad_allreduce:
             gd.debuginfo(prj='mt')
             handle.wait()
+
+        gd.debuginfo(prj='mt', info=f'grad_input={infoTensor(grad_input)}')
+        gd.debuginfo(prj='mt', info=f'grad_weight={infoTensor(grad_weight)}')
+        gd.debuginfo(prj='mt', info=f'grad_bias={infoTensor(grad_bias)}')
 
         return grad_input, grad_weight, grad_bias, None, None, None
 

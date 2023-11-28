@@ -12,6 +12,7 @@ class IterableTextDataset(torch.utils.data.IterableDataset):
     '''Iterable over a text dataset.'''
 
     def __init__(self, text_dataset):
+        gd.debuginfo(prj="mt")
         self.text_dataset = text_dataset
 
     def __iter__(self):
@@ -24,7 +25,7 @@ class IterableTextDataset(torch.utils.data.IterableDataset):
 
 class MyFeatureExtractionPipeline(transformers.FeatureExtractionPipeline):
     def _forward(self, model_inputs):
-
+        gd.debuginfo(prj="mt")
         # Embed inputs.
         model_outputs = self.model(**model_inputs)
 
@@ -62,7 +63,7 @@ class MyFeatureExtractionPipeline(transformers.FeatureExtractionPipeline):
 class HuggingfaceEmbedder:
 
     def __init__(self, batch_size, max_seq_length):
-
+        gd.debuginfo(prj="mt")
         # Model, tokenizer.
         self.model = transformers.BertModel.from_pretrained("bert-large-cased")
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -80,7 +81,7 @@ class HuggingfaceEmbedder:
         self.batch_size = batch_size
 
     def embed_text_dataset(self, text_dataset, verbose=True):
-
+        gd.debuginfo(prj="mt")
         # Wrap dataset in iterable.
         dataset = IterableTextDataset(text_dataset)
 
@@ -109,7 +110,7 @@ class HuggingfaceEmbedder:
         Primarily used for on-the-fly embeddings, particularly during
         analysis or debugging. For large scale, use 'embed_text_dataset()'.
         '''
-
+        gd.debuginfo(prj="mt")
         class SingleTextDataset(torch.utils.data.Dataset):
             '''Dataset that holds single string.'''
             def __init__(self, text):

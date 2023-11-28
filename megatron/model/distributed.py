@@ -11,13 +11,13 @@ from megatron import get_args
 from megatron.core import mpu
 from .module import MegatronModule
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 # 5.2.2 内存
 # MemoryBuffer 是内存抽象
 class MemoryBuffer:
 
     def __init__(self, numel, numel_padded, dtype):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'C: {self.__class__.__name__}')
         self.numel = numel
         self.numel_padded = numel_padded
         self.dtype = dtype
@@ -47,7 +47,7 @@ class DistributedDataParallelBase(MegatronModule, ABC):
     """Abstract class for DDP."""
 
     def __init__(self, module):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'C: {self.__class__.__name__}')
         super(DistributedDataParallelBase, self).__init__()
         # Keep a pointer to the model.
         self.module = module

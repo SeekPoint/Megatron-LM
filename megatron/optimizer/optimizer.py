@@ -519,7 +519,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
     def __init__(self, optimizer, clip_grad, log_num_zeros_in_grad,
                  params_have_main_grad, use_contiguous_buffers_in_local_ddp,
                  fp16, bf16, params_dtype, grad_scaler, models):
-        gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0019')
 
         super().__init__(
             optimizer, clip_grad, log_num_zeros_in_grad,
@@ -591,7 +591,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
             self.fp32_from_float16_groups.append(fp32_from_float16_params_this_group)
             self.fp32_from_fp32_groups.append(fp32_params_this_group)
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0019')
 
 
     def zero_grad(self, set_to_none=True):

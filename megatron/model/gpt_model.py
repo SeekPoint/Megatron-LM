@@ -76,6 +76,9 @@ class GPTModel(MegatronModule):
                                                          args.num_layers),
             pre_process=self.pre_process,
             post_process=self.post_process)
+
+        gd.debuginfo(prj="mt", info=f'self.language_model={self.language_model}, '
+                                    f'self._language_model_key={self._language_model_key}')
         
         if not args.untie_embeddings_and_output_weights:
             gd.debuginfo(prj="mt")

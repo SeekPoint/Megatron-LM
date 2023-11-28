@@ -21,7 +21,7 @@ from .external_libs import h5py
 from .huggingface import HuggingfaceEmbedder
 from .utils import get_missing_blocks_by_rank
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
@@ -42,7 +42,7 @@ def model_provider(pre_process=True, post_process=True):
 
 def get_batch(data_iterator):
     """Build the batch."""
-
+    gd.debuginfo(prj="mt")
     # Items and their type.
     keys = ['text', 'types', 'labels', 'is_random', 'loss_mask', 'padding_mask',
             'seq_length']
@@ -77,7 +77,7 @@ def loss_func(loss_mask, sentence_order, seq_lengths,
 
 def forward_step(data_iterator, model):
     """Forward step."""
-
+    gd.debuginfo(prj="mt")
     args = get_args()
 
     # Get the batch.
@@ -101,7 +101,7 @@ def collate_batch(samples):
     This collate function handles samples with various sequence lengths, by
     padding 'text' arrays with pad_id, and other arrays with 0.
     """
-
+    gd.debuginfo(prj="mt")
     n_samples = len(samples)
     keys = list(samples[0].keys())
     tokenizer = get_tokenizer()
@@ -144,7 +144,7 @@ def get_data_loader(dataset, batch_size):
     Get a subset of the dataset (from start_idx -> end_idx), and wrap it in
     a sequential sampler and data loader.
     """
-
+    gd.debuginfo(prj="mt")
     args = get_args()
 
     # Sequential & batch samplers.
@@ -166,7 +166,7 @@ def get_data_loader(dataset, batch_size):
 
 def embed_data_loader(models, data_loader):
     '''Iterate data loader and compute embeddings.'''
-
+    gd.debuginfo(prj="mt")
     # Verify no model parallelism.
     args = get_args()
     assert args.tensor_model_parallel_size == 1 and \
@@ -197,7 +197,7 @@ class BertEmbedder:
     '''Compute Bert embeddings, from a text dataset.'''
 
     def __init__(self, batch_size, max_bert_seq_length, embedder_type):
-
+        gd.debuginfo(prj="mt", info=f'C: {self.__class__.__name__}')
         args = get_args()
 
         assert args.output_bert_embeddings
@@ -219,7 +219,7 @@ class BertEmbedder:
 
     def embed_text_dataset(self, text_dataset):
         '''Embed a text dataset.'''
-
+        gd.debuginfo(prj="mt")
         # Huggingface.
         if self.huggingface_embedder:
             return self.huggingface_embedder.embed_text_dataset(text_dataset)
@@ -240,7 +240,7 @@ class BertEmbedder:
         Primarily used for on-the-fly embeddings, particularly during
         analysis or debugging. For large scale, use 'embed_text_dataset()'.
         '''
-
+        gd.debuginfo(prj="mt", info=f'C: {self.__class__.__name__}')
         class SingleTextDataset(torch.utils.data.Dataset):
             '''Dataset that holds single string.'''
             def __init__(self, text):
@@ -263,6 +263,7 @@ class DiskDataParallelBertEmbedder:
 
     def __init__(self, batch_size, max_bert_seq_length, block_size,
                  embedder_type):
+        gd.debuginfo(prj="mt", info=f'C: {self.__class__.__name__}')
         self.embedder = BertEmbedder(batch_size, max_bert_seq_length,
                                      embedder_type)
         self.block_size = block_size
@@ -270,7 +271,7 @@ class DiskDataParallelBertEmbedder:
     def embed_text_blocks(self, name, workdir, text_dataset,
                           missing_embedding_blocks):
         '''Process a text dataset in blocks.'''
-
+        gd.debuginfo(prj="mt")
         # Iterate blocks.
         for block_index, block_info in enumerate(missing_embedding_blocks):
 
@@ -301,7 +302,7 @@ class DiskDataParallelBertEmbedder:
 
     def embed_text_dataset(self, name, workdir, text_dataset):
         '''Embed a text dataset.'''
-
+        gd.debuginfo(prj="mt")
         # Dataset workdir.
         os.makedirs(workdir, exist_ok=True)
 

@@ -11,7 +11,7 @@ _TRAIN_START_TIME = time.time()
 import torch
 from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 from megatron import get_args
 from megatron import get_signal_handler
 from megatron import get_timers
@@ -98,7 +98,7 @@ def pretrain(train_valid_test_dataset_provider,
             to set already parse arguments.
     """
 
-    gd.debuginfo(prj="mt", info=f'------__FUNC_START__--------')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0025')
 
     # 还没有init，此处不能用  if torch.distributed.get_rank() == 0:
     logf = f'_initialize_megatron_'
@@ -253,11 +253,11 @@ def pretrain(train_valid_test_dataset_provider,
                                    iteration, process_non_loss_data_func,
                                    verbose=True, write_to_tensorboard=not args.skip_train)
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0025')
 
 
 def update_train_iters(args):
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0020')
 
     # For iteration-based training, we don't need to do anything
     if args.train_iters:
@@ -287,7 +287,7 @@ def update_train_iters(args):
     gd.debuginfo(prj="mt", 
                  info=f'setting training iterations to {args.train_iters}')
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0020')
 
 '''
 5.3 get_model
@@ -314,7 +314,8 @@ def get_model(model_provider_func,
               model_type=ModelType.encoder_or_decoder,
               wrap_with_ddp=True):
     """Build the model."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__ model_type={model_type}')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0021')
+    gd.debuginfo(prj="mt", info=f'model_type={model_type}')
 
     args = get_args()
     args.model_type = model_type
@@ -388,9 +389,10 @@ def get_model(model_provider_func,
     # Only parameters that are already tensor model parallel have these
     # attributes set for them. We should make sure the default attributes
     # are set for all params so the optimizer can use them.
-    for model_module in model:
-        for param in model_module.parameters():
-            gd.debuginfo(prj="mt", info=f'model_module={model_module}, param={infoTensor(param)}')
+    for mmi, model_module in enumerate(model):
+        gd.debuginfo(prj="mt", info=f'The {mmi} model_module={model_module}')
+        for pi,param in enumerate(model_module.parameters()):
+            gd.debuginfo(prj="mt", info=f'The {mmi}--{pi} param={infoTensor(param)}')
             tensor_parallel.set_defaults_if_not_set_tensor_model_parallel_attributes(param)
 
     # Print number of parameters.
@@ -444,7 +446,7 @@ def get_model(model_provider_func,
             raise NotImplementedError('Unknown DDP implementation specified: '
                                       '{}. Exiting.'.format(args.DDP_impl))
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0021')
 
     return model
 
@@ -459,18 +461,21 @@ def get_optimizer_param_scheduler(optimizer):
     if args.train_iters:
         gd.debuginfo(prj="mt")
         if args.lr_decay_iters is None:
-            gd.debuginfo(prj="mt")
             args.lr_decay_iters = args.train_iters
+            gd.debuginfo(prj="mt", info=f'args.lr_decay_iters={args.lr_decay_iters}')
 
         lr_decay_steps = args.lr_decay_iters * args.global_batch_size
         wd_incr_steps = args.train_iters * args.global_batch_size
+        gd.debuginfo(prj="mt", info=f'lr_decay_steps={lr_decay_steps}')
+        gd.debuginfo(prj="mt", info=f'wd_incr_steps={wd_incr_steps}')
 
         if args.lr_warmup_fraction is not None:
-            gd.debuginfo(prj="mt")
             lr_warmup_steps = args.lr_warmup_fraction * lr_decay_steps
+            gd.debuginfo(prj="mt", info=f'lr_warmup_steps={lr_warmup_steps}')
         else:
-            gd.debuginfo(prj="mt")
             lr_warmup_steps = args.lr_warmup_iters * args.global_batch_size
+            gd.debuginfo(prj="mt", info=f'lr_warmup_steps={lr_warmup_steps}')
+
     # Sample-based training.
     elif args.train_samples:
         gd.debuginfo(prj="mt")
@@ -479,18 +484,20 @@ def get_optimizer_param_scheduler(optimizer):
         # batch being incomplete) but we leave it as is for now.
         update_train_iters(args)
         if args.lr_decay_samples is None:
-            gd.debuginfo(prj="mt")
             args.lr_decay_samples = args.train_samples
+            gd.debuginfo(prj="mt", info=f'args.lr_decay_samples={args.lr_decay_samples}')
 
         lr_decay_steps = args.lr_decay_samples
         wd_incr_steps = args.train_samples
+        gd.debuginfo(prj="mt", info=f'lr_decay_steps={lr_decay_steps}')
+        gd.debuginfo(prj="mt", info=f'wd_incr_steps={wd_incr_steps}')
 
         if args.lr_warmup_fraction is not None:
-            gd.debuginfo(prj="mt")
             lr_warmup_steps = args.lr_warmup_fraction * lr_decay_steps
+            gd.debuginfo(prj="mt", info=f'lr_warmup_steps={lr_warmup_steps}')
         else:
-            gd.debuginfo(prj="mt")
             lr_warmup_steps = args.lr_warmup_samples
+            gd.debuginfo(prj="mt", info=f'lr_warmup_steps={lr_warmup_steps}')
     else:
         raise Exception(
             'either train-iters or train-samples should be provided.')
@@ -509,6 +516,8 @@ def get_optimizer_param_scheduler(optimizer):
         use_checkpoint_opt_param_scheduler=args.use_checkpoint_opt_param_scheduler,
         override_opt_param_scheduler=args.override_opt_param_scheduler)
 
+    gd.debuginfo(prj="mt", info=f'opt_param_scheduler={opt_param_scheduler}')
+
     return opt_param_scheduler
 
 # 5.1 模型和优化器设置
@@ -518,7 +527,7 @@ def setup_model_and_optimizer(model_provider_func,
                               no_wd_decay_cond=None,
                               scale_lr_cond=None,
                               lr_mult=1.0):
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0022')
 
     """Setup model and optimizer."""
     args = get_args()
@@ -562,7 +571,7 @@ def setup_model_and_optimizer(model_provider_func,
             gd.debuginfo(prj="mt")
             optimizer.reload_model_params()
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0022')
 
     return model, optimizer, opt_param_scheduler
 
@@ -572,7 +581,7 @@ def setup_model_and_optimizer(model_provider_func,
 def train_step(forward_step_func, data_iterator,
                model, optimizer, opt_param_scheduler):
     """Single training step."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0023')
     args = get_args()
     timers = get_timers()
 
@@ -688,7 +697,7 @@ def train_step(forward_step_func, data_iterator,
     gd.debuginfo(prj="mt", info=f'skipped_iter={skipped_iter}')
     gd.debuginfo(prj="mt", info=f'grad_norm={grad_norm}')
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0023')
 
     return {}, skipped_iter, grad_norm, num_zeros_in_grad
 
@@ -884,7 +893,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
           train_data_iterator, valid_data_iterator,
           process_non_loss_data_func):
     """Train the model function."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0024')
 
     args = get_args()
     timers = get_timers()
@@ -1021,7 +1030,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
 
         gd.debuginfo(prj="mt", info=f'----------------------train 9--------------------------')
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0024')
 
     return iteration
 

@@ -18,7 +18,7 @@ def add_arguments(parser):
                        help='Base directory of deepspeed repository')
 
 def _load_checkpoint(queue, args):
-    gd.debuginfo(prj="mt")
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0004')
 
     # Search in directory above this
     sys.path.append(os.path.abspath(
@@ -120,6 +120,7 @@ def _load_checkpoint(queue, args):
         for rank in range(count):
             mpu.set_tensor_model_parallel_rank(rank)
             if margs.virtual_pipeline_model_parallel_size is not None:
+                gd.debuginfo(prj="mt")
                 model_ = []
                 for i in range(margs.virtual_pipeline_model_parallel_size):
                     mpu.set_virtual_pipeline_model_parallel_rank(i)
@@ -132,6 +133,7 @@ def _load_checkpoint(queue, args):
                     ).to(dtype)
                     model_.append(this_model)
             else:
+                gd.debuginfo(prj="mt")
                 pre_process = mpu.is_pipeline_first_stage()
                 post_process = mpu.is_pipeline_last_stage()
                 model_rank = 0
@@ -333,6 +335,8 @@ def _load_checkpoint(queue, args):
             }
             queue_put("binary head", message)
     queue.put("done")
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0004')
 
 def load_checkpoint(queue, args):
     try:

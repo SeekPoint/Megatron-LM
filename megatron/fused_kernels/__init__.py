@@ -16,7 +16,7 @@ from pydebug import gd, infoTensor
 # gd.debuginfo(prj="mt")
 
 def load(args):
-
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0017')
     # Check if cuda 11 is installed for compute capability 8.0
     cc_flag = []
     _, bare_metal_major, bare_metal_minor = _get_cuda_bare_metal_version(cpp_extension.CUDA_HOME)
@@ -101,13 +101,13 @@ root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06/apex# pip install --globa
         sources=[srcpath / 'scaled_softmax.cpp',
                  srcpath / 'scaled_softmax_cuda.cu']
 
-
         scaled_softmax_cuda = _cpp_extention_load_helper(
             "scaled_softmax_cuda", sources, extra_cuda_flags)
 
         gd.debuginfo(prj="mt",
                      info=f'scaled_softmax_cuda={scaled_softmax_cuda}')
 
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0017')
 
 def _get_cuda_bare_metal_version(cuda_dir):
     gd.debuginfo(prj="mt")

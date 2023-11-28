@@ -17,6 +17,7 @@ from pydebug import gd, infoTensor
 gd.debuginfo(prj="mt")
 class MegatronGenerate(Resource):
     def __init__(self, model):
+        gd.debuginfo(prj="mt", info=f'C: {self.__class__.__name__}')
         self.model = model
 
     @staticmethod

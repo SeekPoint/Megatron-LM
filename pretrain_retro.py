@@ -22,9 +22,10 @@ from pretrain_gpt import (
     train_valid_test_datasets_provider as standard_datasets_provider,
 )
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 
 def get_batch(data_iterator):
+    gd.debuginfo(prj="mt")
     """Generate a batch"""
     args = get_args()
     retro_args = get_retro_args()
@@ -80,6 +81,7 @@ def get_batch(data_iterator):
 
 def forward_step(data_iterator, model):
     """Forward step."""
+    gd.debuginfo(prj="mt")
     args = get_args()
     timers = get_timers()
 
@@ -106,6 +108,7 @@ def forward_step(data_iterator, model):
 
 
 def train_valid_test_datasets_provider(train_val_test_num_samples):
+    gd.debuginfo(prj="mt")
     """Build train, valid, and test datasets."""
     args = get_args()
     if args.retro_add_retriever:

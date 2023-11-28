@@ -161,8 +161,8 @@ def get_ltor_masks_and_position_ids(data,
 
     # Extract batch size and sequence length.
     micro_batch_size, seq_length = data.size()
-
-    gd.debuginfo(prj="mt", info=f'__FUNC_START_ micro_batch_size={micro_batch_size}, seq_length={seq_length}')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0006')
+    gd.debuginfo(prj="mt", info=f'micro_batch_size={micro_batch_size}, seq_length={seq_length}')
 
     # Attention mask (lower triangular).
     if reset_attention_mask:
@@ -236,7 +236,7 @@ def get_ltor_masks_and_position_ids(data,
     gd.debuginfo(prj="mt", info=f'loss_mask={infoTensor(loss_mask)}')
     gd.debuginfo(prj="mt", info=f'position_ids={infoTensor(position_ids)}')
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_END__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0006')
 
     return attention_mask, loss_mask, position_ids
 

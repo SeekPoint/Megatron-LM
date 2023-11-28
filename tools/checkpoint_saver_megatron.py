@@ -6,8 +6,9 @@ import sys
 
 import torch
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 def add_arguments(parser):
+    gd.debuginfo(prj="mt")
     group = parser.add_argument_group(title='Megatron saver')
 
     group.add_argument('--megatron-path', type=str, default=None,
@@ -21,7 +22,7 @@ def add_arguments(parser):
                        'in the input checkpoint if provided by the loader, otherwise to 1')
 
 def save_checkpoint(queue, args):
-
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0002')
     # Search in directory above this
     sys.path.append(os.path.abspath(
         os.path.join(os.path.dirname(__file__),
@@ -390,4 +391,5 @@ def save_checkpoint(queue, args):
         for tp_rank in range(args.target_tensor_parallel_size):
             mpu.set_tensor_model_parallel_rank(tp_rank)
             save_checkpoint(md.iteration, [models[tp_rank]], None, None)
-    gd.debuginfo(prj="mt", info=f"Done!")
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0002')

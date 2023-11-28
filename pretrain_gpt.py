@@ -54,16 +54,16 @@ def get_batch(data_iterator):
 
     data_b = tensor_parallel.broadcast_data(keys, data, datatype) # 把数据广播到各个GPU
 
-    gd.debuginfo(prj="mt", info=f'data_b={data_b}')
+    gd.debuginfo(prj="mt", info=f'data_b={infoTensor(data_b)}')
 
     # Unpack.
     tokens_ = data_b['text'].long()
     labels = tokens_[:, 1:].contiguous()
     tokens = tokens_[:, :-1].contiguous()
 
-    gd.debuginfo(prj="mt", info=f'tokens_={tokens_}')
-    gd.debuginfo(prj="mt", info=f'labels={labels}')
-    gd.debuginfo(prj="mt", info=f'tokens={tokens}')
+    gd.debuginfo(prj="mt", info=f'tokens_={infoTensor(tokens_)}')
+    gd.debuginfo(prj="mt", info=f'labels={infoTensor(labels)}')
+    gd.debuginfo(prj="mt", info=f'tokens={infoTensor(tokens)}')
 
     # Get the masks and postition ids.
     attention_mask, loss_mask, position_ids = get_ltor_masks_and_position_ids(
@@ -110,8 +110,8 @@ def forward_step(data_iterator, model):
     tokens, labels, loss_mask, attention_mask, position_ids = get_batch(
         data_iterator)
     timers('batch-generator').stop()
-    gd.debuginfo(prj="mt", info=f'tokens={tokens}')
-    gd.debuginfo(prj="mt", info=f'labels={labels}')
+    gd.debuginfo(prj="mt", info=f'tokens={infoTensor(tokens)}')
+    gd.debuginfo(prj="mt", info=f'labels={infoTensor(labels)}')
     gd.debuginfo(prj="mt", info=f'loss_mask={infoTensor(loss_mask)}')
     gd.debuginfo(prj="mt", info=f'attention_mask={infoTensor(attention_mask)}')
     gd.debuginfo(prj="mt", info=f'position_ids={infoTensor(position_ids)}')

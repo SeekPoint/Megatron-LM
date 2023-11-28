@@ -16,7 +16,7 @@ gd.debuginfo(prj="mt")
 
 def save_data(data_map, *args):
     '''Save map of numpy arrays to hdf5 file.'''
-
+    gd.debuginfo(prj="mt")
     # Parse args.
     if len(args) == 1:
         path = args[0]
@@ -38,7 +38,7 @@ def save_data(data_map, *args):
 
 def load_data(paths):
     '''Load multiple hdf5 files to single numpy array.'''
-
+    gd.debuginfo(prj="mt")
     # Read data shapes.
     shape_map = defaultdict(lambda : (0, None))
     for p in paths:
@@ -75,7 +75,7 @@ def get_missing_blocks(workdir, n_samples, block_size,
     '{start_idx}-{end_idx}.hdf5'. This method checks for the existence of
     these files, and returns a list of the ones that are missing.
     '''
-
+    gd.debuginfo(prj="mt")
     # Block ranges.
     block_start_idxs = list(range(0, n_samples, block_size))
     block_end_idxs = [ min(n_samples, i + block_size) for i in block_start_idxs ]
@@ -137,7 +137,7 @@ def get_missing_blocks_by_rank(workdir, n_samples, block_size,
     each rank has a roughly equal number of blocks to process for a
     downstream operation.
     '''
-
+    gd.debuginfo(prj="mt")
     missing_blocks = get_missing_blocks(workdir, n_samples, block_size,
                                         validate)
 
@@ -175,6 +175,7 @@ class BlockPathMap:
         return cls(sorted(glob.glob(_dir + f"/*.{ext}")), block_size)
 
     def __init__(self, block_paths, block_size):
+        gd.debuginfo(prj="mt")
         self.max_idx = 0
         self.block_path_map = {}
         for block_path in block_paths:

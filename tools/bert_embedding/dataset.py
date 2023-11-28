@@ -12,7 +12,7 @@ class BertEmbeddingDataset(torch.utils.data.Dataset):
     '''Dataset to convert a text dataset to Bert tokens.'''
 
     def __init__(self, text_dataset, max_seq_length):
-
+        gd.debuginfo(prj="mt", info=f'C: {self.__class__.__name__}')
         super().__init__()
 
         args = get_args()

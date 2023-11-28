@@ -10,7 +10,7 @@ from .grad_scaler import ConstantGradScaler, DynamicGradScaler
 from .optimizer import Float16OptimizerWithFloat16Params, FP32Optimizer
 
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 
 def get_param_groups(modules,
                      no_weight_decay_cond,
@@ -21,43 +21,58 @@ def get_param_groups(modules,
        scale_lr_cond is used during finetuning where head of the network requires a scaled
        version of the base learning rate. 
     """
+    gd.debuginfo(prj="mt")
     wd_no_scale_lr = []
     wd_scale_lr = []
     no_wd_no_scale_lr = []
     no_wd_scale_lr = []
     for module in modules:
+        gd.debuginfo(prj="mt", info=f'module={module}')
         for name, param in module.named_parameters():
+            gd.debuginfo(prj="mt", info=f'name={name}, param={infoTensor(param)}')
             if not param.requires_grad:
+                gd.debuginfo(prj="mt")
                 continue
 
             if no_weight_decay_cond is not None:
                 no_wd = no_weight_decay_cond(name, param)
+                gd.debuginfo(prj="mt", info=f'no_wd={no_wd}')
             else:
                 # do not regularize biases nor Norm parameters
                 no_wd = name.endswith(".bias") or len(param.shape) == 1
+                gd.debuginfo(prj="mt", info=f'no_wd={no_wd}')
 
             if scale_lr_cond is not None:
                 scale_lr = scale_lr_cond(name, param)
+                gd.debuginfo(prj="mt", info=f'scale_lr={scale_lr}')
             else:
                 scale_lr = False
 
             if not no_wd and not scale_lr:
+                gd.debuginfo(prj="mt")
                 wd_no_scale_lr.append(param)
             elif not no_wd and scale_lr:
+                gd.debuginfo(prj="mt")
                 wd_scale_lr.append(param)
             elif no_wd and not scale_lr:
+                gd.debuginfo(prj="mt")
                 no_wd_no_scale_lr.append(param)
             else:
+                gd.debuginfo(prj="mt")
                 no_wd_scale_lr.append(param)
 
     param_groups = []
     if len(wd_no_scale_lr):
+        gd.debuginfo(prj="mt")
         param_groups.append({'params': wd_no_scale_lr, 'wd_mult': 1.0, 'lr_mult': 1.0})
     if len(wd_scale_lr):
+        gd.debuginfo(prj="mt")
         param_groups.append({'params': wd_scale_lr, 'wd_mult': 1.0, 'lr_mult': lr_mult})
     if len(no_wd_no_scale_lr):
+        gd.debuginfo(prj="mt")
         param_groups.append({'params': no_wd_no_scale_lr, 'wd_mult': 0.0, 'lr_mult': 1.0})
     if len(no_wd_scale_lr):
+        gd.debuginfo(prj="mt")
         param_groups.append({'params': no_wd_scale_lr, 'wd_mult': 0.0, 'lr_mult': lr_mult})
 
     return param_groups
@@ -66,6 +81,7 @@ def get_megatron_optimizer(model,
                            no_weight_decay_cond=None,
                            scale_lr_cond=None,
                            lr_mult=1.0):
+    gd.debuginfo(prj="mt")
     args = get_args()
 
     # Base optimizer.
@@ -80,11 +96,14 @@ def get_megatron_optimizer(model,
                          weight_decay=args.weight_decay,
                          betas=(args.adam_beta1, args.adam_beta2),
                          eps=args.adam_eps)
+        gd.debuginfo(prj="mt", info=f'optimizer={optimizer}')
+
     elif args.optimizer == 'sgd':
         optimizer = SGD(param_groups,
                         lr=args.lr,
                         weight_decay=args.weight_decay,
                         momentum=args.sgd_momentum)
+        gd.debuginfo(prj="mt", info=f'optimizer={optimizer}')
     else:
         raise Exception('{} optimizer is not supported.'.format(
             args.optimizer))
@@ -92,6 +111,7 @@ def get_megatron_optimizer(model,
     # Determine whether the params have main-grad field.
     params_have_main_grad = False
     if args.DDP_impl == 'local':
+        gd.debuginfo(prj="mt")
         params_have_main_grad = True
 
     # Mixed precision optimizer.
@@ -99,6 +119,7 @@ def get_megatron_optimizer(model,
     #   from the MixedPrecisionOptimizer, which manages any optimizer where
     #   the model params and main params are distinct.
     if args.fp16 or args.bf16 or args.use_distributed_optimizer:
+        gd.debuginfo(prj="mt")
 
         # Grad scaler:
         #    if loss-scale is provided, instantiate the constant scaler.
@@ -111,6 +132,7 @@ def get_megatron_optimizer(model,
         # Constant loss scale.
         if args.loss_scale:
             grad_scaler = ConstantGradScaler(args.loss_scale)
+            gd.debuginfo(prj="mt", info=f'grad_scaler={grad_scaler}')
 
         # Dynamic loss scale.
         else:
@@ -122,11 +144,14 @@ def get_megatron_optimizer(model,
                     backoff_factor=0.5,
                     growth_interval=args.loss_scale_window,
                     hysteresis=args.hysteresis)
+                gd.debuginfo(prj="mt", info=f'grad_scaler={grad_scaler}')
 
         # Megatron optimizer.
         opt_ty = DistributedOptimizer \
             if args.use_distributed_optimizer else \
             Float16OptimizerWithFloat16Params
+        gd.debuginfo(prj="mt", info=f'opt_ty={opt_ty}')
+
         return opt_ty(optimizer,
                       args.clip_grad,
                       args.log_num_zeros_in_grad,
