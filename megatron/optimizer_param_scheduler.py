@@ -119,6 +119,7 @@ class OptimizerParamScheduler(object):
 
 
     def step(self, increment):
+        gd.debuginfo(prj="mt")
         """Set lr for all parameters groups."""
         self.num_steps += increment
         new_lr = self.get_lr()

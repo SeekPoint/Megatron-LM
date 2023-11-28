@@ -212,6 +212,8 @@ class VocabParallelEmbedding(torch.nn.Module):
     因此需要对embedding最终输出做一个all-reduce操作，这样可以得到完整embedding。
     '''
     def forward(self, input_):
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0042')
+        gd.debuginfo(prj="mt", info=f'input_={input_}')
         if self.tensor_model_parallel_size > 1:
             # Build the mask.
             input_mask = (input_ < self.vocab_start_index) | (input_ >= self.vocab_end_index)
@@ -219,6 +221,7 @@ class VocabParallelEmbedding(torch.nn.Module):
 
             # Mask the input.
             masked_input = input_.clone() - self.vocab_start_index
+            gd.debuginfo(prj='mt', info=f"masked_input={infoTensor(masked_input)}")
             masked_input[input_mask] = 0
         else:
             gd.debuginfo(prj='mt', info=f"input_={infoTensor(input_)}")
@@ -237,12 +240,15 @@ class VocabParallelEmbedding(torch.nn.Module):
 
         # Mask the output embedding.
         if self.tensor_model_parallel_size > 1:
+            gd.debuginfo(prj='mt')
             output_parallel[input_mask, :] = 0.0
 
         # Reduce across all the model parallel GPUs.
         output = reduce_from_tensor_model_parallel_region(output_parallel)
 
         gd.debuginfo(prj='mt', info=f"output={infoTensor(output)}")
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0042')
 
         return output
 
@@ -264,7 +270,17 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         async_grad_allreduce,
         sequence_parallel,
     ):
-        gd.debuginfo(prj='mt')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0041')
+        gd.debuginfo(prj='mt', info=f"input={infoTensor(input)}")
+        gd.debuginfo(prj='mt', info=f"weight={infoTensor(weight)}")
+        gd.debuginfo(prj='mt', info=f"bias={infoTensor(bias)}")
+
+        gd.debuginfo(prj='mt', info=f"ctx={ctx}")
+        gd.debuginfo(prj='mt', info=f"gradient_accumulation_fusion={gradient_accumulation_fusion}")
+        gd.debuginfo(prj='mt', info=f"async_grad_allreduce={async_grad_allreduce}")
+        gd.debuginfo(prj='mt', info=f"sequence_parallel={sequence_parallel}")
+
+
         # 使用上下文对象ctx保存输入和权重，以便在后向传播中使用。
         ctx.save_for_backward(input, weight)
         # 在上下文对象ctx中存储其他变量和标志。
@@ -275,15 +291,17 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
 
         # 如果启用了序列并行，则进行以下操作：
         if sequence_parallel:
-            gd.debuginfo(prj='mt')
             # 获取模型并行的world_size（通常是参与并行处理的GPU数量）。
             world_size = get_tensor_model_parallel_world_size()
             # 更改输入的第一个维度以考虑模型并行的全部大小。
             dim_size = list(input.size())
             dim_size[0] = dim_size[0] * world_size
 
+            gd.debuginfo(prj='mt', info=f"world_size={world_size}, dim_size={dim_size}, dim_size[0]={dim_size[0]}")
+
             # 收集所有GPU上的输入。
             all_gather_buffer = get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
+            gd.debuginfo(prj='mt', info=f"all_gather_buffer={infoTensor(all_gather_buffer)}")
 
             torch.distributed._all_gather_base(
                 all_gather_buffer,
@@ -293,21 +311,27 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             # 更新total_input为收集的数据。
             total_input = all_gather_buffer
         else:
-            gd.debuginfo(prj='mt')
             # 如果不使用序列并行，则total_input仅仅是传入的输入。
             total_input = input
+            gd.debuginfo(prj='mt', info=f"total_input={infoTensor(total_input)}")
 
         # 对total_input和weight的转置进行矩阵乘法以计算输出。
         output = torch.matmul(total_input, weight.t())
+        gd.debuginfo(prj='mt', info=f"output={infoTensor(output)}")
+
         # 如果提供了偏置，则将其添加到输出中
         if bias is not None:
-            gd.debuginfo(prj='mt')
             output = output + bias
+            gd.debuginfo(prj='mt', info=f"output={infoTensor(output)}")
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0041')
+
         return output
 
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output):
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0039')
         gd.debuginfo(prj='mt', info=f'grad_output={infoTensor(grad_output)}')
 
         # 从上下文对象中恢复前向传播保存的张量
@@ -439,7 +463,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         gd.debuginfo(prj='mt', info=f'grad_input={infoTensor(grad_input)}')
         gd.debuginfo(prj='mt', info=f'grad_weight={infoTensor(grad_weight)}')
         gd.debuginfo(prj='mt', info=f'grad_bias={infoTensor(grad_bias)}')
-
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0039')
         return grad_input, grad_weight, grad_bias, None, None, None
 
 #可以看到gradient_accumulation_fusion这个优化作用于Linear层中对weight求梯度的时候，调用了apex库提供的2个fuse cuda kernel原地更新了weight的梯度。
@@ -756,20 +780,25 @@ class ColumnParallelLinear(torch.nn.Module):
             - output
             - bias
         """
-        gd.debuginfo(prj='mt')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0038')
+
         # 如果选择忽略 bias，就会设置为 None，后续就不用处理了
         bias = self.bias if not self.skip_bias_add else None
 
+        gd.debuginfo(prj="mt", info=f'input_={infoTensor(input_)}')
+        gd.debuginfo(prj="mt", info=f'bias={infoTensor(bias)}')
+
         # 下面主要是图中的 f 操作
         if self.async_tensor_model_parallel_allreduce or self.sequence_parallel_enabled:
-            gd.debuginfo(prj='mt')
             # 建立反向传播时候的异步all-reduce
             input_parallel = input_
+            gd.debuginfo(prj="mt", info=f'input_parallel={infoTensor(input_parallel)}')
         else:
             gd.debuginfo(prj='mt')
             # Set up backprop all-reduce.
             # 建立反向传播all-reduce，就是图中f的backward
             input_parallel = copy_to_tensor_model_parallel_region(input_)
+            gd.debuginfo(prj="mt", info=f'input_parallel={infoTensor(input_parallel)}')
 
         # Matrix multiply.
         # Maxtrix multiply with asynchronouse all-reduce execution.
@@ -782,18 +811,25 @@ class ColumnParallelLinear(torch.nn.Module):
             sequence_parallel_enabled=self.sequence_parallel_enabled,
         )
 
+        gd.debuginfo(prj="mt", info=f'output_parallel={infoTensor(output_parallel)}')
+
         # 下面就是图中的 g 操作
         if self.gather_output:  # 是否需要聚合操作
             # All-gather across the partitions.
             # 聚合输出，就是图中 g 的 forward
             assert not self.sequence_parallel_enabled
             output = gather_from_tensor_model_parallel_region(output_parallel)
-            gd.debuginfo(prj='mt')
+            gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
         else:
-            gd.debuginfo(prj='mt')
             output = output_parallel
+            gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
 
         output_bias = self.bias if self.skip_bias_add else None # 如果不忽略bias，还得传出去
+
+        gd.debuginfo(prj="mt", info=f'output_bias={infoTensor(output_bias)}')
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0038')
+
         return output, output_bias
 
 '''
@@ -926,6 +962,8 @@ class RowParallelLinear(torch.nn.Module):
             - output
             - bias
         """
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0043')
+
         # Set up backprop all-reduce.
         if self.input_is_parallel:
             gd.debuginfo(prj='mt', info=f'input_={infoTensor(input_)}')
@@ -965,5 +1003,7 @@ class RowParallelLinear(torch.nn.Module):
             output_bias = self.bias
             gd.debuginfo(prj='mt', info=f'output={infoTensor(output)}')
             gd.debuginfo(prj='mt', info=f'output_bias={infoTensor(output_bias)}')
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0043')
 
         return output, output_bias

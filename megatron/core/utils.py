@@ -108,15 +108,18 @@ def make_viewless_tensor(inp, requires_grad, keep_graph):
     switch for determining if an autograd function or a regular method
     should be used to create the tensor.
     '''
-    gd.debuginfo(prj='mt')
+    gd.debuginfo(prj='mt', info=f'inp={infoTensor(inp)}')
     # return tensor as-is, if not a 'view'
     if inp._base is None:
+        gd.debuginfo(prj='mt')
         return inp
 
     # create viewless tensor
     if keep_graph:
+        gd.debuginfo(prj='mt')
         return MakeViewlessTensor.apply(inp, requires_grad)
     else:
+        gd.debuginfo(prj='mt')
         return _kernel_make_viewless_tensor(inp, requires_grad)
 
 def assert_viewless_tensor(tensor, extra_msg = None):

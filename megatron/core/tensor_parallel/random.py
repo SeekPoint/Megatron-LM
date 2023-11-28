@@ -43,22 +43,29 @@ def _set_cuda_rng_state(new_state, device=-1):
         # older PyTorch
         def cb():
             with device_ctx_manager(device):
+                gd.debuginfo(prj='mt')
                 _C._cuda_setRNGState(new_state)
     else:
-        gd.debuginfo(prj='mt')
         # newer PyTorch
         if device == -1:
             device = torch.device('cuda')
+            gd.debuginfo(prj='mt', info=f'device={device}')
         elif isinstance(device, str):
             device = torch.device(device)
+            gd.debuginfo(prj='mt', info=f'device={device}')
         elif isinstance(device, int):
             device = torch.device('cuda', device)
+            gd.debuginfo(prj='mt', info=f'device={device}')
 
         def cb():
             idx = device.index
+            gd.debuginfo(prj='mt', info=f'idx={idx}')
             if idx is None:
                 idx = torch.cuda.current_device()
+                gd.debuginfo(prj='mt', info=f'idx={idx}')
+
             default_generator = torch.cuda.default_generators[idx]
+            gd.debuginfo(prj='mt', info=f'default_generator={default_generator}')
             default_generator.set_state(new_state)
 
     _lazy_call(cb)
@@ -121,22 +128,29 @@ class CudaRNGStatesTracker:
 
     @contextlib.contextmanager
     def fork(self, name=_MODEL_PARALLEL_RNG_TRACKER_NAME):
-        gd.debuginfo(prj='mt')
+
         """Fork the cuda rng state, perform operations, and exit with
         the original state."""
         # Check if we have added the state
         if name not in self.states_:
             raise Exception('cuda rng state {} is not added'.format(name))
+
         # Store current rng state.
         orig_cuda_rng_state = torch.cuda.get_rng_state()
+        gd.debuginfo(prj='mt', info=f'orig_cuda_rng_state={orig_cuda_rng_state}')
+        gd.debuginfo(prj='mt', info=f'self.states_[name]={self.states_[name]}')
+
         # Set rng state to the desired one
         _set_cuda_rng_state(self.states_[name])
+
         # Do the stuff we wanted to do.
         try:
             yield
         finally:
             # Update the current rng state for later use.
             self.states_[name] = torch.cuda.get_rng_state()
+            gd.debuginfo(prj='mt', info=f'self.states_[name]={self.states_[name]}')
+
             # And set the state to the original state we started with.
             _set_cuda_rng_state(orig_cuda_rng_state)
 

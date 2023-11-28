@@ -52,9 +52,10 @@ def get_batch(data_iterator):
     else:
         data = None
 
+    # 返回一个字典
     data_b = tensor_parallel.broadcast_data(keys, data, datatype) # 把数据广播到各个GPU
-
-    gd.debuginfo(prj="mt", info=f'data_b={infoTensor(data_b)}')
+    for k, v in data_b.items():
+        gd.debuginfo(prj="mt", info=f'data_b[{k}]={infoTensor(v)}')
 
     # Unpack.
     tokens_ = data_b['text'].long()

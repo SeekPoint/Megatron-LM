@@ -34,7 +34,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
     Returns a function to finalize distributed env initialization 
     (optionally, only when args.lazy_mpu_init == True)
     """
-    gd.debuginfo(prj="mt", info='__FUNC_START__')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0040')
 
     if not allow_no_cuda:
         # Make sure cuda is available.
@@ -77,7 +77,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         # to call when it has DDP initialized
         mpu.set_tensor_model_parallel_rank(args.rank)
 
-        gd.debuginfo(prj="mt", info='__FUNC_END__')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0040')
         return finish_mpu_init
     else:
         gd.debuginfo(prj="mt", info='------1----')
@@ -92,7 +92,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         _compile_dependencies()
         gd.debuginfo(prj="mt", info='------5----')
         # No continuation function
-        gd.debuginfo(prj="mt", info='__FUNC_END__') # codepa
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0040') # codepa
         return None
 
 
@@ -289,42 +289,60 @@ def set_jit_fusion_options():
 
     _warmup_jit_function()
 
-
+# only one call in init
 def _warmup_jit_function():
     """ Compilie JIT functions before the main training steps """
     args = get_args()
-    gd.debuginfo(prj="mt")
     if args.bf16:
+        gd.debuginfo(prj="mt")
         dtype = torch.bfloat16
     elif args.fp16:
+        gd.debuginfo(prj="mt")
         dtype = torch.float16
     else:
+        gd.debuginfo(prj="mt")
         dtype = torch.float32
 
     # Warmup fused bias+gelu
     bias = torch.rand(args.ffn_hidden_size // args.tensor_model_parallel_size,
                       dtype=dtype, device='cuda')
+
     input = torch.rand((args.seq_length, args.micro_batch_size,
                         args.ffn_hidden_size // args.tensor_model_parallel_size),
                        dtype=dtype, device='cuda')
+
+    gd.debuginfo(prj="mt", info=f'1-bias={infoTensor(bias)}')
+    gd.debuginfo(prj="mt", info=f'1-input={infoTensor(input)}')
+
     # Warmup JIT fusions with the input grad_enable state of both forward
     # prop and recomputation
     for bias_grad, input_grad in zip([True, True], [False, True]):
         bias.requires_grad, input.requires_grad = bias_grad, input_grad
         for _ in range(5):
             output = bias_gelu(bias, input)
+
+    gd.debuginfo(prj="mt", info=f'1-output={infoTensor(output)}')
+
     del bias, input, output
 
     # Warmup fused bias+dropout+add
     if args.sequence_parallel:
         seq_length = args.seq_length // mpu.get_tensor_model_parallel_world_size()
+        gd.debuginfo(prj="mt", info=f'seq_length={seq_length}')
     else:
         seq_length = args.seq_length
+        gd.debuginfo(prj="mt", info=f'seq_length={seq_length}')
+
     input = torch.rand((seq_length, args.micro_batch_size, args.hidden_size),
                        dtype=dtype, device='cuda')
     residual = torch.rand((seq_length, args.micro_batch_size, args.hidden_size),
                           dtype=dtype, device='cuda')
     bias = torch.rand((args.hidden_size), dtype=dtype, device='cuda').expand_as(residual)
+
+    gd.debuginfo(prj="mt", info=f'2-residual={infoTensor(residual)}')
+    gd.debuginfo(prj="mt", info=f'2-input={infoTensor(input)}')
+    gd.debuginfo(prj="mt", info=f'2-bias={infoTensor(bias)}')
+
     dropout_rate = 0.1
     # Warmup JIT fusions with the input grad_enable state of both forward
     # prop and recomputation
@@ -334,5 +352,8 @@ def _warmup_jit_function():
         residual.requires_grad = residual_grad
         for _ in range(5):
             output = bias_dropout_add_fused_train(input, bias, residual, dropout_rate)
+
+    gd.debuginfo(prj="mt", info=f'2-output={infoTensor(output)}')
+
     del bias, input, residual, output
     torch.cuda.empty_cache()

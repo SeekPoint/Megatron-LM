@@ -1006,27 +1006,30 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         def copy_group_params(shard_main_groups, model_groups):
             gd.debuginfo(prj="mt")
 
-            for shard_main_group, model_group in zip(shard_main_groups,
-                                                     model_groups):
-                for shard_main_param, model_param in zip(shard_main_group,
-                                                         model_group):
-
+            for i, (shard_main_group, model_group) in zip(shard_main_groups, model_groups):
+                for j, (shard_main_param, model_param) in zip(shard_main_group, model_group):
+                    gd.debuginfo(prj="mt", info=f'i={i}, j={j}')
                     param_range_map = self.get_model_param_range_map(model_param)
                     world_range = param_range_map["gbuf_world"]
+                    gd.debuginfo(prj="mt", info=f'param_range_map={param_range_map}, world_range={world_range}')
 
                     assert world_range.size == shard_main_param.nelement()
 
                     model_id, dtype = self.model_param_gbuf_map[model_param]
                     model_param_buffer = self.param_buffers[model_id][dtype]
+                    gd.debuginfo(prj="mt", info=f'model_id={model_id}, dtype={dtype}')
+                    gd.debuginfo(prj="mt", info=f'model_param_buffer={model_param_buffer}')
 
                     shard_model_param = model_param_buffer.view(-1) \
                         [world_range.start:world_range.end]
+                    gd.debuginfo(prj="mt", info=f'shard_model_param={infoTensor(shard_model_param)}')
 
                     shard_model_param.data.copy_(shard_main_param)
 
         # Copy shard groups to model groups.
         copy_group_params(self.shard_fp32_from_float16_groups,
                           self.model_float16_groups)
+        gd.debuginfo(prj="mt", info=f'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
         copy_group_params(self.shard_fp32_groups,
                           self.model_fp32_groups)
 

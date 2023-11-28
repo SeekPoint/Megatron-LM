@@ -14,5 +14,6 @@ openwebtxt/
 index-cache/
 pybind11/
 experiments_codeparrot-small/
+experiments_enwiki-small/
 megatron/data/helpers*
 _log_tmps_

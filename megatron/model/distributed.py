@@ -187,7 +187,7 @@ class DistributedDataParallel(DistributedDataParallelBase):
     下面是两个支撑函数，分别是用于拷贝梯度和将buffer清零。
     '''
     def _make_param_hook(self, param):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'param={param}')
         """Create the all-reduce hook for backprop."""
         # Hook used for back-prop.
         def param_hook(*unused):
@@ -229,19 +229,20 @@ class DistributedDataParallel(DistributedDataParallelBase):
         """Reduce gradients across data parallel ranks."""
         # If we have buffers, simply reduce the data in the buffer.
         if self._grad_buffers is not None:
-            gd.debuginfo(prj="mt")
             for _, buffer_ in self._grad_buffers.items():
                 buffer_.data /= mpu.get_data_parallel_world_size()
+                gd.debuginfo(prj="mt", info=f'buffer_={buffer_}')
                 torch.distributed.all_reduce(
                     buffer_.data, group=mpu.get_data_parallel_group())
         else:
-            gd.debuginfo(prj="mt")
             # Otherwise, bucketize and all-reduce
             buckets = {}
             # Pack the buckets.
-            for param in self.module.parameters():
+            for pi, param in enumerate(self.module.parameters()):
+                gd.debuginfo(prj="mt", info=f'pi={pi}, param={infoTensor(param)}')
                 if param.requires_grad and param.grad is not None:
                     tp = param.data.type()
+                    gd.debuginfo(prj="mt", info=f'tp={tp}')
                     if tp not in buckets:
                         buckets[tp] = []
                     buckets[tp].append(param)
@@ -249,12 +250,18 @@ class DistributedDataParallel(DistributedDataParallelBase):
 
             # For each bucket, all-reduce and copy all-reduced grads.
             for tp in buckets:
+                gd.debuginfo(prj="mt", info=f'tp={tp}')
                 bucket = buckets[tp]
                 grads = [param.grad.data for param in bucket]
                 coalesced = _flatten_dense_tensors(grads)
+                gd.debuginfo(prj="mt", info=f'coalesced={coalesced}')
+
                 coalesced /= mpu.get_data_parallel_world_size()
+                gd.debuginfo(prj="mt", info=f'coalesced={coalesced}')
+
                 torch.distributed.all_reduce(
                     coalesced, group=mpu.get_data_parallel_group())
-                for buf, synced in zip(grads, _unflatten_dense_tensors(
-                        coalesced, grads)):
+
+                for i, (buf, synced) in zip(grads, _unflatten_dense_tensors(coalesced, grads)):
+                    gd.debuginfo(prj="mt", info=f'i={i}, buf={buf}, synced={synced}')
                     buf.copy_(synced)

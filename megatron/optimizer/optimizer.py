@@ -404,6 +404,7 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
 
         # Collect main grads.
         main_grads = self._collect_main_grad_data_for_unscaling()
+        gd.debuginfo(prj="mt", info=f'found_inf_flag={infoTensor(main_grads)}')
 
         # Reset found inf.
         self.found_inf.fill_(0.0)
@@ -425,7 +426,7 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
 
     @torch.no_grad()
     def step(self, args, timers):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0033')
 
         # Copy gradients from model params to main params.
         timers('optimizer-copy-to-main-grad', log_level=1).start(
@@ -437,12 +438,14 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
         # Do unscale, check for inf, and update grad scaler only for
         # the case that grad scaler is provided.
         if self.grad_scaler:
-            gd.debuginfo(prj="mt")
+
             # Unscale and check for inf/nan.
             timers('optimizer-unscale-and-check-inf', log_level=1).start(
                 barrier=args.barrier_with_L1_time)
             found_inf_flag = self._unscale_main_grads_and_check_for_nan()
             timers('optimizer-unscale-and-check-inf').stop()
+
+            gd.debuginfo(prj="mt", info=f'found_inf_flag={found_inf_flag}')
 
             # We are done with scaling gradients
             # so we can update the loss scale.
@@ -450,6 +453,7 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
 
             # If we found inf/nan, skip the update.
             if found_inf_flag:
+                gd.debuginfo(prj="mt")
                 return False, None, None
 
         # Clip the main gradients.
@@ -457,8 +461,8 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
 
         grad_norm = None
         if self.clip_grad > 0.0:
-            gd.debuginfo(prj="mt")
             grad_norm = self.clip_grad_norm(self.clip_grad)
+            gd.debuginfo(prj="mt", info=f'grad_norm={infoTensor(grad_norm)}')
         timers('optimizer-clip-main-grad').stop()
 
         # Count the zeros in the grads.
@@ -466,13 +470,15 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
             barrier=args.barrier_with_L1_time)
 
         num_zeros_in_grad = self.count_zeros() if self.log_num_zeros_in_grad else None
+        gd.debuginfo(prj="mt", info=f'num_zeros_in_grad={infoTensor(num_zeros_in_grad)}')
 
         timers('optimizer-count-zeros').stop()
 
         # Step the optimizer.
         timers('optimizer-inner-step', log_level=1).start(barrier=args.barrier_with_L1_time)
-
+        gd.debuginfo(prj="mt", info=f'----------optimizer-inner-step start----------------------------')
         self.optimizer.step()
+        gd.debuginfo(prj="mt", info=f'----------optimizer-inner-step end----------------------------')
 
         timers('optimizer-inner-step').stop()
 
@@ -481,6 +487,8 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
 
         self._copy_main_params_to_model_params()
         timers('optimizer-copy-main-to-model-params').stop()
+
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0033')
 
         # Successful update.
         return True, grad_norm, num_zeros_in_grad
@@ -630,7 +638,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
                     main_grads.append(main_param.grad.data)
                 else:
                     gd.debuginfo(prj="mt", info=f'main_param.grad is None')
-
+        gd.debuginfo(prj="mt", info=f'++++++++++++++++++++++++++++++++++++++++++++++++++++++')
         # Append fp32 parameters.
         for index, main_group in enumerate(self.fp32_from_fp32_groups):
             gd.debuginfo(prj="mt", info=f'fp32_from_fp32 main_group[{index}]')
@@ -663,14 +671,21 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
 
 
     def _copy_model_grads_to_main_grads(self):
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0037')
         # This only needs to be done for the float16 group.
-        for model_group, main_group in zip(self.float16_groups,
-                                           self.fp32_from_float16_groups):
-            for model_param, main_param in zip(model_group, main_group):
+        for mgi, (model_group, main_group) in enumerate(zip(self.float16_groups,
+                                                          self.fp32_from_float16_groups)):
+            for mpi, (model_param, main_param) in enumerate(zip(model_group, main_group)):
+                gd.debuginfo(prj="mt", info=f'mgi={mgi}, mpi={mpi}, '
+                                            f'main_param={infoTensor(main_param)}, '
+                                            f'model_param={infoTensor(model_param)}')
                 if self.params_have_main_grad and hasattr(model_param, 'main_grad'):
+                    gd.debuginfo(prj="mt")
                     main_param.grad = model_param.main_grad.float()
                 else:
+                    gd.debuginfo(prj="mt")
                     if model_param.grad is not None:
+                        gd.debuginfo(prj="mt")
                         main_param.grad = model_param.grad.float()
 
                 # Safe to deallocate model's grad/main_grad after copying.
@@ -679,22 +694,27 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
                 model_param.grad = None
                 if self.params_have_main_grad and \
                    not self.use_contiguous_buffers_in_local_ddp:
+                    gd.debuginfo(prj="mt")
                     model_param.main_grad = None
 
         # For fp32 grads, we need to reset the grads to main grad.
         if self.params_have_main_grad:
-            for model_group in self.fp32_from_fp32_groups:
-                for model_param in model_group:
+            for gi, model_group in enumerate(self.fp32_from_fp32_groups):
+                for pi, model_param in enumerate(model_group):
+                    gd.debuginfo(prj="mt", info=f'gi={gi}, pi={pi}, '
+                                                f'model_param={infoTensor(model_param)}')
                     model_param.grad = model_param.main_grad
 
                     # Safe to de-reference model's main_grad after copying.
                     # (If using contiguous buffers, main_grad's memory should
                     # persist and therefore should not be deallocated.)
                     if not self.use_contiguous_buffers_in_local_ddp:
+                        gd.debuginfo(prj="mt")
                         model_param.main_grad = None
-
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0037')
 
     def _copy_main_params_to_model_params(self):
+        gd.debuginfo(prj="mt")
         # Only needed for the float16 params.
         model_data, main_data = self._get_model_and_main_params_data_float16()
         _multi_tensor_copy_this_to_that(this=main_data, that=model_data,

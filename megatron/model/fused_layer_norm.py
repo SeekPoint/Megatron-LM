@@ -80,15 +80,16 @@ class MixedFusedLayerNorm(torch.nn.Module):
         init.zeros_(self.bias)
 
   def forward(self, input):
-
     weight = self.weight + 1 if self.apply_layernorm_1p else self.weight
+    gd.debuginfo(prj="mt", info=f'weight={weight}')
 
     if self.no_persist_layer_norm:
         gd.debuginfo(prj="mt")
         return FusedLayerNormAffineFunction.apply(input, weight, self.bias, self.normalized_shape, self.eps)
     else:
-        gd.debuginfo(prj="mt")
+
         output = FastLayerNormFN.apply(input, weight, self.bias, self.eps)
+        gd.debuginfo(prj="mt", info=f'1-output={output}')
 
         # Apex's fast layer norm function outputs a 'view' tensor (i.e., has
         # a populated '_base' field). This will result in schedule.py's
@@ -97,5 +98,7 @@ class MixedFusedLayerNorm(torch.nn.Module):
         output = make_viewless_tensor(inp = output,
                                       requires_grad = input.requires_grad,
                                       keep_graph = True)
+
+        gd.debuginfo(prj="mt", info=f'2-output={output}')
 
         return output

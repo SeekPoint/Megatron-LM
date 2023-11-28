@@ -14,7 +14,7 @@ GENERATE_NUM = 0
 BEAM_NUM = 1
 lock = threading.Lock()
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 class MegatronGenerate(Resource):
     def __init__(self, model):
         gd.debuginfo(prj="mt", info=f'C: {self.__class__.__name__}')
@@ -182,8 +182,8 @@ class MegatronGenerate(Resource):
             
             if not no_log:
                 gd.debuginfo(prj="mt", info=f"request IP: " + str(request.remote_addr))
-                gd.debuginfo(prj="mt", info=fjson.dumps(request.get_json()),flush=True)
-                gd.debuginfo(prj="mt", info=f"start time: ", datetime.datetime.now())
+                gd.debuginfo(prj="mt", info=f"json.dumps(request.get_json())")
+                gd.debuginfo(prj="mt", info=f"start time: {datetime.datetime.now()}")
             
             try:
                 if beam_width is not None:
@@ -230,7 +230,8 @@ class MegatronGenerate(Resource):
 
             except ValueError as ve:
                 return ve.args[0]
-            gd.debuginfo(prj="mt", info=f"end time: ", datetime.datetime.now())
+
+            gd.debuginfo(prj="mt", info=f"end time: {datetime.datetime.now()}")
         
 
 class MegatronServer(object):

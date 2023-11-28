@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from megatron.model.enums import AttnMaskType
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
+
 
 class ScaledUpperTriangMaskedSoftmax(torch.autograd.Function):
     """
@@ -17,7 +17,7 @@ class ScaledUpperTriangMaskedSoftmax(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, inputs, scale):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'inputs={infoTensor(inputs)}, scale={scale}')
         import scaled_upper_triang_masked_softmax_cuda
 
         scale_t = torch.tensor([scale])
@@ -26,17 +26,25 @@ class ScaledUpperTriangMaskedSoftmax(torch.autograd.Function):
         )
 
         ctx.save_for_backward(softmax_results, scale_t)
+
+        gd.debuginfo(prj="mt", info=f'softmax_results={infoTensor(softmax_results)}')
+        gd.debuginfo(prj="mt", info=f'scale_t={infoTensor(scale_t)}')
+
         return softmax_results
 
     @staticmethod
     def backward(ctx, output_grads):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'output_grads={infoTensor(output_grads)}')
         import scaled_upper_triang_masked_softmax_cuda
 
         softmax_results, scale_t = ctx.saved_tensors
         input_grads = scaled_upper_triang_masked_softmax_cuda.backward(
             output_grads, softmax_results, scale_t[0]
         )
+
+        gd.debuginfo(prj="mt", info=f'softmax_results={infoTensor(softmax_results)}')
+        gd.debuginfo(prj="mt", info=f'scale_t={infoTensor(scale_t)}')
+        gd.debuginfo(prj="mt", info=f'input_grads={infoTensor(input_grads)}')
 
         return input_grads, None
 
@@ -51,18 +59,22 @@ class ScaledMaskedSoftmax(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, inputs, mask, scale):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'mask={infoTensor(mask)}, scale={scale}')
         import scaled_masked_softmax_cuda
 
         scale_t = torch.tensor([scale])
 
         softmax_results = scaled_masked_softmax_cuda.forward(inputs, mask, scale_t[0])
         ctx.save_for_backward(softmax_results, scale_t)
+
+        gd.debuginfo(prj="mt", info=f'softmax_results={infoTensor(softmax_results)}')
+        gd.debuginfo(prj="mt", info=f'scale_t={infoTensor(scale_t)}')
+
         return softmax_results
 
     @staticmethod
     def backward(ctx, output_grads):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'output_grads={infoTensor(output_grads)}')
         import scaled_masked_softmax_cuda
 
         softmax_results, scale_t = ctx.saved_tensors
@@ -70,6 +82,11 @@ class ScaledMaskedSoftmax(torch.autograd.Function):
         input_grads = scaled_masked_softmax_cuda.backward(
             output_grads, softmax_results, scale_t[0]
         )
+
+        gd.debuginfo(prj="mt", info=f'softmax_results={infoTensor(softmax_results)}')
+        gd.debuginfo(prj="mt", info=f'scale_t={infoTensor(scale_t)}')
+        gd.debuginfo(prj="mt", info=f'input_grads={infoTensor(input_grads)}')
+
         return input_grads, None, None
 
 
@@ -82,7 +99,7 @@ class ScaledSoftmax(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, inputs, scale):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'inputs={infoTensor(inputs)}, scale={scale}')
         import scaled_softmax_cuda
 
         scale_t = torch.tensor([scale])
@@ -91,11 +108,15 @@ class ScaledSoftmax(torch.autograd.Function):
             inputs, scale_t[0]
         )
         ctx.save_for_backward(softmax_results, scale_t)
+
+        gd.debuginfo(prj="mt", info=f'softmax_results={infoTensor(softmax_results)}')
+        gd.debuginfo(prj="mt", info=f'scale_t={infoTensor(scale_t)}')
+
         return softmax_results
 
     @staticmethod
     def backward(ctx, output_grads):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'output_grads={infoTensor(output_grads)}')
         import scaled_softmax_cuda
 
         softmax_results, scale_t = ctx.saved_tensors
@@ -103,6 +124,11 @@ class ScaledSoftmax(torch.autograd.Function):
         input_grads = scaled_softmax_cuda.backward(
             output_grads, softmax_results, scale_t[0]
         )
+
+        gd.debuginfo(prj="mt", info=f'softmax_results={infoTensor(softmax_results)}')
+        gd.debuginfo(prj="mt", info=f'scale_t={infoTensor(scale_t)}')
+        gd.debuginfo(prj="mt", info=f'input_grads={infoTensor(input_grads)}')
+
         return input_grads, None, None
 
 

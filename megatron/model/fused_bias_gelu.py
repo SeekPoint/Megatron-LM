@@ -33,15 +33,18 @@ class GeLUFunction(torch.autograd.Function):
     @staticmethod
     # bias is an optional argument
     def forward(ctx, input, bias):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'a-input={infoTensor(input)}, bias={infoTensor(bias)}')
         ctx.save_for_backward(input, bias)
+        gd.debuginfo(prj="mt", info=f'b-input={infoTensor(input)}, bias={infoTensor(bias)}')
         return bias_gelu(bias, input)
 
     @staticmethod
     def backward(ctx, grad_output):
-        gd.debuginfo(prj="mt")
+        gd.debuginfo(prj="mt", info=f'grad_output={infoTensor(grad_output)}')
         input, bias = ctx.saved_tensors
+        gd.debuginfo(prj="mt", info=f'c-input={infoTensor(input)}, bias={infoTensor(bias)}')
         tmp = bias_gelu_back(grad_output, bias, input)
+        gd.debuginfo(prj="mt", info=f'tmp={infoTensor(tmp)}')
         return tmp, tmp
 
 bias_gelu_impl = GeLUFunction.apply

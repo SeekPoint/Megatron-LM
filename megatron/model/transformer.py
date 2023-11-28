@@ -93,7 +93,7 @@ def _args_to_kwargs():
         "sequence_parallel_enabled": args.sequence_parallel,
     }
 
-    gd.debuginfo(prj="mt", info=f'common_kwargs={common_kwargs)')
+    gd.debuginfo(prj="mt", info=f'common_kwargs={common_kwargs}')
 
     return common_kwargs
 
@@ -345,18 +345,18 @@ class CoreAttention(MegatronModule):
         # [sq, b, np, hn] -> [sq, b * np, hn]
         query_layer = query_layer.view(output_size[2],
                                        output_size[0] * output_size[1], -1)
-        gd.debuginfo(prj="mt", info=f'query_layer={query_layer}')
+        gd.debuginfo(prj="mt", info=f'query_layer={infoTensor(query_layer)}')
 
         # [sk, b, np, hn] -> [sk, b * np, hn]
         key_layer = key_layer.view(output_size[3],
                                    output_size[0] * output_size[1], -1)
-        gd.debuginfo(prj="mt", info=f'key_layer={key_layer}')
+        gd.debuginfo(prj="mt", info=f'key_layer={infoTensor(key_layer)}')
 
         # preallocting input tensor: [b * np, sq, sk]
         matmul_input_buffer = mpu.get_global_memory_buffer().get_tensor(
             (output_size[0]*output_size[1], output_size[2], output_size[3]),
             query_layer.dtype, "mpu")
-        gd.debuginfo(prj="mt", info=f'matmul_input_buffer={matmul_input_buffer}')
+        gd.debuginfo(prj="mt", info=f'matmul_input_buffer={infoTensor(matmul_input_buffer)}')
 
         # Raw attention scores. [b * np, sq, sk]
         matmul_result = torch.baddbmm(
@@ -364,11 +364,11 @@ class CoreAttention(MegatronModule):
             query_layer.transpose(0, 1),   # [b * np, sq, hn]
             key_layer.transpose(0, 1).transpose(1, 2),  # [b * np, hn, sk]
             beta=0.0, alpha=(1.0/self.norm_factor))
-        gd.debuginfo(prj="mt", info=f'matmul_result={matmul_result}')
+        gd.debuginfo(prj="mt", info=f'matmul_result={infoTensor(matmul_result)}')
 
         # change view to [b, np, sq, sk]
         attention_scores = matmul_result.view(*output_size)
-        gd.debuginfo(prj="mt", info=f'attention_scores={attention_scores}')
+        gd.debuginfo(prj="mt", info=f'attention_scores={infoTensor(attention_scores)}')
 
         # ===========================
         # Attention probs and dropout
@@ -376,17 +376,17 @@ class CoreAttention(MegatronModule):
 
         # attention scores and attention mask [b, np, sq, sk]
         attention_probs = self.scale_mask_softmax(attention_scores, attention_mask)
-        gd.debuginfo(prj="mt", info=f'1-attention_probs={attention_probs}')
+        gd.debuginfo(prj="mt", info=f'1-attention_probs={infoTensor(attention_probs)}')
 
         # This is actually dropping out entire tokens to attend to, which might
         # seem a bit unusual, but is taken from the original Transformer paper.
         if not self.sequence_parallel:
             with tensor_parallel.get_cuda_rng_tracker().fork():
                 attention_probs = self.attention_dropout(attention_probs)
-                gd.debuginfo(prj="mt", info=f'2-attention_probs={attention_probs}')
+                gd.debuginfo(prj="mt", info=f'2-attention_probs={infoTensor(attention_probs)}')
         else:
             attention_probs = self.attention_dropout(attention_probs)
-            gd.debuginfo(prj="mt", info=f'3-attention_probs={attention_probs}')
+            gd.debuginfo(prj="mt", info=f'3-attention_probs={infoTensor(attention_probs)}')
 
         # =========================
         # Context layer. [sq, b, hp]
@@ -405,24 +405,24 @@ class CoreAttention(MegatronModule):
         # change view [sk, b * np, hn]
         value_layer = value_layer.view(value_layer.size(0),
                                        output_size[0] * output_size[1], -1)
-        gd.debuginfo(prj="mt", info=f'value_layer={value_layer}')
+        gd.debuginfo(prj="mt", info=f'value_layer={infoTensor(value_layer)}')
 
         # change view [b * np, sq, sk]
         attention_probs = attention_probs.view(output_size[0] * output_size[1],
                                                output_size[2], -1)
-        gd.debuginfo(prj="mt", info=f'attention_probs={attention_probs}')
+        gd.debuginfo(prj="mt", info=f'attention_probs={infoTensor(attention_probs)}')
 
         # matmul: [b * np, sq, hn]
         context_layer = torch.bmm(attention_probs, value_layer.transpose(0, 1))
-        gd.debuginfo(prj="mt", info=f'1-context_layer={context_layer}')
+        gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
 
         # change view [b, np, sq, hn]
         context_layer = context_layer.view(*output_size)
-        gd.debuginfo(prj="mt", info=f'2-context_layer={context_layer}')
+        gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
 
         # [b, np, sq, hn] --> [sq, b, np, hn]
         context_layer = context_layer.permute(2, 0, 1, 3).contiguous()
-        gd.debuginfo(prj="mt", info=f'3-context_layer={context_layer}')
+        gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
 
         # [sq, b, np, hn] --> [sq, b, hp]
         new_context_layer_shape = context_layer.size()[:-2] + \
@@ -430,7 +430,7 @@ class CoreAttention(MegatronModule):
         gd.debuginfo(prj="mt", info=f'new_context_layer_shape={new_context_layer_shape}')
 
         context_layer = context_layer.view(*new_context_layer_shape)
-        gd.debuginfo(prj="mt", info=f'4-context_layer={context_layer}')
+        gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
 
         gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0030')
         return context_layer
@@ -682,7 +682,7 @@ class ParallelAttention(MegatronModule):
             # Attention heads [sq, b, h] --> [sq, b, (np * 3 * hn)]
             mixed_x_layer, _ = self.query_key_value(hidden_states)
 
-            gd.debuginfo(prj="mt", info=f'1-mixed_x_layer={mixed_x_layer}')
+            gd.debuginfo(prj="mt", info=f'1-mixed_x_layer={infoTensor(mixed_x_layer)}')
 
             # [sq, b, (np * 3 * hn)] --> [sq, b, np, 3 * hn]
             new_tensor_shape = mixed_x_layer.size()[:-1] + \
@@ -691,7 +691,7 @@ class ParallelAttention(MegatronModule):
             gd.debuginfo(prj="mt", info=f'new_tensor_shape={new_tensor_shape}')
 
             mixed_x_layer = mixed_x_layer.view(*new_tensor_shape)
-            gd.debuginfo(prj="mt", info=f'2-mixed_x_layer={mixed_x_layer}')
+            gd.debuginfo(prj="mt", info=f'2-mixed_x_layer={infoTensor(mixed_x_layer)}')
 
             # [sq, b, np, 3 * hn] --> 3 [sq, b, np, hn]
             (query_layer,
@@ -734,7 +734,7 @@ class ParallelAttention(MegatronModule):
             gd.debuginfo(prj="mt", info=f'2-new_tensor_shape={new_tensor_shape}')
 
             query_layer = query_layer.view(*new_tensor_shape)
-            gd.debuginfo(prj="mt", info=f'2-query_layer={query_layer}')
+            gd.debuginfo(prj="mt", info=f'2-query_layer={infoTensor(query_layer)}')
 
         # ==================================
         # Adjust key and value for inference
@@ -813,8 +813,8 @@ class ParallelAttention(MegatronModule):
 
             query_layer = apply_rotary_pos_emb(query_layer, q_pos_emb)
             key_layer = apply_rotary_pos_emb(key_layer, k_pos_emb)
-            gd.debuginfo(prj="mt", info=f'query_layer={query_layer}')
-            gd.debuginfo(prj="mt", info=f'key_layer={key_layer}')
+            gd.debuginfo(prj="mt", info=f'query_layer={infoTensor(query_layer)}')
+            gd.debuginfo(prj="mt", info=f'key_layer={infoTensor(key_layer)}')
 
             # TODO, can apply positional embedding to value_layer so it has
             # absolute positional embedding.
@@ -825,11 +825,11 @@ class ParallelAttention(MegatronModule):
             if self.checkpoint_core_attention:
                 context_layer = self._checkpointed_attention_forward(
                     query_layer, key_layer, value_layer, attention_mask)
-                gd.debuginfo(prj="mt", info=f'1-context_layer={context_layer}')
+                gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
             else:
                 context_layer = self.core_attention(
                     query_layer, key_layer, value_layer, attention_mask)
-                gd.debuginfo(prj="mt", info=f'2-context_layer={context_layer}')
+                gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
         else:
             q, k, v = [rearrange(x, 's b ... -> b s ...').contiguous()
                        for x in (query_layer, key_layer, value_layer)]
@@ -839,21 +839,21 @@ class ParallelAttention(MegatronModule):
             if not self.sequence_parallel:
                 with tensor_parallel.get_cuda_rng_tracker().fork():
                     context_layer = self.core_attention_flash(q, k, v)
-                    gd.debuginfo(prj="mt", info=f'3-context_layer={context_layer}')
+                    gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
             else:
                 context_layer = self.core_attention_flash(q, k, v)
-                gd.debuginfo(prj="mt", info=f'4-context_layer={context_layer}')
+                gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
 
             context_layer = rearrange(context_layer, 'b s h d -> s b (h d)').contiguous()
-            gd.debuginfo(prj="mt", info=f'5-context_layer={context_layer}')
+            gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
 
         # =================
         # Output. [sq, b, h]
         # =================
 
         output, bias = self.dense(context_layer)
-        gd.debuginfo(prj="mt", info=f'output={output}')
-        gd.debuginfo(prj="mt", info=f'bias={bias}')
+        gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
+        gd.debuginfo(prj="mt", info=f'bias={infoTensor(bias)}')
 
         gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0032')
 
