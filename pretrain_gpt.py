@@ -16,7 +16,6 @@ from megatron.training import pretrain
 from megatron.utils import get_ltor_masks_and_position_ids
 from megatron.utils import average_losses_across_data_parallel_group
 from pydebug import gd, infoTensor
-gd.debuginfo(prj="mt")
 
 # 2.2.1 获取模型
 # model_provider 函数返回的是已经被 Megatron 改造为并行的版本。
@@ -156,9 +155,16 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
 # 2.2 预训练入口
 # /Megatron-LM/pretrain_gpt.py 会调用 pretrain 函数进行预训练。
 if __name__ == "__main__":
+    gd.debuginfo(prj='mt', info=f'=================') # 不被计入
+
+    gd.prjenable('ALL')  #打开项目flag
+
+    gd.emb_mode(embedded_mode=True)
 
     pretrain(train_valid_test_datasets_provider,
              model_provider,
              ModelType.encoder_or_decoder,
              forward_step,
              args_defaults={'tokenizer_type': 'GPT2BPETokenizer'})
+
+    gd.emb_mode(embedded_mode=False)

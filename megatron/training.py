@@ -11,6 +11,10 @@ _TRAIN_START_TIME = time.time()
 import torch
 from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 from pydebug import gd, infoTensor
+import os
+pid = os.getpid()
+
+gcnt = 0
 
 from megatron import get_args
 from megatron import get_signal_handler
@@ -101,26 +105,29 @@ def pretrain(train_valid_test_dataset_provider,
     gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0025')
 
     # 还没有init，此处不能用  if torch.distributed.get_rank() == 0:
-    logf = f'_initialize_megatron_'
-    gd.enable(info=logf)
+    logf = f'initialize_megatron'  # log统一在pydebug中加上下划线和pid
+    # gd.enable(info=logf, enable_screen = False)
+    gd.emb_start(info=logf)
 
     # Initalize and get arguments, timers, and Tensorboard writer.
     initialize_megatron(extra_args_provider=extra_args_provider, args_defaults=args_defaults)
 
     # if torch.distributed.get_rank() == 0:
-    gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/')
+    # gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/', enable_screen = True)
+    gd.emb_end(info=logf)
 
+    # 按说 可以不在需要这样的 文件分割标记
     gd.debuginfo(prj="mt", info=f'------initialize_megatron ends--------')
 
-    if torch.distributed.get_rank() == 0:
-        logf = f'_set_jit_fusion_options_'
-        gd.enable(info=logf)
+    logf = f'set_jit_fusion_options'
+    # gd.enable(info=logf, enable_screen = False)
+    gd.emb_start(info=logf)
 
     # Set pytorch JIT layer fusion options and warmup JIT functions.
     set_jit_fusion_options()
 
-    if torch.distributed.get_rank() == 0:
-        gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/')
+    # gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/', enable_screen = True)
+    gd.emb_end(info=logf)
 
     gd.debuginfo(prj="mt", info=f'------set_jit_fusion_options ends--------')
 
@@ -154,20 +161,19 @@ def pretrain(train_valid_test_dataset_provider,
 
     gd.debuginfo(prj="mt", info=f'------setup_model_and_optimizer start--------')
 
-    if torch.distributed.get_rank() == 0:
-        logf = f'_setup_model_and_optimizer_'
-        gd.enable(info=logf)
+    logf = f'setup_model_and_optimizer'
+    # gd.enable(info=logf, enable_screen = False)
+    gd.emb_start(info=logf)
 
     # Model, optimizer, and learning rate. 使用model_provider设置模型、优化器和lr计划
-    model, optimizer, opt_param_scheduler = setup_model_and_optimizer(
-        model_provider, model_type)
+    model, optimizer, opt_param_scheduler = setup_model_and_optimizer(model_provider, model_type)
 
     gd.debuginfo(prj="mt", info=f'model={model}')
     gd.debuginfo(prj="mt", info=f'optimizer={optimizer}')
     gd.debuginfo(prj="mt", info=f'opt_param_scheduler={opt_param_scheduler}')
 
-    if torch.distributed.get_rank() == 0:
-        gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/')
+    # gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/', enable_screen = True)
+    gd.emb_end(info=logf)
 
     gd.debuginfo(prj="mt", info=f'------setup_model_and_optimizer ends--------')
 
@@ -917,17 +923,18 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
     report_memory_flag = True
 
     gd.debuginfo(prj="mt", info=f'iteration={iteration}, args.train_iters={args.train_iters}')
-
+    i = 0
     while iteration < args.train_iters:
 
         update_num_microbatches(args.consumed_train_samples)
         args.curr_iteration = iteration
 
-        gd.debuginfo(prj="mt", info=f'----------------------train 1--------------------------')
+        gd.debuginfo(prj="mt", info=f'------------train iter {i:03} SPE1--------------')
 
-        if torch.distributed.get_rank() == 0:
-            logf = f'_train_step_'
-            gd.enable_times(info=logf)
+
+        logf = f'_train_step_{i:04}'
+        # gd.enable(info=logf, enable_screen = False)
+        gd.emb_start(info=logf)
 
         loss_dict, skipped_iter, grad_norm, num_zeros_in_grad = \
             train_step(forward_step_func,
@@ -941,10 +948,10 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
         gd.debuginfo(prj="mt", info=f'grad_norm={grad_norm}')
         gd.debuginfo(prj="mt", info=f'num_zeros_in_grad={num_zeros_in_grad}')
 
-        if torch.distributed.get_rank() == 0:
-            gd.disable_times(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/')
+        # gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/', enable_screen = True)
+        gd.emb_end(info=logf)
 
-        gd.debuginfo(prj="mt", info=f'----------------------train 2--------------------------')
+        gd.debuginfo(prj="mt", info=f'------------train iter {i:03} SPE2--------------')
 
         iteration += 1
         args.consumed_train_samples += mpu.get_data_parallel_world_size() * \
@@ -964,14 +971,14 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                                           report_memory_flag, skipped_iter,
                                           grad_norm, params_norm, num_zeros_in_grad)
 
-        gd.debuginfo(prj="mt", info=f'----------------------train 3--------------------------')
+        gd.debuginfo(prj="mt", info=f'------------train iter {i:03} SPE3--------------')
 
         # Autoresume
         if args.adlr_autoresume and (iteration % args.adlr_autoresume_interval == 0):
             check_adlr_autoresume_termination(iteration, model, optimizer,
                                               opt_param_scheduler)
 
-        gd.debuginfo(prj="mt", info=f'----------------------train 4--------------------------')
+        gd.debuginfo(prj="mt", info=f'------------train iter {i:03} SPE4--------------')
 
         # Evaluation
         if args.eval_interval and iteration % args.eval_interval == 0 and args.do_valid:
@@ -980,7 +987,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                                        valid_data_iterator, model,
                                        iteration, process_non_loss_data_func,
                                        False)
-        gd.debuginfo(prj="mt", info=f'----------------------train 5--------------------------')
+        gd.debuginfo(prj="mt", info=f'------------train iter {i:03} SPE5--------------')
 
         # Checkpointing
         saved_checkpoint = False
@@ -992,7 +999,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 print_datetime('exiting program after receiving SIGTERM.')
                 sys.exit()
 
-        gd.debuginfo(prj="mt", info=f'----------------------train 6--------------------------')
+        gd.debuginfo(prj="mt", info=f'------------train iter {i:03} SPE6--------------')
 
         if args.save and args.save_interval and \
            iteration % args.save_interval == 0:
@@ -1000,7 +1007,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                                      opt_param_scheduler)
             saved_checkpoint = True
 
-        gd.debuginfo(prj="mt", info=f'----------------------train 7--------------------------')
+        gd.debuginfo(prj="mt", info=f'------------train iter {i:03} SPE7--------------')
 
         # Exiting based on duration
         if args.exit_duration_in_mins:
@@ -1017,7 +1024,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 print_datetime('exiting program after {} minutes'.format(train_time))
                 sys.exit()
 
-        gd.debuginfo(prj="mt", info=f'----------------------train 8--------------------------')
+        gd.debuginfo(prj="mt", info=f'------------train iter {i:03} SPE8--------------')
 
         # Exiting based on iterations
         if args.exit_interval and iteration % args.exit_interval == 0:
@@ -1028,12 +1035,13 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
             print_datetime('exiting program at iteration {}'.format(iteration))
             sys.exit()
 
-        gd.debuginfo(prj="mt", info=f'----------------------train 9--------------------------')
+        gd.debuginfo(prj="mt", info=f'------------train iter {i:03} SPE9--------------')
+
+        i += 1
 
     gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0024')
 
     return iteration
-
 
 def evaluate(forward_step_func,
              data_iterator,
@@ -1041,26 +1049,33 @@ def evaluate(forward_step_func,
              process_non_loss_data_func,
              verbose=False):
     """Evaluation."""
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0045')
     args = get_args()
 
     if args.vision_pretraining and args.vision_pretraining_type == "dino":
+        gd.debuginfo(prj="mt")
         compute_feature_bank(model)
 
     # Turn on evaluation mode which disables dropout.
-    for model_module in model:
+    for index, model_module in enumerate(model):
+        gd.debuginfo(prj="mt", info=f'index={index}, model_module={model_module}')
         model_module.eval()
+
+    gd.debuginfo(prj="mt", info=f'++++++++++++++++++++SEP 1+++++++++++++++++')
 
     total_loss_dict = {}
 
     with torch.no_grad():
         iteration = 0
         while iteration < args.eval_iters:
+            gd.debuginfo(prj="mt", info=f'iteration={iteration}')
             iteration += 1
             if verbose and iteration % args.log_interval == 0:
-                gd.debuginfo(prj="mt",
-                             info=f'Evaluating iter {iteration}/{args.eval_iters}')
+                gd.debuginfo(prj="mt", info=f'Evaluating iter {iteration}/{args.eval_iters}')
 
             forward_backward_func = get_forward_backward_func()
+            gd.debuginfo(prj="mt", info=f'forward_backward_func={forward_backward_func}')
+
             loss_dicts = forward_backward_func(
                 forward_step_func=forward_step_func,
                 data_iterator=data_iterator,
@@ -1074,23 +1089,31 @@ def evaluate(forward_step_func,
 
             # Empty unused memory
             if args.empty_unused_memory_level >= 1:
+                gd.debuginfo(prj="mt")
                 torch.cuda.empty_cache()
 
             if mpu.is_pipeline_last_stage(ignore_virtual=True):
                 # Reduce across processes.
-                for loss_dict in loss_dicts:
+                for index, loss_dict in enumerate(loss_dicts):
                     for key in loss_dict:
+                        gd.debuginfo(prj="mt", info=f'loss_dicts[{index}][{key}]={loss_dict[key]}')
                         total_loss_dict[key] = total_loss_dict.get(
                             key, torch.cuda.FloatTensor([0.0])) + loss_dict[key]
+                        gd.debuginfo(prj="mt", info=f'total_loss_dict[{key}]={total_loss_dict[key]}')
 
             args.consumed_valid_samples += mpu.get_data_parallel_world_size() \
                                            * args.micro_batch_size \
                                            * get_num_microbatches()
+
+            gd.debuginfo(prj="mt", info=f'args.consumed_valid_samples={args.consumed_valid_samples}')
+
         collected_non_loss_data = None
+
         if process_non_loss_data_func is not None and is_last_rank():
             collected_non_loss_data = forward_backward_func(
                 forward_step_func, data_iterator, model, optimizer=None,
                 timers=None, forward_only=True, collect_non_loss_data=True)
+            gd.debuginfo(prj="mt", info=f'collected_non_loss_data={collected_non_loss_data}')
 
     # Move model back to the train mode.
     for model_module in model:
@@ -1099,28 +1122,50 @@ def evaluate(forward_step_func,
 
     for key in total_loss_dict:
         total_loss_dict[key] /= args.eval_iters * get_num_microbatches()
+        gd.debuginfo(prj="mt", info=f'total_loss_dict[{key}]={total_loss_dict[key]}')
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0045')
 
     return total_loss_dict, collected_non_loss_data
 
-def evaluate_and_print_results(prefix, forward_step_func,
-                               data_iterator, model,
-                               iteration, process_non_loss_data_func,
-                               verbose=False, write_to_tensorboard=True):
+def evaluate_and_print_results(prefix,
+                               forward_step_func,
+                               data_iterator,
+                               model,
+                               iteration,
+                               process_non_loss_data_func,
+                               verbose=False,
+                               write_to_tensorboard=True):
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0044')
+    global gcnt
+
+    # logf = f'evaluate_and_print_results=={prefix}==' 文件名会有问题
+    logf = f'evaluate_and_print_results_{gcnt:04}'
+    gcnt += 1
+    # gd.enable(info=logf, enable_screen = False)
+    gd.emb_start(info=logf)
+
     """Helper function to evaluate and dump results on screen."""
     args = get_args()
     if write_to_tensorboard:
         writer = get_tensorboard_writer()
+        gd.debuginfo(prj="mt", info=f'writer={writer}')
     else:
         writer = None
 
     total_loss_dict, collected_non_loss_data = evaluate(
         forward_step_func, data_iterator, model,
         process_non_loss_data_func, verbose)
+
+    gd.debuginfo(prj="mt", info=f'======================sep 1===========================')
+
     string = ' validation loss at {} | '.format(prefix)
+
     for key in total_loss_dict:
         string += '{} value: {:.6E} | '.format(key, total_loss_dict[key].item())
         ppl = math.exp(min(20, total_loss_dict[key].item()))
         string += '{} PPL: {:.6E} | '.format(key, ppl)
+
         if writer:
             writer.add_scalar('{} validation'.format(key),
                               total_loss_dict[key].item(),
@@ -1133,14 +1178,23 @@ def evaluate_and_print_results(prefix, forward_step_func,
                                   iteration)
                 writer.add_scalar('{} validation ppl vs samples'.format(key),
                                   ppl, args.consumed_train_samples)
+    gd.debuginfo(prj="mt", info=f'======================sep 2===========================')
 
     if process_non_loss_data_func is not None and writer and is_last_rank():
+        gd.debuginfo(prj="mt")
         process_non_loss_data_func(collected_non_loss_data, iteration, writer)
+
+    gd.debuginfo(prj="mt", info=f'======================sep 3===========================')
 
     length = len(string) + 1
     gd.debuginfo(prj="mt", info=str('-' * length))
     gd.debuginfo(prj="mt", info=string)
     gd.debuginfo(prj="mt", info=str('-' * length))
+
+    # gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/', enable_screen=True)
+    gd.emb_end(info=logf)
+
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0044')
 
 def cyclic_iter(iter):
     while True:

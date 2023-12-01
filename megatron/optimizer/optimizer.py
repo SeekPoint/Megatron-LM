@@ -400,11 +400,11 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
 
 
     def _unscale_main_grads_and_check_for_nan(self):
-        gd.debuginfo(prj="mt")
 
         # Collect main grads.
-        main_grads = self._collect_main_grad_data_for_unscaling()
-        gd.debuginfo(prj="mt", info=f'found_inf_flag={infoTensor(main_grads)}')
+        main_grads = self._collect_main_grad_data_for_unscaling() # a list of tensors
+        for i , v in enumerate(main_grads):
+            gd.debuginfo(prj="mt", info=f'main_grads[{i}]={infoTensor(v)}')
 
         # Reset found inf.
         self.found_inf.fill_(0.0)
@@ -420,6 +420,7 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
 
         # Check for nan.
         found_inf_flag = (self.found_inf.item() > 0)
+        gd.debuginfo(prj="mt", info=f'found_inf_flag={found_inf_flag}')
 
         return found_inf_flag
 

@@ -206,6 +206,7 @@ class VocabParallelEmbedding(torch.nn.Module):
             if perform_initialization:
                 _initialize_affine_weight_gpu(self.weight, init_method,
                                               partition_dim=0, stride=1)
+
     '''
     因为每一个 GPU 只是获得了总体 embedding 的一部分，
     所以对于每个 worker 来说，可能有一个输入找不到 embedding，
@@ -213,7 +214,7 @@ class VocabParallelEmbedding(torch.nn.Module):
     '''
     def forward(self, input_):
         gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0042')
-        gd.debuginfo(prj="mt", info=f'input_={input_}')
+        gd.debuginfo(prj="mt", info=f'input_={infoTensor(input_)}')
         if self.tensor_model_parallel_size > 1:
             # Build the mask.
             input_mask = (input_ < self.vocab_start_index) | (input_ >= self.vocab_end_index)

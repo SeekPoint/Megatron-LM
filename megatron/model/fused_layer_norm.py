@@ -81,7 +81,7 @@ class MixedFusedLayerNorm(torch.nn.Module):
 
   def forward(self, input):
     weight = self.weight + 1 if self.apply_layernorm_1p else self.weight
-    gd.debuginfo(prj="mt", info=f'weight={weight}')
+    gd.debuginfo(prj="mt", info=f'weight={infoTensor(weight)}')
 
     if self.no_persist_layer_norm:
         gd.debuginfo(prj="mt")

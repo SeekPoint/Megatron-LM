@@ -187,13 +187,14 @@ class DistributedDataParallel(DistributedDataParallelBase):
     下面是两个支撑函数，分别是用于拷贝梯度和将buffer清零。
     '''
     def _make_param_hook(self, param):
-        gd.debuginfo(prj="mt", info=f'param={param}')
+        gd.debuginfo(prj="mt", info=f'param={infoTensor(param)}')
         """Create the all-reduce hook for backprop."""
         # Hook used for back-prop.
         def param_hook(*unused):
             gd.debuginfo(prj="mt")
             # Add the gradient to the buffer.
             if param.grad is not None:
+                gd.debuginfo(prj="mt")
                 # The gradient function of linear layers is fused with GEMMs
                 param.main_grad.add_(param.grad.data)
                 # Now we can deallocate grad memory.

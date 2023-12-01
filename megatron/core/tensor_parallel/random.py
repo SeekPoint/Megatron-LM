@@ -137,8 +137,8 @@ class CudaRNGStatesTracker:
 
         # Store current rng state.
         orig_cuda_rng_state = torch.cuda.get_rng_state()
-        gd.debuginfo(prj='mt', info=f'orig_cuda_rng_state={orig_cuda_rng_state}')
-        gd.debuginfo(prj='mt', info=f'self.states_[name]={self.states_[name]}')
+        gd.debuginfo(prj='mt', info=f'orig_cuda_rng_state={infoTensor(orig_cuda_rng_state)}')
+        gd.debuginfo(prj='mt', info=f'self.states_[name]={infoTensor(self.states_[name])}')
 
         # Set rng state to the desired one
         _set_cuda_rng_state(self.states_[name])
@@ -149,7 +149,7 @@ class CudaRNGStatesTracker:
         finally:
             # Update the current rng state for later use.
             self.states_[name] = torch.cuda.get_rng_state()
-            gd.debuginfo(prj='mt', info=f'self.states_[name]={self.states_[name]}')
+            gd.debuginfo(prj='mt', info=f'self.states_[name]={infoTensor(self.states_[name])}')
 
             # And set the state to the original state we started with.
             _set_cuda_rng_state(orig_cuda_rng_state)
