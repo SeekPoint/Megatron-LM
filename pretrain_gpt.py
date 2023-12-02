@@ -159,7 +159,8 @@ if __name__ == "__main__":
 
     gd.prjenable('ALL')  #打开项目flag
 
-    gd.emb_mode(embedded_mode=True)
+    gd.emb_mode(path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/',
+                embedded_mode=True)
 
     pretrain(train_valid_test_datasets_provider,
              model_provider,

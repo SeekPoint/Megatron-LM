@@ -90,9 +90,10 @@ class MegatronOptimizer(ABC):
 
     def get_parameters(self):
         params = []
-        for param_group in self.optimizer.param_groups:
-            gd.debuginfo(prj="mt", info=f'param_group={param_group}')
-            for param in param_group['params']:
+        for pgi, param_group in enumerate(self.optimizer.param_groups):
+            gd.debuginfo(prj="mt", info=f'param_group index={pgi}')
+            for pi, param in enumerate(param_group['params']):
+                gd.debuginfo(prj="mt", info=f'param[{pi}]={infoTensor(param)}')
                 params.append(param)
         return params
 
