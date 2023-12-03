@@ -8,7 +8,7 @@ import json
 
 import nltk
 
-nltk.download('punkt')
+#nltk.download('punkt')
 
 input_file = sys.argv[1]
 output_file = sys.argv[2]

@@ -1,0 +1,39 @@
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 1-启动环境-data/tensor/pipeline并行
+https://zhuanlan.zhihu.com/p/470279673
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 2 Parallel Transformer
+https://zhuanlan.zhihu.com/p/472166191
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 3-optimizer, lr_scheduler
+https://zhuanlan.zhihu.com/p/472879976
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 4-train-val-test数据准备
+https://zhuanlan.zhihu.com/p/474178865
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 5-mask for T5
+https://zhuanlan.zhihu.com/p/474850507
+
+[细读经典]Megatron论文和代码详细分析(1)
+https://zhuanlan.zhihu.com/p/366906920
+
+我使用的版本是2020年9月12号最后commit的版本，在这里：
+
+Xianchao-Wu/Megatron-LM
+github.com/Xianchao-Wu/Megatron-LM
+====结合主线的tag记录，应该是tag1.1
+2020-09-11 13:37:52 -0700  (tag: v1.1)
+
+
+
+[细读经典]Megatron论文和代码详细分析(2)
+https://zhuanlan.zhihu.com/p/388830967
+
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 6-masking-训练样本
+https://zhuanlan.zhihu.com/p/474882870
+
+
+===============================
+
+sudo docker pull nvcr.io/nvidia/pytorch:20.12-py3
+sudo docker run -it --name mega_v1.1_t5  --gpus all --network=host --shm-size 8G -v /home/amd00/:/workspace -v /data:/share2 -w /workspace nvcr.io/nvidia/pytorch:20.12-py3

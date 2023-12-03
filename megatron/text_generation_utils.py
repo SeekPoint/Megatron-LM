@@ -146,11 +146,11 @@ def generate_samples_input_from_file(model):
                 print("\nContext:", raw_text, flush=True)
                 trim_decode_tokens = tokenizer.detokenize(
                     decode_tokens)[len(raw_text):]
-                print("\nMegatron-LM:", trim_decode_tokens, flush=True)
+                print("\ntag_v2.7:", trim_decode_tokens, flush=True)
 
                 fname_out.write("\nContext:")
                 fname_out.write(raw_text)
-                fname_out.write("\n\nMegatron-LM:")
+                fname_out.write("\n\ntag_v2.7:")
                 fname_out.write(trim_decode_tokens)
                 fname_out.write("\n")
 
@@ -214,14 +214,14 @@ def generate_samples_interactive(model, print_frequency=24):
                     print("\nContext:", raw_text, flush=True)
                     trim_decode_tokens = tokenizer.detokenize(
                         decode_tokens)[len(raw_text):]
-                    print("\nMegatron-LM:", trim_decode_tokens, flush=True)
+                    print("\ntag_v2.7:", trim_decode_tokens, flush=True)
 
             if mpu.get_model_parallel_rank() == 0:
                 os.system('clear')
                 print("\nContext:", raw_text, flush=True)
                 trim_decode_tokens = tokenizer.detokenize(
                     decode_tokens)[len(raw_text):]
-                print("\nMegatron-LM:", trim_decode_tokens, flush=True)
+                print("\ntag_v2.7:", trim_decode_tokens, flush=True)
 
             raw_text = None
             torch.distributed.barrier(group=mpu.get_model_parallel_group())
