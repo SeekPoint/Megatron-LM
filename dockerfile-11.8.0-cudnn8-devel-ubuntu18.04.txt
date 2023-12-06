@@ -39,7 +39,7 @@ RUN rm -r /temp && \
 
 
 ##执行
-#docker build -t cnstark/pytorch:1.13.1-py3.8.10-cuda11.8.0-ubuntu18.04 .
+#docker build -t cnstark/pytorch:1.13.1-py3.8.10-cuda11.8.0-ubuntu18.04 -f dockerfile-11.8.0-cudnn8-devel-ubuntu18.04.txt .
 #amd00@MZ32-00:~/yk_repo/Megatron-LM/tag_23.06$ sudo docker images
 #REPOSITORY                    TAG                                      IMAGE ID       CREATED         SIZE
 #cnstark/pytorch               1.13.1-py3.8.10-cuda11.8.0-ubuntu20.04   656c5f3aa0a7   5 minutes ago   9.82GB
@@ -47,7 +47,7 @@ RUN rm -r /temp && \
 #启动方式
 #为什么加 --entrypoint=/bin/bash  https://stackoverflow.com/questions/38992850/trying-to-run-cloudera-image-in-docker
 # amd00@MZ32-00:~/yk_repo/Meg
-# sudo docker run -it --entrypoint=/bin/bash -v /home/amd00:/share --name meg_codeparrot --gpus=all --shm-size="100G" 656c5f3aa0a7
+# sudo docker run -it --entrypoint=/bin/bash -v /home/amd00:/workspace -v /data:/share --name meg_codeparrot --gpus=all --shm-size="100G" cnstark/pytorch:1.13.1-py3.8.10-cuda11.8.0-ubuntu18.04
 
 # root@52084a8e6666:/share/yk_repo/Megatron-LM/tag_23.06# pip install torch -i https://mirror.baidu.com/pypi/simple/
 
@@ -60,3 +60,6 @@ RUN rm -r /temp && \
 # pip install numpy six regex wheel -i https://mirror.baidu.com/pypi/simple/
 # root@0defa034f2a4:/workspace# pip3 install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
 # root@170cd98e309e:/share/yk_repo/Megatron-LM/tag_23.06/apex# pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+
+
+!!!!!!!!!!!版本不匹配，废弃！！！！

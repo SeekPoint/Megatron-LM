@@ -1,0 +1,2 @@
+Megatron-LM 预训练代码解析
+https://zhuanlan.zhihu.com/p/666577585

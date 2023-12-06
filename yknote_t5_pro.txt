@@ -1,0 +1,58 @@
+
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 1-启动环境-data/tensor/pipeline并行
+https://zhuanlan.zhihu.com/p/470279673
+
+====具体使用细节，没有使用文中的docker
+统一使用meg_wiki
+amd00@MZ32-00:~$ sudo docker start meg_wiki
+meg_wiki
+amd00@MZ32-00:~$ sudo docker attach meg_wiki
+root@48d910472e09:/workspace#
+
+
+没有使用文中的train t5 bash作为原型
+
+直接改example下的t5, 可以对照区别！！！
+
+需要增加设置    --decoder-num-layers 12 \
+
+root@MZ32-00:/workspace/yk_repo/Megatron-LM/tag_v1.1# cp -r /workspace/nltk_data/ /root/nltk_data
+
+root@MZ32-00:/workspace/yk_repo/Megatron-LM/tag_23.06# bash pretrain_t5_dis_data_prep_small3.sh
+root@MZ32-00:/workspace/yk_repo/Megatron-LM/tag_23.06# ll
+total 29388
+。。。。
+-rw-r--r--  1 root root   502088 Dec  3 15:34 fsi-en-t5-8files-bert-large-cased-vocab-bwplc-small3_text_sentence.bin
+-rw-r--r--  1 root root    20042 Dec  3 15:34 fsi-en-t5-8files-bert-large-cased-vocab-bwplc-small3_text_sentence.idx
+
+
+#include <cuda_profiler_api.h> 错误！  ===每次都要调用！，除非写入~/.bashrc
+export PATH="/usr/local/cuda-11.6/bin:$PATH"
+export LD_LIBRARY_PATH="/usr/local/cuda-11.6/lib64:$LD_LIBRARY_PATH"
+
+python3.8 -m pip install  numpy six regex wheel mpi4py pybind11 -i https://mirror.baidu.com/pypi/simple/
+python3.8 -m pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 2 Parallel Transformer
+https://zhuanlan.zhihu.com/p/472166191
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 3-optimizer, lr_scheduler
+https://zhuanlan.zhihu.com/p/472879976
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 4-train-val-test数据准备
+https://zhuanlan.zhihu.com/p/474178865
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 5-mask for T5
+https://zhuanlan.zhihu.com/p/474850507
+
+[细读经典]Megatron论文和代码详细分析(5)-T5-part 6-masking-训练样本
+https://zhuanlan.zhihu.com/p/474882870
+
+
+
+v1.1并沒有t5！！
+
+

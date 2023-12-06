@@ -52,3 +52,10 @@ apt-get install -y liblzma-dev
 AttributeError: '_lzma.LZMADecompressor' object has no attribute 'needs_input'
 Extracting data files:   0%|
 据说是python版本太高导致，暂时没有好办法修复！所以放到windows下执行
+
+=================================
+https://github.com/NVIDIA/apex/issues/1314
+fused_weight_gradient_mlp_cuda module not found.
+gradient accumulation fusion with weight gradient computation disabled
+X == git checkout 3303b3e7174383312a3468ef390060c26e640cb1  ===后续会出错，找不到各种op，例如fused_weight_gradient_mlp_cuda！
+git checkout 22.03 ==ok，再高的tag无法编译通过！

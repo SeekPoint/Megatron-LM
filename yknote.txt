@@ -42,23 +42,3 @@ https://github.com/NVIDIA/Megatron-LM/issues/143
 
 root@d17688c1a428:/share/yk_repo/Megatron-LM/tag_23.06# bash train_codeparrot.sh 2>&1 | tee train_codeparrot-log.txt
 
-
-=======================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

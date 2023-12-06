@@ -1,5 +1,6 @@
 __pycache__/
 *.so
+*.log
 build
 .coverage_*
 *.egg-info
@@ -17,3 +18,11 @@ experiments_codeparrot-small/
 experiments_enwiki-small/
 megatron/data/helpers*
 _log_tmps_
+_log_tmps_GPT
+_log_tmps_T5_
+_log_tmps_llama2
+experiments
+*.bin
+*.idx
+*.npy
+

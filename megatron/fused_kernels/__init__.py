@@ -21,6 +21,8 @@ def load(args):
     cc_flag = []
     _, bare_metal_major, bare_metal_minor = _get_cuda_bare_metal_version(cpp_extension.CUDA_HOME)
 
+    bare_metal_minor = 6
+
     gd.debuginfo(prj="mt",
                  info=f'args={args}, '
                       f'bare_metal_major={bare_metal_major}, '
@@ -29,10 +31,10 @@ def load(args):
     if int(bare_metal_major) >= 11:
         cc_flag.append('-gencode')
         cc_flag.append('arch=compute_80,code=sm_80')
-    #     # cc_flag.append('arch=compute_75,code=sm_75')
-    #     # if int(bare_metal_minor) >= 7:
-    #     #     cc_flag.append('-gencode')
-    #     #     cc_flag.append('arch=compute_90,code=sm_90')
+        # cc_flag.append('arch=compute_75,code=sm_75')
+        if int(bare_metal_minor) >= 7:
+            cc_flag.append('-gencode')
+            cc_flag.append('arch=compute_90,code=sm_90')
     '''
 [1/2]
 /usr/local/cuda/bin/nvcc  -DTORCH_EXTENSION_NAME=scaled_upper_triang_masked_softmax_cuda -DTORCH_API_INCLUDE_EXTENSION_H -DPYBIND11_COMPILER_TYPE=\"_gcc\" -DPYBIND11_STDLIB=\"_libstdcpp\" -DPYBIND11_BUILD_ABI=\"_cxxabi1011\" -isystem /usr/local/lib/python3.9/site-packages/torch/include -isystem /usr/local/lib/python3.9/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/lib/python3.9/site-packages/torch/include/TH -isystem /usr/local/lib/python3.9/site-packages/torch/include/THC -isystem /usr/local/cuda/include -isystem /usr/local/include/python3.9 -D_GLIBCXX_USE_CXX11_ABI=0 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr -gencode=arch=compute_75,code=compute_75 -gencode=arch=compute_75,code=sm_75 --compiler-options '-fPIC' -O3 -gencode arch=compute_70,code=sm_70 --use_fast_math -U__CUDA_NO_HALF_OPERATORS__ -U__CUDA_NO_HALF_CONVERSIONS__ --expt-relaxed-constexpr --expt-extended-lambda -gencode arch=compute_80,code=sm_80 arch=compute_75,code=sm_75 -std=c++14 -c /share/yk_repo/Megatron-LM/tag_23.06/megatron/fused_kernels/scaled_upper_triang_masked_softmax_cuda.cu -o scaled_upper_triang_masked_softmax_cuda.cuda.o
@@ -110,7 +112,7 @@ root@9daa04e3405e:/share/yk_repo/Megatron-LM/tag_23.06/apex# pip install --globa
         gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0017')
 
 def _get_cuda_bare_metal_version(cuda_dir):
-    gd.debuginfo(prj="mt")
+
     raw_output = subprocess.check_output([cuda_dir + "/bin/nvcc", "-V"],
                                          universal_newlines=True)
     output = raw_output.split()
@@ -118,6 +120,9 @@ def _get_cuda_bare_metal_version(cuda_dir):
     release = output[release_idx].split(".")
     bare_metal_major = release[0]
     bare_metal_minor = release[1][0]
+
+    gd.debuginfo(prj="mt", info=f'raw_output={raw_output}')
+    gd.debuginfo(prj="mt", info=f'bare_metal_major={bare_metal_major}, bare_metal_minor={bare_metal_minor}')
 
     return raw_output, bare_metal_major, bare_metal_minor
 

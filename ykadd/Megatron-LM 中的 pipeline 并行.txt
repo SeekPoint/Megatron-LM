@@ -1,0 +1,2 @@
+Megatron-LM 中的 pipeline 并行
+https://zhuanlan.zhihu.com/p/432969288

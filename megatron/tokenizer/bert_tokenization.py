@@ -79,7 +79,7 @@ def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
 
 
 def convert_to_unicode(text):
-    gd.debuginfo(prj='mt')
+    # gd.debuginfo(prj='mt')
     """Converts `text` to Unicode (if it's not already), assuming utf-8 input."""
     if six.PY3:
         if isinstance(text, str):

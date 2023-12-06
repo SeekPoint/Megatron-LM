@@ -1465,6 +1465,7 @@ def _get_num_layers(args, model_type, is_decoder=False):
 
     """Compute the number of transformer layers resident on the current rank."""
     is_encoder_and_decoder_model = (model_type == ModelType.encoder_and_decoder)
+
     if model_type == ModelType.retro_encoder:
         gd.debuginfo(prj="mt")
         num_layers = args.retro_encoder_layers
@@ -1654,6 +1655,11 @@ class ParallelTransformer(MegatronModule):
         self.num_layers = _get_num_layers(args, model_type,
                                           layer_type==LayerType.decoder)
 
+        gd.debuginfo(prj="mt", info=f'self.num_layers={self.num_layers}')
+        #
+        # if self.num_layers is None:
+        #     self.num_layers = 0
+
         self.drop_path_rates = [
             rate.item() for rate in
             torch.linspace(0, self.drop_path_rate, args.num_layers)]
@@ -1717,7 +1723,6 @@ class ParallelTransformer(MegatronModule):
                     fuse_qkv_params=True)
 
         if args.virtual_pipeline_model_parallel_size is not None:
-            gd.debuginfo(prj="mt")
             assert args.num_layers % args.virtual_pipeline_model_parallel_size == 0, \
                 'num_layers_per_stage must be divisible by ' \
                 'virtual_pipeline_model_parallel_size'
@@ -1725,6 +1730,9 @@ class ParallelTransformer(MegatronModule):
             # Number of layers in each model chunk is the number of layers in the stage,
             # divided by the number of model chunks in a stage.
             self.num_layers = self.num_layers // args.virtual_pipeline_model_parallel_size
+
+            gd.debuginfo(prj="mt", info=f'self.num_layers={self.num_layers}')
+
             # With 8 layers, 2 stages, and 4 model chunks, we want an assignment of
             # layers to stages like (each list is a model chunk):
             # Stage 0: [0]  [2]  [4]  [6]
@@ -1742,18 +1750,20 @@ class ParallelTransformer(MegatronModule):
                 gd.debuginfo(prj="mt")
                 pipeline_rank = mpu.get_pipeline_model_parallel_rank()
                 if layer_type == LayerType.encoder:
-                    gd.debuginfo(prj="mt")
                     offset = pipeline_rank * self.num_layers
+                    gd.debuginfo(prj="mt", info=f'offset={offset}')
                 else:
-                    gd.debuginfo(prj="mt")
                     num_ranks_in_enc = args.pipeline_model_parallel_split_rank
                     offset = (pipeline_rank - num_ranks_in_enc) * self.num_layers
+                    gd.debuginfo(prj="mt", info=f'offset={offset}')
             else:
-                gd.debuginfo(prj="mt")
+                gd.debuginfo(prj="mt", info=f'self.num_layers={self.num_layers}, '
+                                            f'mpu.get_pipeline_model_parallel_rank()={mpu.get_pipeline_model_parallel_rank()}')
                 offset = mpu.get_pipeline_model_parallel_rank() * self.num_layers
+                gd.debuginfo(prj="mt", info=f'offset={offset}')
 
         if self.num_layers == 0:
-            gd.debuginfo(prj="mt")
+
             # When a standalone embedding stage is used (e.g.,
             # args.standalone_embedding_stage == True), virtual pipeline ranks
             # on pipeline rank 0 will have zero transformer layers assigned to
@@ -1764,9 +1774,10 @@ class ParallelTransformer(MegatronModule):
             # disconnect the input tensor from the output tensor.
             self.num_layers = 1
             self.layers = torch.nn.ModuleList([ NoopTransformerLayer(1) ])
+            gd.debuginfo(prj="mt", info=f'self.layers={self.layers}')
         else:
-            gd.debuginfo(prj="mt")
             self.layers = torch.nn.ModuleList([build_layer(i + 1 + offset) for i in range(self.num_layers)])
+            gd.debuginfo(prj="mt", info=f'self.layers={self.layers}')
 
             # Update dropout rate for Retro encoder.
             if model_type == ModelType.retro_encoder:
@@ -1993,7 +2004,7 @@ class ParallelTransformer(MegatronModule):
 
                     for index in range(self.num_layers):
                         layer = self._get_layer(index)
-
+                        gd.debuginfo(prj="mt", info=f'layer={layer}')
                         hidden_states = layer(
                             hidden_states,
                             attention_mask,

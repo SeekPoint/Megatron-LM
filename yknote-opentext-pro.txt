@@ -1,0 +1,82 @@
+
+====参考
+https://juejin.cn/post/7259682893648724029
+基于Megatron-LM从0到1完成GPT2模型预训练、模型评估及推理
+--类似的
+https://zhuanlan.zhihu.com/p/637415863
+http://giantpandacv.com/project/PyTorch/DeepSpeed%E7%BB%93%E5%90%88Megatron-LM%E8%AE%AD%E7%BB%83GPT2%E6%A8%A1%E5%9E%8B%E7%AC%94%E8%AE%B0%E4%B8%8A/
+DeepSpeed结合Megatron-LM训练GPT2模型笔记
+
+具体细节：
+下载数据
+https://mega.nz/#F!EZZD0YwJ!9_PlEQzdMVLaNdKv_ICNVQ!cc4RgQQZ
+
+amd00@MZ32-00:~/LSH$
+sudo docker pull nvcr.io/nvidia/pytorch:23.04-py3
+sudo docker run -it --entrypoint=/bin/bash --name mega_opentext  --gpus all --network=host --shm-size 8G -v /home/amd00/:/workspace -v /data:/share2 -w /workspace nvcr.io/nvidia/pytorch:23.04-py3
+
+===================================================
+git clone https://github.com/mattilyra/LSH
+cd LSH
+git checkout a57069b
+python setup.py install
+====================================================
+修改lsh/cMinhash.cpp文件：
+
+将exc_type改为curexc_type
+将exc_value改为curexc_value
+将exc_traceback改为curexc_traceback
+====================================================
+
+root@MZ32-00:/workspace/yk_repo/Megatron-LM/tag_23.06/tools/openwebtext#
+pip install ftfy langdetect numpy torch pandas nltk sentencepiece boto3 tqdm regex bs4 newspaper3k htmlmin tldextract -i https://pypi.tuna.tsinghua.edu.cn/simple  --trusted-host pypi.tuna.tsinghua.edu.cn
+
+
+
+root@MZ32-00:/workspace/yk_repo/Megatron-LM/tag_23.06/tools/openwebtext#
+python blacklist_urls.py /share2/OpenWebText/urls/ clean_urls.txt
+mv clean_urls.txt /share2/OpenWebText/
+
+root@MZ32-00:/share2/OpenWebText#
+python -m pip install pipenv
+pipenv install
+
+
+root@MZ32-00:/share2/OpenWebText# pipenv shell
+Launching subshell in virtual environment...
+ . /root/.local/share/virtualenvs/OpenWebText-JMkQl1rm/bin/activate
+root@MZ32-00:/share2/OpenWebText#  . /root/.local/share/virtualenvs/OpenWebText-JMkQl1rm/bin/activate
+(OpenWebText) root@MZ32-00:/
+pip install tqdm tldextract bs4 newspaper3k htmlmin
+
+(OpenWebText) root@MZ32-00:/share2/OpenWebText# pipenv run python3 openwebtext/download.py clean_urls.txt  --output_dir /share2/OpenWebText
+可能是网络！！！！
+"""
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+  File "openwebtext/download.py", line 170, in download
+    text, meta = scrape(url, memoize)
+  File "/share2/OpenWebText/openwebtext/scrapers.py", line 69, in newspaper_scraper
+    if should_exclude(url):
+  File "/share2/OpenWebText/openwebtext/filter.py", line 113, in should_exclude
+    domain = '.'.join([x for x in ext if x])
+TypeError: 'ExtractResult' object is not iterable
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "openwebtext/download.py", line 307, in <module>
+    cdata = list(pool.imap(download, chunk, chunksize=1))
+  File "/usr/lib/python3.8/multiprocessing/pool.py", line 868, in next
+    raise value
+
+跳过后
+
+
+(OpenWebText) root@MZ32-00:/share2/OpenWebText# python3 openwebtext/download.py clean_urls.txt  --output_dir /share2/OpenWebText 2>&1 | tee download-log.txt
+
+
+
+
