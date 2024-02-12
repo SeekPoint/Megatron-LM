@@ -13,6 +13,13 @@ https://www.cnblogs.com/rossiXYZ/p/15876714.html
 模型并行分布式训练Megatron (5) --Pipedream Flush
 https://www.cnblogs.com/rossiXYZ/p/15890482.html
 
+Megatron源码解析: 简单三步看清Megatron-LM的实现
+https://zhuanlan.zhihu.com/p/640961600
+
+[细读经典]Megatron论文和代码详细分析(1)
+https://zhuanlan.zhihu.com/p/366906920
+[细读经典]Megatron论文和代码详细分析(2)
+https://zhuanlan.zhihu.com/p/388830967
 
 ！！！https://github.com/ProjectD-AI/LLaMA-Megatron-DeepSpeed
 
