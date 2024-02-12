@@ -32,11 +32,11 @@ RUN rm -r /temp && \
     set -x; buildDeps='gcc libc6-dev make wget vim gcc g++ libxml2 libstdc++6 pciutils software-properties-common git python3.8-dev cmake mpich' \
     && apt-get update \
     && apt-get install -y $buildDeps \
-    && mkdir -p /.pip \
-    && cd /.pip \
+    && mkdir /root/.pip \
+    && cd /root/.pip \
     && echo "[global]\nindex-url = https://pypi.tuna.tsinghua.edu.cn/simple\n[install]trusted-host = https://pypi.tuna.tsinghua.edu.cn" > pip.config
 
-
+# /root/.pip  注意修正之前的错误位置！！！不是/.pip
 
 ##执行
 #docker build -t cnstark/pytorch:1.13.1-py3.8.10-cuda11.8.0-ubuntu18.04 -f dockerfile-11.8.0-cudnn8-devel-ubuntu18.04.txt .

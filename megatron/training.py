@@ -102,7 +102,7 @@ def pretrain(train_valid_test_dataset_provider,
             to set already parse arguments.
     """
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0025')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     # 还没有init，此处不能用  if torch.distributed.get_rank() == 0:
     logf = f'initialize_megatron'  # log统一在pydebug中加上下划线和pid
@@ -259,11 +259,11 @@ def pretrain(train_valid_test_dataset_provider,
                                    iteration, process_non_loss_data_func,
                                    verbose=True, write_to_tensorboard=not args.skip_train)
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0025')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
 
 def update_train_iters(args):
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0020')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     # For iteration-based training, we don't need to do anything
     if args.train_iters:
@@ -293,7 +293,7 @@ def update_train_iters(args):
     gd.debuginfo(prj="mt", 
                  info=f'setting training iterations to {args.train_iters}')
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0020')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
 '''
 5.3 get_model
@@ -320,7 +320,7 @@ def get_model(model_provider_func,
               model_type=ModelType.encoder_or_decoder,
               wrap_with_ddp=True):
     """Build the model."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0021')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
     gd.debuginfo(prj="mt", info=f'model_type={model_type}')
 
     args = get_args()
@@ -452,7 +452,7 @@ def get_model(model_provider_func,
             raise NotImplementedError('Unknown DDP implementation specified: '
                                       '{}. Exiting.'.format(args.DDP_impl))
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0021')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     return model
 
@@ -533,7 +533,7 @@ def setup_model_and_optimizer(model_provider_func,
                               no_wd_decay_cond=None,
                               scale_lr_cond=None,
                               lr_mult=1.0):
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0022')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     """Setup model and optimizer."""
     args = get_args()
@@ -577,7 +577,7 @@ def setup_model_and_optimizer(model_provider_func,
             gd.debuginfo(prj="mt")
             optimizer.reload_model_params()
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0022')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     return model, optimizer, opt_param_scheduler
 
@@ -587,7 +587,7 @@ def setup_model_and_optimizer(model_provider_func,
 def train_step(forward_step_func, data_iterator,
                model, optimizer, opt_param_scheduler):
     """Single training step."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0023')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
     args = get_args()
     timers = get_timers()
 
@@ -703,7 +703,7 @@ def train_step(forward_step_func, data_iterator,
     gd.debuginfo(prj="mt", info=f'skipped_iter={skipped_iter}')
     gd.debuginfo(prj="mt", info=f'grad_norm={grad_norm}')
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0023')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     return {}, skipped_iter, grad_norm, num_zeros_in_grad
 
@@ -899,7 +899,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
           train_data_iterator, valid_data_iterator,
           process_non_loss_data_func):
     """Train the model function."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0024')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     args = get_args()
     timers = get_timers()
@@ -1039,7 +1039,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
 
         i += 1
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0024')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     return iteration
 
@@ -1049,7 +1049,7 @@ def evaluate(forward_step_func,
              process_non_loss_data_func,
              verbose=False):
     """Evaluation."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0045')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
     args = get_args()
 
     if args.vision_pretraining and args.vision_pretraining_type == "dino":
@@ -1124,7 +1124,7 @@ def evaluate(forward_step_func,
         total_loss_dict[key] /= args.eval_iters * get_num_microbatches()
         gd.debuginfo(prj="mt", info=f'total_loss_dict[{key}]={total_loss_dict[key]}')
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0045')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     return total_loss_dict, collected_non_loss_data
 
@@ -1136,7 +1136,7 @@ def evaluate_and_print_results(prefix,
                                process_non_loss_data_func,
                                verbose=False,
                                write_to_tensorboard=True):
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0044')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
     global gcnt
 
     # logf = f'evaluate_and_print_results=={prefix}==' 文件名会有问题
@@ -1194,7 +1194,7 @@ def evaluate_and_print_results(prefix,
     # gd.disable(info=logf, path=f'/share/yk_repo/Megatron-LM/tag_23.06/_log_tmps_/', enable_screen=True)
     gd.emb_end(info=logf)
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0044')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
 def cyclic_iter(iter):
     while True:

@@ -1,0 +1,2 @@
+[实践] Pipeline Parallel（精简版）
+https://zhuanlan.zhihu.com/p/626202865

@@ -213,7 +213,7 @@ class VocabParallelEmbedding(torch.nn.Module):
     因此需要对embedding最终输出做一个all-reduce操作，这样可以得到完整embedding。
     '''
     def forward(self, input_):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0042')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         gd.debuginfo(prj="mt", info=f'input_={infoTensor(input_)}')
         if self.tensor_model_parallel_size > 1:
             # Build the mask.
@@ -249,7 +249,7 @@ class VocabParallelEmbedding(torch.nn.Module):
 
         gd.debuginfo(prj='mt', info=f"output={infoTensor(output)}")
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0042')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         return output
 
@@ -271,7 +271,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         async_grad_allreduce,
         sequence_parallel,
     ):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0041')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         gd.debuginfo(prj='mt', info=f"input={infoTensor(input)}")
         gd.debuginfo(prj='mt', info=f"weight={infoTensor(weight)}")
         gd.debuginfo(prj='mt', info=f"bias={infoTensor(bias)}")
@@ -325,14 +325,14 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             output = output + bias
             gd.debuginfo(prj='mt', info=f"output={infoTensor(output)}")
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0041')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         return output
 
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0039')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         gd.debuginfo(prj='mt', info=f'grad_output={infoTensor(grad_output)}')
 
         # 从上下文对象中恢复前向传播保存的张量
@@ -464,7 +464,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         gd.debuginfo(prj='mt', info=f'grad_input={infoTensor(grad_input)}')
         gd.debuginfo(prj='mt', info=f'grad_weight={infoTensor(grad_weight)}')
         gd.debuginfo(prj='mt', info=f'grad_bias={infoTensor(grad_bias)}')
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0039')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         return grad_input, grad_weight, grad_bias, None, None, None
 
 #可以看到gradient_accumulation_fusion这个优化作用于Linear层中对weight求梯度的时候，调用了apex库提供的2个fuse cuda kernel原地更新了weight的梯度。
@@ -781,7 +781,7 @@ class ColumnParallelLinear(torch.nn.Module):
             - output
             - bias
         """
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0038')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         # 如果选择忽略 bias，就会设置为 None，后续就不用处理了
         bias = self.bias if not self.skip_bias_add else None
@@ -829,7 +829,7 @@ class ColumnParallelLinear(torch.nn.Module):
 
         gd.debuginfo(prj="mt", info=f'output_bias={infoTensor(output_bias)}')
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0038')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         return output, output_bias
 
@@ -963,7 +963,7 @@ class RowParallelLinear(torch.nn.Module):
             - output
             - bias
         """
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0043')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         # Set up backprop all-reduce.
         if self.input_is_parallel:
@@ -1005,6 +1005,6 @@ class RowParallelLinear(torch.nn.Module):
             gd.debuginfo(prj='mt', info=f'output={infoTensor(output)}')
             gd.debuginfo(prj='mt', info=f'output_bias={infoTensor(output_bias)}')
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0043')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         return output, output_bias

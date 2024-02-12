@@ -22,7 +22,7 @@ def add_arguments(parser):
                        'in the input checkpoint if provided by the loader, otherwise to 1')
 
 def save_checkpoint(queue, args):
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0002')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
     # Search in directory above this
     sys.path.append(os.path.abspath(
         os.path.join(os.path.dirname(__file__),
@@ -392,4 +392,4 @@ def save_checkpoint(queue, args):
             mpu.set_tensor_model_parallel_rank(tp_rank)
             save_checkpoint(md.iteration, [models[tp_rank]], None, None)
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0002')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')

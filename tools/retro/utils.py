@@ -9,6 +9,7 @@ from megatron.tokenizer.tokenizer import (
     _BertWordPieceTokenizer,
     _GPT2BPETokenizer,
     _GPTSentencePieceTokenizer,
+    _Llama2Tokenizer
 )
 
 from pydebug import gd, infoTensor

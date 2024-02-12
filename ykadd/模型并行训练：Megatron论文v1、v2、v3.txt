@@ -1,0 +1,3 @@
+模型并行训练：Megatron论文v1、v2、v3
+https://zhuanlan.zhihu.com/p/675864910
+

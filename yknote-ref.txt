@@ -5,20 +5,6 @@ https://zhuanlan.zhihu.com/p/366906920
 https://zhuanlan.zhihu.com/p/388830967
 
 
-https://www.mltalks.com/posts/2216816847/
-Megatron-LM源码系列(二)：Tensor模型并行和Sequence模型并行训练
-代码库地址: https://github.com/NVIDIA/Megatron-LM/tree/23.05
-
-https://www.mltalks.com/posts/2207923116/
-Megatron-LM源码系列(一)：模型并行初始化
-
-https://www.mltalks.com/posts/2553632961/
-Megatron-LM源码系列(四)：重计算(recompute)
-
-https://www.mltalks.com/posts/4123368446/
-Megatron-LM源码系列(三)：详解Pipeline模型并行训练实现
-
-
 ==========bug fix
 
 ModuleNotFoundError: No module named '_lzma'
@@ -59,3 +45,31 @@ fused_weight_gradient_mlp_cuda module not found.
 gradient accumulation fusion with weight gradient computation disabled
 X == git checkout 3303b3e7174383312a3468ef390060c26e640cb1  ===后续会出错，找不到各种op，例如fused_weight_gradient_mlp_cuda！
 git checkout 22.03 ==ok，再高的tag无法编译通过！
+
+
+https://strint.notion.site/Megatron-LM-86381cfe51184b9c888be10ee82f3812
+Megatron-LM 的分布式执行调研：原理和最佳实践
+
+
+https://strint.notion.site/PyTroch-AutoGrad-C-45cd860af9c945829fafc48953481d32
+PyTroch AutoGrad C++层实现
+
+
+https://blog.csdn.net/sinat_37574187/category_12351098.html
+大模型并行优化DeepSpeed
+
+https://zhuanlan.zhihu.com/p/646406772
+Megatron-LM 中分布式相关概览
+
+https://zhuanlan.zhihu.com/p/667372574
+Megatron-LM的正确打开方式
+
+
+https://zhuanlan.zhihu.com/p/663056263
+Megatron-LM：论文阅读及运行踩坑全记录
+
+https://zhuanlan.zhihu.com/p/522198082
+Megatron-LM 第三篇Paper总结
+
+https://zhuanlan.zhihu.com/p/669857226
+详解张量并行与Megatron-LM

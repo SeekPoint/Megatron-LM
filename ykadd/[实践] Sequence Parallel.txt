@@ -1,0 +1,72 @@
+[实践] Sequence Parallel
+
+[实践] Sequence Parallel
+Dylan
+Dylan​​
+北京大学 计算机科学与技术硕士
+​关注他
+48 人赞同了该文章
+有两篇sequnece parallel的文章容易混淆，一篇是Megatron-LM的第三篇文章”Reducing Activation Recomputation in Large Transformer Models”，另一篇是ColosalAI的”Sequence Parallelism: Long Sequence Training from System Perspective”。后者提出的时间应该更早些，虽然两篇都都叫做sequence parallel，但是实际上解决的问题、方法都不一样。前者是主要是减少模型显存的，后者主要是解决模型的输入长度限制。本文主要介绍一下Megatron-LM里面集成的sequence parallel。
+
+优化前 - 显存占用
+Megatron-LM中首先分析了Transformer模型运行时的显存占用情况。假设输入长度为
+ ，batch size为
+ ，hidden dim为
+ ，attention head数量为
+ ，则每一层Transformer的显存占用为：
+
+ .
+
+具体来说：
+
+Layer Norm的输入：
+ .
+Self Attention的输入：
+ .
+QKV各自都需要保存：
+ .
+QK结果Softmax：
+ .
+Softmax的dropout mask和dropout之后的输出：
+ .
+线性层的输入和dropout mask：
+ .
+Layer Norm的输入：
+ .
+两个MLP的输入：
+ .
+GeLU的输入：
+ .
+dropout mask：
+ .
+
+Tensor Parallel
+开启了Tensor Parallel之后，上述有部分模块的显存可以被分摊到不同的设备之间。如下图所示，不能被分摊的部分主要是两个layer norm层的输入和输出
+ ；两个dropout mask
+ ；一共是
+ . 每一层Transformer的显存占用为：
+ .
+
+优化后 - 显存占用
+Megatron-LM的初衷是考虑通过其他方式分摊Tensor Parallel中无法分摊的显存，因此提出了Sequence Parallel的方法。
+
+
+Sequence Parallel
+从实践上，Megatron-LM在如图所示的区域对Tensor在sequence维度做了切分，切分数量等于Tensor Parallel的并行数量。这样每一层Transformer的显存占用就可以做到：
+ .
+
+当然，做了额外的切分就会带来通信方式的改变。在Sequence Parallel的切分方式下，forward到
+ 的时候都需要做一个all_gather操作，到
+ 的时候都需要做一个reduce_scatter操作；backward的时候相反，到
+ 的时候都需要做一个reduce_scatter操作，到
+ 的时候都需要做一个all_gather操作。
+
+完整的forward和backward过程会需要4次all_gather操作和4次reduce_scatter操作，之前的Tensor Parallel下需要4次all_reduce操作，而一次all_reduce通信量等同与一次all_gather加一次reduce_scatter，所以Sequence Parallel并没有增加额外的通信开销。
+
+
+
+参考文献：
+
+Reducing Activation Recomputation in Large Transformer Models
+编辑于 2023-05-04 14:15・IP 属地中国香港
+

@@ -37,13 +37,12 @@ def build_tokenizer(args):
     elif args.tokenizer_type == 'GPTSentencePieceTokenizer':
         assert args.tokenizer_model is not None
         tokenizer = _GPTSentencePieceTokenizer(args.tokenizer_model)
+    elif args.tokenizer_type == 'Llama2Tokenizer':
+        assert args.tokenizer_model is not None
+        tokenizer = _Llama2Tokenizer(args.tokenizer_model)
     elif args.tokenizer_type == 'NullTokenizer':
         assert args.vocab_size is not None
         tokenizer = _NullTokenizer(args.vocab_size)
-    elif args.tokenizer_type == 'Llama2Tokenizer':
-        assert args.vocab_file is not None
-        assert args.merge_file is not None
-        tokenizer = _Llama2Tokenizer(args.vocab_size)
     else:
         raise NotImplementedError('{} tokenizer is not '
                                   'implemented.'.format(args.tokenizer_type))
@@ -515,18 +514,34 @@ class _GPTSentencePieceTokenizer(_SentencePieceTokenizer):
     def additional_special_tokens_ids(self):
         return None
 
-class _NullTokenizer:
-    def __init__(self, vocab_size):
-        vocab_size = int(vocab_size)
-        self._eos_id = vocab_size
-        self.vocab_size = vocab_size+1
+class _Llama2Tokenizer(_SentencePieceTokenizer):
+    """SentencePieceTokenizer-Megatron wrapper"""
 
-    def tokenize(self, text):
-        return [int(x) for x in text.split(' ')]
+    def __init__(self, model_file,):
+        super().__init__(model_file, vocab_extra_ids=0)
+
+    def _initalize(self, vocab_extra_ids):
+        self._populate_vocab()
+
+        # BOS / EOS token IDs
+        self.n_words: int = self.tokenizer.vocab_size()
+        self.bos_id: int = self.tokenizer.bos_id()
+        self.eos_id: int = self.tokenizer.eos_id()
+        self.pad_id: int = self.tokenizer.pad_id()
+        assert self.tokenizer.vocab_size() == self.tokenizer.get_piece_size()
+
+    def tokenize(self, s: str, bos=True, eos=False):
+        '''Default args for text completion, not chat/dialog.'''
+        assert type(s) is str
+        t = self.tokenizer.encode(s)
+        if bos:
+            t = [self.bos_id] + t
+        if eos:
+            t = t + [self.eos_id]
+        return t
 
     def detokenize(self, ids):
-        text = [str(x) for x in ids]
-        return ' '.join(text)
+        return self.tokenizer.decode_ids(ids)
 
     @property
     def cls(self):
@@ -542,13 +557,13 @@ class _NullTokenizer:
 
     @property
     def eod(self):
-        return self._eos_id
+        return self.eos_id
 
     @property
     def additional_special_tokens_ids(self):
         return None
 
-class _Llama2Tokenizer:
+class _NullTokenizer:
     def __init__(self, vocab_size):
         vocab_size = int(vocab_size)
         self._eos_id = vocab_size

@@ -158,11 +158,15 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
 if __name__ == "__main__":
 
     gd.debuginfo(prj='mt', info=f'=================') # 不被计入
+    gd.setIgnore(prj='mt', ignore=20)
 
     gd.prjenable('ALL')  #打开项目flag
+    import os
+    logpath = f'/workspace/yk_repo/Megatron-LM/tag_23.06/_log_tmps_T5_/'
+    if not os.path.exists(logpath):
+        os.makedirs(logpath)
 
-    gd.emb_mode(path=f'/workspace/yk_repo/Megatron-LM/tag_23.06/_log_tmps_T5_/',
-                embedded_mode=True)
+    gd.emb_mode(path=logpath, embedded_mode=True)
 
     pretrain(train_valid_test_datasets_provider, model_provider, ModelType.encoder_and_decoder,
              forward_step, args_defaults={'tokenizer_type': 'BertWordPieceLowerCase'})

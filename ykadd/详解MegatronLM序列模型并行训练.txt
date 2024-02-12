@@ -1,0 +1,2 @@
+详解MegatronLM序列模型并行训练
+https://www.mltalks.com/posts/3872270762/

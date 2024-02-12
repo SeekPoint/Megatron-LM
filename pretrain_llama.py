@@ -156,11 +156,16 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
 # /Megatron-LM/pretrain_gpt.py 会调用 pretrain 函数进行预训练。
 if __name__ == "__main__":
     gd.debuginfo(prj='mt', info=f'=================') # 不被计入
+    gd.setIgnore(prj='mt', ignore=20)
 
     gd.prjenable('ALL')  #打开项目flag
 
-    gd.emb_mode(path=f'/workspace/yk_repo/Megatron-LM/tag_23.06/_log_tmps_llama2/',
-                embedded_mode=True)
+    import os
+    logpath = f'/workspace/yk_repo/Megatron-LM/tag_23.06/_log_tmps_llama2/'
+    if not os.path.exists(logpath):
+        os.makedirs(logpath)
+
+    gd.emb_mode(path=logpath, embedded_mode=True)
 
     pretrain(train_valid_test_datasets_provider,
              model_provider,

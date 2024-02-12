@@ -1,0 +1,130 @@
+[实践] Tensor Parallel（精简版）
+
+https://zhuanlan.zhihu.com/p/626008269
+
+Dylan​​
+北京大学 计算机科学与技术硕士
+​关注他
+54 人赞同了该文章
+本文将简单介绍Tensor Parallel的原理和实现，以及适用的场景。
+
+Tensor Parallel最早为Megatron-LM提出的一种大模型并行方式，其核心思想就是将矩阵计算分块到多张GPU上进行计算，优势是：1. 能够降低GPU的峰值显存；2. 能够加速计算；劣势是：GPU之间的通信成本大大增加。
+
+基本原理
+原理方面，这一篇知乎文章将细节介绍得非常详尽了，本文在此只简要进行概括。
+
+首先，Tensor Parallel的核心原理就是将矩阵进行分块计算。比如
+ 中
+ 都是二维矩阵，形状分别为
+ ，有两种切分方式进行分块计算。
+
+第一种方式，在Megatron里面称作ColumnLinear，将
+ 沿着第二维切分成
+ 份，每一份的形状都为
+ ，每一份放在一个GPU上与
+ 相乘，得到
+ 个
+ ，最后将各个GPU上的结果按照第二维进行顺序拼接（all_gather通信操作）就得到了最终结果
+ 。
+
+第二种方式，在Megatron里面称作RowLinear，将
+ 沿着第二维切分成
+ 份，每一份的形状都为
+ ；同时将
+ 沿着第一维切分成
+ 份，每一份的形状都为
+ 。在每个GPU上分别计算
+ ，最后将各自的结果相加（all_reduce通信操作）就得到了最终结果
+ 。
+
+使用原理
+在Transformer里面有四处用到Tensor Parallel的地方，分别是VocabEmbedding、Self-Attention、MLP、Head+CrossEntropy，本文重点会介绍一下Self-Attention和MLP部分的Tensor Parallel.
+
+第一处VocabEmbedding，Megatron的实现是按照vocab dimension进行切分，而Fairscale的实现是按照hidden dimension进行切分，我认为都可，在性能上应该不会有什么差异。
+
+第二处Self-Attention，如下图所示，输入的地方使用ColumnLinear切分方式，不改变输入的形状，而是切分权重；输出的地方使用RowLinear切分方式，仍然不用改变输入，只是需要用all_reduce来汇总结果。（注：ColumnLinear + RowLinear的先后搭配非常常见，因为这样前者的输出和后者的输入形状上正好能够对应）
+
+
+Self-Attention (from Megatron-LM paper)
+第三处MLP，如下图所示，仍然也是先ColumnLinear再RowLinear的切分方式，非常直观。
+
+
+MLP (from Megatron-LM paper)
+
+
+第四处Head+CrossEntropy，Transformer最终的结果会和一个
+ 大小的Embeddding层相乘，然后计算logits。这里会按照vocab dimension进行切分，也就是ColumLinear的切分方式。注意这部分的计算在求max logits和softmax logts时候要跨vocab dimension计算，所以会有两次额外的all_reduce操作。
+
+实现
+Pytorch将分布式通信的很多接口都封装地非常简单易用了，所以想要从头实现一个Tensor Parallel并不复杂。下面本文参考Megatron-LM，以ColumnLinear为例子进行简易实现：
+
+class linear_identity_allreduce(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, weight):
+	# forward的时候，不用进行通信操作
+        ctx.save_for_backward(input, weight)
+        output = torch.matmul(input, weight.t())
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+	# backward时候，进行all reduce操作
+        input, weight = ctx.saved_tensors
+        tp_group = get_tensor_parallel_group()
+        grad_input = torch.matmul(grad_output, weight)
+        torch.distributed.all_reduce(grad_input, group=tp_group, async_op=True)
+
+        grad_output = grad_output.contiguous()
+        grad_output = grad_output.view(grad_output.shape[0] * grad_output.shape[1],
+                                       grad_output.shape[2])
+        input = input.view(input.shape[0] * input.shape[1], input.shape[2])
+        grad_weight = torch.matmul(grad_output.t(), input)
+        return grad_input, grad_weight
+
+
+class ColumnParallelLinear(nn.Module):
+    """linear layer with column parallelism
+
+    The linear layer is defined as Y = XA + b. A is parallelized along
+    its second dimension as A = [A_1, ..., A_p].
+    """
+
+    def __init__(
+        self,
+        input_size: int,
+        output_size: int,
+    ) -> None:
+        super().__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+
+        tp_group = get_tensor_parallel_group()
+        tp_size = tp_group.size()
+
+        assert output_size % tp_size == 0, \\
+            "output_size must be divisible by tensor parallel size"
+        self.output_size_partition = output_size // tp_size
+
+        self.weights = torch.nn.Parameter(torch.empty(
+            self.output_size_partition, self.input_size))
+        nn.init.xavier_uniform_(self.weights)
+
+    def forward(self, input_: torch.Tensor):
+        args = [input_, self.weights]
+        out = linear_identity_allreduce.apply(*args)
+        return out
+ColumnLinear在forward的时候不进行通信操作，backward的时候进行all_reduce通信；而RowLinear正好共轭，在forward的时候进行all_reduce通信，backward的时候不进行通信操作。
+
+适用场景分析
+以LLaMA 6.7B的模型参数为例来估算通信时间占比情况，hidden size为4096、sequence length为2048、每个GPU上的batch size为8，假设tps(tensor parallel size)为4。
+
+计算每个Transformer Block通信时间，前向时要进行2次all_reduce操作，反向时也是2次all_reduce操作，总共是4次all_reduce操作。每次all_reduce的数据量是
+ ，对于每个节点而言通信量为
+ ，带入假设条件可以得到通信量为192MB。如果有NVLink，可以以300GB/s的带宽通信，那么这部分的理论通信时间为0.625ms；如果没有NVLink，只能以PCIe 32GB/s的带宽通信，那么这部分的理论通信时间为5.96ms。
+
+计算每个Transformer Block单次前向和单次后向的计算时间，计算量为
+ ，带入假设条件可以得到计算量为5.36TFPLOS。如果使用A100的FP16模式进行运算，算力为312T FLOPS，那么理论计算时间需要算17.18ms。
+
+综上所示，在A100 FP16模式下，如果使用NVLink跑Tensor Parallel，通信时间将占到总时间的3.51%，几乎可以忽略不计；如果不使用NVLink跑Tensor Parallel，通信时间将占到总时间的25.76%，就非常难受了。所以Tensor Parallel适用于通信能力比较强的硬件设施，不然会显著拉长训练时间。
+
+发布于 2023-04-30 15:43・IP 属地中国香港

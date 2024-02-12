@@ -28,7 +28,10 @@ except ImportError:
 try:
     from flash_attn.flash_attn_interface import flash_attn_unpadded_func
 except ImportError:
-    flash_attn_unpadded_func = None
+    try:
+        from flash_attn.flash_attn_interface import flash_attn_varlen_func as flash_attn_unpadded_func
+    except ImportError:
+        flash_attn_unpadded_func = None
 
 
 """ We use the following notation throughout this file:
@@ -328,7 +331,7 @@ class CoreAttention(MegatronModule):
                 value_layer,
                 attention_mask):
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0030')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         # ===================================
         # Raw attention scores. [b, np, s, s]
@@ -432,7 +435,7 @@ class CoreAttention(MegatronModule):
         context_layer = context_layer.view(*new_context_layer_shape)
         gd.debuginfo(prj="mt", info=f'4-context_layer={infoTensor(context_layer)}')
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0030')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         return context_layer
 
 
@@ -463,7 +466,7 @@ class FlashSelfAttention(torch.nn.Module):
         ---------
             q, k, v: The tensor containing the query, key, and value. (B, S, H, D)
         """
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0031')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         assert all((i.dtype in [torch.float16, torch.bfloat16] for i in (q,k,v)))
         assert all((i.is_cuda for i in (q,k,v)))
@@ -507,7 +510,7 @@ class FlashSelfAttention(torch.nn.Module):
 
         gd.debuginfo(prj="mt", info=f'b-output={output}')
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0031')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         return output
 
@@ -646,7 +649,7 @@ class ParallelAttention(MegatronModule):
     def forward(self, hidden_states, attention_mask,
                 encoder_output=None, inference_params=None,
                 rotary_pos_emb=None):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0032')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         # hidden_states: [sq, b, h]
 
@@ -855,7 +858,7 @@ class ParallelAttention(MegatronModule):
         gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
         gd.debuginfo(prj="mt", info=f'bias={infoTensor(bias)}')
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0032')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         return output, bias
 
@@ -922,7 +925,7 @@ class ParallelTransformerLayer(MegatronModule):
                  self_attn_mask_type=AttnMaskType.padding,
                  drop_path_rate=0.):
                  # retriever=None):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0036')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         args = get_args()
 
         super(ParallelTransformerLayer, self).__init__()
@@ -1026,7 +1029,7 @@ class ParallelTransformerLayer(MegatronModule):
             gd.debuginfo(prj="mt")
             self.retriever = None
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0036')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     def default_decoder_cross_attention(self,
                                         encoder_output,
@@ -1262,7 +1265,7 @@ class ParallelTransformerLayer(MegatronModule):
                 retriever_attn_mask=None,
                 inference_params=None,
                 rotary_pos_emb=None):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0001')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         # hidden_states: [s, b, h]
 
         # Layer norm at the beginning of the transformer layer.
@@ -1429,7 +1432,7 @@ class ParallelTransformerLayer(MegatronModule):
             gd.debuginfo(prj="mt", info=f'output={infoTensor(output)}')
             return output
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0001')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
 
 class NoopTransformerLayer(MegatronModule):
@@ -1588,7 +1591,7 @@ class ParallelTransformer(MegatronModule):
                  pre_process=True,
                  post_process=True,
                  drop_path_rate=0.0):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0034')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         super(ParallelTransformer, self).__init__()
         args = get_args()
 
@@ -1802,7 +1805,7 @@ class ParallelTransformer(MegatronModule):
                 no_persist_layer_norm=args.no_persist_layer_norm,
                 sequence_parallel=args.sequence_parallel,
                 apply_layernorm_1p=args.apply_layernorm_1p)
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0034')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     def _get_layer(self, layer_number):
         gd.debuginfo(prj="mt")
@@ -1916,7 +1919,7 @@ class ParallelTransformer(MegatronModule):
                 inference_params=None,
                 rotary_pos_emb=None):
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0035')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         # hidden_states: [s, b, h]
 
@@ -2028,6 +2031,6 @@ class ParallelTransformer(MegatronModule):
             gd.debuginfo(prj="mt")
             hidden_states = self.final_layernorm(hidden_states)
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0035')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         return hidden_states

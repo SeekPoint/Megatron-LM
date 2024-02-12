@@ -428,7 +428,7 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
 
     @torch.no_grad()
     def step(self, args, timers):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0033')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         # Copy gradients from model params to main params.
         timers('optimizer-copy-to-main-grad', log_level=1).start(
@@ -490,7 +490,7 @@ class MixedPrecisionOptimizer(MegatronOptimizer):
         self._copy_main_params_to_model_params()
         timers('optimizer-copy-main-to-model-params').stop()
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0033')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         # Successful update.
         return True, grad_norm, num_zeros_in_grad
@@ -529,7 +529,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
     def __init__(self, optimizer, clip_grad, log_num_zeros_in_grad,
                  params_have_main_grad, use_contiguous_buffers_in_local_ddp,
                  fp16, bf16, params_dtype, grad_scaler, models):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0019')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         super().__init__(
             optimizer, clip_grad, log_num_zeros_in_grad,
@@ -601,7 +601,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
             self.fp32_from_float16_groups.append(fp32_from_float16_params_this_group)
             self.fp32_from_fp32_groups.append(fp32_params_this_group)
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0019')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
 
     def zero_grad(self, set_to_none=True):
@@ -673,7 +673,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
 
 
     def _copy_model_grads_to_main_grads(self):
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0037')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         # This only needs to be done for the float16 group.
         for mgi, (model_group, main_group) in enumerate(zip(self.float16_groups,
                                                           self.fp32_from_float16_groups)):
@@ -713,7 +713,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
                     if not self.use_contiguous_buffers_in_local_ddp:
                         gd.debuginfo(prj="mt")
                         model_param.main_grad = None
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0037')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     def _copy_main_params_to_model_params(self):
         gd.debuginfo(prj="mt")

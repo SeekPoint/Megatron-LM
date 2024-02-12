@@ -541,7 +541,7 @@ class TransformerLanguageModel(MegatronModule):
                 pooling_sequence_index=0,
                 enc_hidden_states=None, output_enc_hidden=False):
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0018')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
         # Encoder embedding.
         if self.pre_process:
@@ -635,7 +635,7 @@ class TransformerLanguageModel(MegatronModule):
             gd.debuginfo(prj="mt", info=f'encoder_output={infoTensor(encoder_output)}')
             return decoder_output, encoder_output
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0018')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
 
     def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):

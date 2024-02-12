@@ -1,0 +1,2 @@
+详解MegatronLM Tensor模型并行训练(Tensor Parallel)
+https://www.mltalks.com/posts/3016692145/

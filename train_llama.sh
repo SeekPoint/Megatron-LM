@@ -5,8 +5,12 @@ export OMP_NUM_THREADS=1
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export NCCL_IB_GID_INDEX=3
 export NCCL_DEBUG=WARN
-export GLOO_SOCKET_IFNAME="bond4"
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+#  File "/usr/local/lib/python3.8/site-packages/torch/distributed/distributed_c10d.py", line 862, in _new_process_group_helper
+#    pg = ProcessGroupGloo(prefix_store, group_rank, group_size, timeout=timeout)
+#RuntimeError: [enforce fail at ../third_party/gloo/gloo/transport/tcp/device.cc:80] ifa != nullptr. Unable to find address for: bond4/docker0
+# bond4 改名还不行，直接去掉！
+#export GLOO_SOCKET_IFNAME="docker0"
+export CUDA_VISIBLE_DEVICES=0,1
 export TORCH_CUDA_ARCH_LIST=Ampere
 
 # Distributed training variables
@@ -26,7 +30,7 @@ DP=$((${GPU_NUM}/${TP}/${PP}))
 # Network size variables
 MODEL_SIZE=7
 
-if   [[ ${MODEL_SIZE} == 7 ]];   then HIDDEN_SIZE=4096;  NUM_HEAD=32; NUM_QUERY_GROUP=32; NUM_LAYERS=32; FFN_HIDDEN_SIZE=11008; NORM_EPS=1e-5;
+if   [[ ${MODEL_SIZE} == 7 ]];   then HIDDEN_SIZE=1024;  NUM_HEAD=16; NUM_QUERY_GROUP=16; NUM_LAYERS=16; FFN_HIDDEN_SIZE=11008; NORM_EPS=1e-5;
 elif [[ ${MODEL_SIZE} == 13 ]];  then HIDDEN_SIZE=5120;  NUM_HEAD=40; NUM_QUERY_GROUP=40; NUM_LAYERS=40; FFN_HIDDEN_SIZE=13824; NORM_EPS=1e-5;
 elif [[ ${MODEL_SIZE} == 70 ]];  then HIDDEN_SIZE=8192;  NUM_HEAD=64; NUM_QUERY_GROUP=8;  NUM_LAYERS=80; FFN_HIDDEN_SIZE=28672; NORM_EPS=1e-5;
 elif [[ ${MODEL_SIZE} == "tiny" ]]; then HIDDEN_SIZE=128;  NUM_HEAD=4; NUM_QUERY_GROUP=4; NUM_LAYERS=4; FFN_HIDDEN_SIZE=512; NORM_EPS=1e-5;
@@ -36,26 +40,26 @@ fi
 DROP_OUT=0.0
 MAX_LR=3e-5
 MIN_LR=3e-6
-MAX_SEQ_LEN=4096
-MAX_POSITION_EMBEDDINGS=4096
+MAX_SEQ_LEN=1024
+MAX_POSITION_EMBEDDINGS=1024
 
 # Paths
-BASE_PATH=/workspace
+BASE_PATH=/workspace/yk_repo/Megatron-LM/tag_23.06
 SRC_PATH=./pretrain_llama.py
 
 LOG_NAME=llama2-7b_pretrain_WS${WORLD_SIZE}_TP${TP}_PP${PP}
 LOG_PATH=${BASE_PATH}/log/${LOG_NAME}/node${NODE_RANK}.log
 mkdir -p ${BASE_PATH}/log/${LOG_NAME}
 
-DATA_PATH=${BASE_PATH}/data/oscar-en-10k-meg-llama_text_document
+DATA_PATH=/share/hf_model/oscar-10k-meg-llama_text_document
 DATA_CACHE_PATH="./data_cache/${LOG_NAME}"
 mkdir -p ${DATA_CACHE_PATH}
 
-SAVE_PATH=${BASE_PATH}/checkpoint/${LOG_NAME}
-LOG_PATH=${BASE_PATH}/log/${LOG_NAME}/node${NODE_RANK}.log
-mkdir -p ${BASE_PATH}/log/${LOG_NAME}
+SAVE_PATH=${BASE_PATH}/checkpoint-llama2/${LOG_NAME}
+LOG_PATH=${BASE_PATH}/log-llama2/${LOG_NAME}/node${NODE_RANK}.log
+mkdir -p ${BASE_PATH}/log-llama2/${LOG_NAME}
 
-TOKENIZER_PATH=${BASE_PATH}/tokenizers/Llama2Tokenizer/tokenizer.model
+TOKENIZER_PATH=${BASE_PATH}/Llama2Tokenizer/tokenizer.model
 
 # Set training command
 LAUNCHER=" \
@@ -105,13 +109,13 @@ REGULATIZATION_ARGS=" \
 
 TRAINING_ARGS=" \
        --micro-batch-size 1 \
-       --global-batch-size 32 \
-       --train-iters 10000 \
+       --global-batch-size 4 \
+       --train-iters 10 \
        --log-interval 1 \
        --disable-bias-linear \
        --no-bias-gelu-fusion \
        --optimizer adam \
-       --exit-interval 10 \
+       --exit-interval 2 \
        --recompute-activations \
        --recompute-granularity selective \
        "
@@ -137,13 +141,12 @@ CHECKPOINTING_ARGS=" \
        "
 
 MIXED_PRECISION_ARGS=" \
-       --bf16 \
        --no-query-key-layer-scaling \
        "
 
 VALIDATION_ARGS=" \
-       --eval-interval 1000 \
-       --eval-iters 10 \
+       --eval-interval 2 \
+       --eval-iters 2 \
        "
 
 DATA_ARGS=" \

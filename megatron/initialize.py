@@ -34,7 +34,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
     Returns a function to finalize distributed env initialization 
     (optionally, only when args.lazy_mpu_init == True)
     """
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0040')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     if not allow_no_cuda:
         # Make sure cuda is available.
@@ -77,7 +77,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         # to call when it has DDP initialized
         mpu.set_tensor_model_parallel_rank(args.rank)
 
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0040')
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
         return finish_mpu_init
     else:
         gd.debuginfo(prj="mt", info='------1----')
@@ -92,7 +92,7 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         _compile_dependencies()
         gd.debuginfo(prj="mt", info='------5----')
         # No continuation function
-        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0040') # codepa
+        gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__') # codepa
         return None
 
 

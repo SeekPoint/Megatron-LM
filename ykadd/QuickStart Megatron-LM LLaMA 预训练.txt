@@ -1,2 +1,0 @@
-QuickStart Megatron-LM LLaMA 预训练
-https://zhuanlan.zhihu.com/p/668057319

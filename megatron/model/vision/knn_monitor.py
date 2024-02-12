@@ -36,7 +36,7 @@ def build_data_loader(dataset, drop_last=True, shuffle=False):
 
 
 def compute_feature_bank(model):
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0046')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
     args = get_args()
     global _FEATURE_BANK
     feature_bank = []
@@ -93,7 +93,7 @@ def compute_feature_bank(model):
 
     _FEATURE_BANK = (feature_banks, feature_labels, classes)
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0046')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
 
 def get_feature_bank():

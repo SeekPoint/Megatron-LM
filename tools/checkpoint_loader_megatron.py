@@ -18,7 +18,7 @@ def add_arguments(parser):
                        help='Base directory of deepspeed repository')
 
 def _load_checkpoint(queue, args):
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0004')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     # Search in directory above this
     sys.path.append(os.path.abspath(
@@ -336,7 +336,7 @@ def _load_checkpoint(queue, args):
             queue_put("binary head", message)
     queue.put("done")
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0004')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
 def load_checkpoint(queue, args):
     try:

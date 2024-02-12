@@ -72,7 +72,7 @@ def process_batch(batch):
 
 def forward_step(batch, model, eval_metric):
     """Forward step."""
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0005')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     # Get the batch.
     tokens, labels, attention_mask, position_ids, loss_mask = process_batch(batch)
@@ -123,7 +123,7 @@ def forward_step(batch, model, eval_metric):
         raise NotImplementedError('forward method for evaluation metric {} '
                                   'is not implemented.'.format(eval_metric))
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0005')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     return None
 

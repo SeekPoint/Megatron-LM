@@ -123,7 +123,7 @@ def initialize_model_parallel(
     ranks 8 to 15 belong to the second box.
 
     """
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0003')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     # Get world size and rank. Ensure some consistencies.
     assert torch.distributed.is_initialized()
@@ -337,7 +337,7 @@ def initialize_model_parallel(
     # we could stick it there
     _set_global_memory_buffer()
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0003')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     '''
     假设当前有 16 个GPU，分布在两个节点，其中编号0～7属于第一个节点，编号8～15属于第二个节点。

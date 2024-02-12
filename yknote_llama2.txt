@@ -1,0 +1,32 @@
+QuickStart Megatron-LM LLaMA 预训练
+https://zhuanlan.zhihu.com/p/668057319
+
+pretrain_llama 参考此文！
+
+
+
+root@48d910472e09:/workspace/yk_repo/Megatron-LM/tag_23.06#
+
+python3.8 -m pip install sentencepiece
+
+python3.8 -m pip install flash-attn
+
+python3.8 tools/preprocess_data.py --input /share/hf_model/oscar-1GB.jsonl \
+--output-prefix /share/hf_model/oscar-10k-meg-llama \
+--tokenizer-type Llama2Tokenizer \
+--tokenizer-model /workspace/yk_repo/Megatron-LM/tag_23.06/Llama2Tokenizer/tokenizer.model \
+--workers 16 \
+--append-eod
+生成的
+-rw-r--r--  1 root  root   534761040 12月  7 01:30 oscar-10k-meg-llama_text_document.bin
+-rw-r--r--  1 root  root     1580042 12月  7 01:30 oscar-10k-meg-llama_text_document.idx
+输入的
+来自 xz -d oscar-1GB.jsonl.xz
+
+-rw-rw-r--  1 amd00 amd00 1075395068 11月 17 18:10 oscar-1GB.jsonl
+
+
+
+
+(base) amd00@MZ32-00:/data/hf_model$ xz -d oscar-1GB.jsonl.xz
+

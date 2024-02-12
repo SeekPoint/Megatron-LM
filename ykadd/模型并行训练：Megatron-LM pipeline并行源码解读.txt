@@ -1,0 +1,221 @@
+模型并行训练：Megatron-LM pipeline并行源码解读
+
+https://zhuanlan.zhihu.com/p/678724323
+
+流逝
+
+问题
+recv和send可以分开写吗？
+代码中如何指定是否需要recv、send？
+p2p overlap是用来干嘛的？为啥只有interleaved支持了overlap，而default方法不支持？
+介绍
+最近在改pipeline parallel scheduler里面的东西，发现需要先看懂并行状态的设置和通信相关的代码才行。
+
+代码：https://github.com/NVIDIA/Megatron-LM/tree/main/megatron/core/pipeline_parallel
+
+pipeline_parallel目录下两个文件，分别是p2p_communication 和 schedules，
+
+pipeline parallel state在：https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/parallel_state.py
+
+下面主要介绍interleaved pipeline相关的内容
+
+pipeline并行状态 parallel_state
+get_pipeline_model_parallel_world_size：pipeline并行的卡数
+
+get_pipeline_model_parallel_rank：当前卡在pipeline并行中的序号
+
+is_pipeline_last_stage(ignore_virtual=True)、is_pipeline_first_stage(ignore_virtual=True)：忽略virtual stage时，判断当前stage是否为流水线并行的最后一个、第一个stage。如下图，红色框均为first stage，黄色框均为last stage。
+
+
+is_pipeline_last_stage(ignore_virtual=False)、is_pipeline_first_stage(ignore_virtual=False)：考虑virtual stage时，此时只有interleaved pipeline并行会用到。判断当前stage是否为最后一个、第一个stage。如下图，device1上深蓝色、深绿色的是first stage，即红色框；device4上浅蓝色、浅绿色的是last stage，即黄色框。
+
+
+set_virtual_pipeline_model_parallel_rank、get_virtual_pipeline_model_parallel_rank：设置、获取当前所在的virtual pipeline rank，也叫model chunk id
+
+注意，前向的model chunk id是从零开始编号的，依次增加；而后向的model chunk id从大到小，递减编号。
+
+get_model_chunk_id：输入是micro batch的id编号，输出是model chunk id。micro batch id 代码中从0开始编号，依次递增，上图中是从1开始编号的，略有区别。上图浅色的，包括浅蓝色和浅绿色，model chunk id为0；深色的，包括深蓝色和深绿色，model chunk id为1。
+
+通信
+p2p_communication，主要的功能就是两个事情：发送send 和 接受recv。
+
+forward的时候：forward之前，需要从前面的stage 获取中间结果，也就是前面stage的output tensor，做为当前stage的 input tensor，这个操作对于当前stage称为recv，具体为recv_forward；forward之后，需要当前stage的输出发送到后面的stage，这个操作对于当前stage是send，具体为send_forward。
+
+backward的时候：backward之前，需要从前面的stage获取recv中间结果的梯度，recv_backward；backward之后，需要将输入的梯度send到后面的stage去，send_backward。
+
+现在知道了send、recv干嘛的，其实整个p2p_communication都在做这个事情。
+
+调度策略
+default调度和interleaved调度 ，如下图：
+
+
+相同点：都可以分为warmup、1F1B、cooldown三个过程。
+
+default 的的时候，不同device上的forward、backward是不对齐的；而interleaved是对齐的。
+
+default 的一个forward 做完，需要立刻开始通信来传递中间结果，下一个device需要紧接着使用它。
+
+interleaved 的一个forward做完，不需要立刻开始通信传递中间结果，下一个device需要先做一次backward才会做用到传递的中间结果。
+
+schedule 代码
+forward_backward_pipelining_with_interleaving，这里的调度过程分成三个部分：warmup、1F1B、cooldown。
+
+如下图，第一条红线左边是warmup，第二条红线右边是cooldown，中间是1F1B。
+
+
+forward_only的情况比 forward+backward 的情况要简单很多，看懂forward+backward之后，forward_only很容易看懂。
+
+
+
+以下情况下是不需要recv和send，直接指定为None即可：
+
+一条数据的第一次forward、backward不需要recv；
+一条数据的最后一次forward、backward不需要send。
+
+
+这里存在两种情况，是否设置p2p overlap ，我们主要看不overlap的情况。overlap的情况，后面问题章节中会讨论。
+
+warmup
+warmup只做forward。
+
+warmup内，又分为三种情况，第一个、最后一个、中间。
+
+第一个：forward跑之前去做一次recv_forward；跑完做一次send_forward_recv_backward，send当前stage的output tensor，recv下一个stage的input tensor。
+
+中间：跑完forward之后做一次send_forward_recv_forward，send当前stage的output tensor，recv下一次的input tensor。
+
+最后一个：跑完forward之后做一次send_forward_recv_forward_backward，send当前的output tensor，recv下一次的input tensor，recv 1F1B中第一个backward使用的输入。
+
+
+
+1F1B
+1F1B，一次forward一次backward，轮流交替进行。
+
+先forward + backward
+
+然后send_forward_backward_recv_forward_backward，recv的是下一次1F1B用到的输入输出，最后一次1F1B这里需要特判一下。
+
+cooldown
+cooldown只做backward。
+
+先backward，
+
+然后send_backward_recv_backward，特判最后一次不需要recv。
+
+
+
+问题
+recv和send可以分开写吗？
+几乎所有的send，都是和recv在一起的，调用一个 send_xxx_recv_xxx的函数。
+
+分开写可能会导致两个stage都在互相朝对方send，这样就会出现两个都卡住的情况。
+
+调用send_xxx_recv_xxx函数，让函数内去解决同时send、同时recv的情况。具体的解决方法有点超出我的知识范围，会涉及到服务通信的底层知识。只做了简单了解，可以看p2p_communication._p2p_ops的实现。
+
+如下代码，在相邻卡上，如果都要send和recv，规定recv、send的顺序
+
+if get_pipeline_model_parallel_rank() % 2 == 0:
+        if tensor_send_next is not None:
+            send_next_req = torch.distributed.isend(
+                tensor=tensor_send_next, dst=get_pipeline_model_parallel_next_rank(), group=group,
+            )
+            reqs.append(send_next_req)
+
+        if tensor_recv_prev is not None:
+            recv_prev_req = torch.distributed.irecv(
+                tensor=tensor_recv_prev, src=get_pipeline_model_parallel_prev_rank(), group=group,
+            )
+            reqs.append(recv_prev_req)
+
+        if tensor_send_prev is not None:
+            send_prev_req = torch.distributed.isend(
+                tensor=tensor_send_prev, dst=get_pipeline_model_parallel_prev_rank(), group=group,
+            )
+            reqs.append(send_prev_req)
+
+        if tensor_recv_next is not None:
+            recv_next_req = torch.distributed.irecv(
+                tensor=tensor_recv_next, src=get_pipeline_model_parallel_next_rank(), group=group,
+            )
+            reqs.append(recv_next_req)
+
+    else:
+        if tensor_recv_prev is not None:
+            recv_prev_req = torch.distributed.irecv(
+                tensor=tensor_recv_prev, src=get_pipeline_model_parallel_prev_rank(), group=group,
+            )
+            reqs.append(recv_prev_req)
+
+        if tensor_send_next is not None:
+            send_next_req = torch.distributed.isend(
+                tensor=tensor_send_next, dst=get_pipeline_model_parallel_next_rank(), group=group,
+            )
+            reqs.append(send_next_req)
+
+        if tensor_recv_next is not None:
+            recv_next_req = torch.distributed.irecv(
+                tensor=tensor_recv_next, src=get_pipeline_model_parallel_next_rank(), group=group,
+            )
+            reqs.append(recv_next_req)
+
+        if tensor_send_prev is not None:
+            send_prev_req = torch.distributed.isend(
+                tensor=tensor_send_prev, dst=get_pipeline_model_parallel_prev_rank(), group=group,
+            )
+            reqs.append(send_prev_req)
+
+
+代码中如何指定是否需要recv、send？
+代码中有几个地方可以指定：
+
+p2p_communication判断当前是否为第一个、最后一个forward、backward
+p2p_communication的recv_forward为例，通过is_pipeline_first_stage来判断（在用之前需要指定当前的model chunk id）。 如果不需要recv，直接返回一个None
+
+def recv_forward(tensor_shape: Shape, config: ModelParallelConfig) -> torch.Tensor:
+    """ Receive tensor from previous rank in pipeline (forward receive).
+
+
+    See _communicate for argument details.
+    """
+
+    if core.parallel_state.is_pipeline_first_stage():
+        input_tensor = None
+    else:
+        if config.timers is not None:
+            config.timers('forward-recv', log_level=2).start()
+        input_tensor, _, _ = _communicate(
+            tensor_send_next=None,
+            tensor_send_prev=None,
+            recv_prev=True,
+            recv_next=False,
+            tensor_shape=tensor_shape,
+            config=config,
+        )
+        if config.timers is not None:
+            config.timers('forward-recv').stop()
+    return input_tensor
+
+
+2.调用send_xxx_recv_xxx 的时候设定参数
+
+send_backward_recv_backward中有个参数为recv_next，若为False则不去recv。
+
+def send_backward_recv_backward(
+    input_tensor_grad: torch.Tensor,
+    recv_next: bool,
+    tensor_shape: Shape,
+    config: ModelParallelConfig,
+    overlap_p2p_comm: bool = False,
+) -> torch.Tensor:
+3.在schedule代码中指定是否调用send_xxx_recv_xxx函数，或是调用具体哪个函数
+
+通过if else来判断
+
+p2p overlap是用来干嘛的？为啥只有interleaved支持了overlap，而default方法不支持？
+overlap是一种异步的通信设置，调用send、recv之后不去wait直接跑下面的计算，等到需要使用recv的变量的时候，才去wait。相当于一边计算、一边通信。
+
+如调度策略中讨论的，interleaved的时候不需要立刻完成通信，因此可以overlap。
+
+而default的时候需要立刻完成通信，才能做接下来的计算，因此不能支持overlap。
+
+编辑于 2024-01-19 21:48・IP 属地广东

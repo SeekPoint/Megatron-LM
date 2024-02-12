@@ -42,3 +42,33 @@ https://github.com/NVIDIA/Megatron-LM/issues/143
 
 root@d17688c1a428:/share/yk_repo/Megatron-LM/tag_23.06# bash train_codeparrot.sh 2>&1 | tee train_codeparrot-log.txt
 
+
+
+
+
+https://zhuanlan.zhihu.com/p/668913089
+Megatron-Deepspeed：用Wikipedia数据集训练GPT实战笔记
+
+
+
+=========================================
+https://github.com/yet-another-account/openwebtext/issues/22
+修正后！
+root@MZ32-00:/share2/OpenWebText# pipenv run python3 openwebtext/download.py clean_urls.txt --output_dir /share2/OpenWebText_out
+Total chunks:  212699
+Downloading chunk 1
+  0%|                                                                                                                                                                                                                                                              | 0/212699 [00:00<?, ?it/s]Building prefix dict from /root/.local/share/virtualenvs/OpenWebText-JMkQl1rm/lib/python3.8/site-packages/jieba/dict.txt ...
+Loading model from cache /tmp/jieba.cache
+Loading model cost 0.674776554107666 seconds.
+Prefix dict has been built succesfully.
+0 / 100 downloads timed out
+Chunk time: 67.23054671287537 seconds
+43 out of 100 URLs yielded content
+
+Downloading chunk 2
+0 / 100 downloads timed out
+Chunk time: 68.19047164916992 seconds
+27 out of 100 URLs yielded content
+
+Downloading chunk 3
+  0%|

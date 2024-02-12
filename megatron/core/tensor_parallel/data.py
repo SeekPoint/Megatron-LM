@@ -89,7 +89,7 @@ def broadcast_data(keys, data, datatype):
         datatype: torch data type of all tensors in data associated
                   with keys.
     """
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0016')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     # Build (key, size) and (key, number of elements) dictionaries along
     # with the total number of elements on all ranks.
@@ -129,6 +129,6 @@ def broadcast_data(keys, data, datatype):
         gd.debuginfo(prj='mt', info=f'output[{key}]={infoTensor(tmp)}')
         offset += numel
 
-    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__0016')
+    gd.debuginfo(prj="mt", info=f'__FUNC_IN_OUT__')
 
     return output
